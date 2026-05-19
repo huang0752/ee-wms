@@ -128,9 +128,8 @@ verify() {
 }
 
 cleanup() {
-    docker image prune -f >/dev/null 2>&1 || true
-    docker builder prune -f >/dev/null 2>&1 || true
-    log "✅ 构建缓存已清理" "SUCCESS"
+    docker system prune -a -f >/dev/null 2>&1 || true
+    log "✅ 所有资源已清理" "SUCCESS"
 }
 
 # ==================== 主流程 ====================
