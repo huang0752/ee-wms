@@ -89,7 +89,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import AppConfig from "@/config";
-import loginIcon from "@imgs/svg/login_icon.svg";
+import loginIcon from "@fa_imgs/background.svg";
 import { useConfigStore } from "@stores";
 import { themeAnimation } from "@utils";
 
@@ -434,6 +434,7 @@ $bg-mix-light-7: color-mix(in srgb, $primary-light-7 80%, $main-bg);
       cursor: pointer;
       background: $bg-mix-light-7;
       border-radius: 50%;
+      box-shadow: 0 0 20px rgba(#fffc00, 0.5);
       transition: all 0.3s;
 
       &::after {
@@ -445,17 +446,14 @@ $bg-mix-light-7: color-mix(in srgb, $primary-light-7 80%, $main-bg);
         content: "";
         background: linear-gradient(to right, #fcbb04, #fffc00);
         border-radius: 50%;
-        opacity: 0;
+        opacity: 1;
         transform: translate(-50%, -50%);
         transition: all 0.5s;
       }
 
       &:hover {
         box-shadow: 0 0 36px #fffc00;
-
-        &::after {
-          opacity: 1;
-        }
+        transform: scale(1.08);
       }
     }
 
@@ -601,10 +599,14 @@ $bg-mix-light-7: color-mix(in srgb, $primary-light-7 80%, $main-bg);
   .geometric-decorations {
     // 月亮效果
     .circle-top-right {
-      background-color: $bg-mix-light-8;
-      box-shadow: 0 0 25px #333 inset;
+      background-color: #f5f3d0;
+      box-shadow: 0 0 30px rgba(#fffc00, 0.35);
       rotate: -48deg;
       transition: all 0.3s ease-in-out 0.1s;
+
+      &::after {
+        opacity: 0;
+      }
 
       &::before {
         position: absolute;
@@ -613,17 +615,17 @@ $bg-mix-light-7: color-mix(in srgb, $primary-light-7 80%, $main-bg);
         width: 50px;
         height: 50px;
         content: "";
-        background-color: $bg-mix-light-9;
+        background-color: color-mix(in srgb, $primary-light-9 60%, #070707);
         border-radius: 50%;
         transition: all 0.3s ease-in-out;
       }
 
       &:hover {
-        background-color: transparent;
-        box-shadow: 0 40px 25px #ddd inset;
+        background-color: #fffc00;
+        box-shadow: 0 0 45px rgba(#fffc00, 0.6);
 
         &::before {
-          left: 18px;
+          left: 22px;
         }
 
         &::after {

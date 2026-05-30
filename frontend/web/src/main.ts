@@ -3,7 +3,6 @@
 // ---------------------------------------------------------------------------
 import "@styles/core/tailwind.css";
 import "@styles/index.scss";
-import "element-plus/theme-chalk/dark/css-vars.css";
 import "animate.css";
 
 // ---------------------------------------------------------------------------

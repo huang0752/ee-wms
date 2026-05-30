@@ -5,6 +5,9 @@
   $colors: (
     "white": #ffffff,
     "black": #000000,
+    "primary": (
+      "base": #4080FF,
+    ),
     "success": (
       "base": #13deb9,
     ),
@@ -16,6 +19,9 @@
     ),
     "error": (
       "base": #fa896b,
+    ),
+    "info": (
+      "base": #909399,
     ),
   ),
   $button: (

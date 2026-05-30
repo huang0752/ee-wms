@@ -253,7 +253,7 @@ async function cleanRouteModules() {
     );
     if (reset === mp) {
       console.log(
-        `     ${icons.warn} ${fmt.dim("MenuProcessor.ts 中未找到 builtinFrontendRoutes，跳过重置")}`
+        `     ${icons.warning} ${fmt.dim("MenuProcessor.ts 中未找到 builtinFrontendRoutes，跳过重置")}`
       );
     } else {
       await fs.writeFile(menuProcessorPath, reset, "utf-8");

@@ -3,10 +3,10 @@ from typing import Annotated
 
 import typer
 import uvicorn
-from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
 
+from alembic import command
 from app.common.enums import EnvironmentEnum
 
 fastapiadmin_cli = typer.Typer()
@@ -74,22 +74,24 @@ def run(
     try:
         # 设置环境变量
         os.environ["ENVIRONMENT"] = env.value
-        typer.echo("项目启动中...")
+
+        # 显示启动横幅
+        from app.utils.banner import worship
+
+        typer.secho(
+            message=worship(env.value),
+            fg=typer.colors.GREEN,
+        )
 
         # 清除配置缓存，确保重新加载配置
         from app.config.setting import get_settings
-
+        
         get_settings.cache_clear()
         settings = get_settings()
 
         from app.core.logger import setup_logging
 
         setup_logging()
-
-        # 显示启动横幅
-        from app.utils.banner import worship
-
-        worship(env.value)
 
         # 启动uvicorn服务
         uvicorn.run(

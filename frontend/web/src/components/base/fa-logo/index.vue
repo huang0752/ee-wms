@@ -12,7 +12,7 @@
 </template>
 
 <script setup lang="ts">
-import defaultLogoUrl from "@fa_logo/logo.png";
+import defaultLogoUrl from "@fa_imgs/logo.svg";
 
 defineOptions({ name: "FaLogo" });
 

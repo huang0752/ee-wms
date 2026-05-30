@@ -54,6 +54,7 @@ export default ({ mode }: { mode: string }) => {
   return defineConfig({
     define: {
       __APP_VERSION__: JSON.stringify(env.VITE_VERSION),
+      __APP_NAME__: JSON.stringify(env.VITE_APP_TITLE),
       __APP_INFO__: JSON.stringify(__APP_INFO__),
     },
     base: env.VITE_BASE_URL,
@@ -82,8 +83,8 @@ export default ({ mode }: { mode: string }) => {
         "@plugins": resolvePath("src/plugins"),
         "@styles": resolvePath("src/styles"),
         "@api": resolvePath("src/api"),
-        "@fa_logo": resolvePath("src/assets/fa_logo"),
-        "@fa_logo/*": resolvePath("src/assets/fa_logo/*"),
+        "@fa_imgs": resolvePath("src/assets/fa_imgs"),
+        "@fa_imgs/*": resolvePath("src/assets/fa_imgs/*"),
       },
     },
     build: {

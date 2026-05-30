@@ -19,7 +19,7 @@
   },
   {
     "config_key": "tenant_logo",
-    "config_value": "https://service.fastapiadmin.com/api/v1/static/image/logo.png",
+    "config_value": "https://service.fastapiadmin.com/api/v1/static/image/logo.svg",
     "config_type": "string",
     "tenant_id": 1
   },

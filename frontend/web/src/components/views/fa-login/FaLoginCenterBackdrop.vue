@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import loginIcon from "@imgs/svg/login_icon.svg";
+import loginIcon from "@fa_imgs/background.svg";
 
 defineOptions({ name: "LoginCenterBackdrop" });
 

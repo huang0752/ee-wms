@@ -214,7 +214,7 @@ class Settings(BaseSettings):
     REDOC_JS_URL: str = "static/swagger/redoc/bundles/redoc.standalone.js"
     CUSTOM_CSS_URL: str = "static/swagger/custom-ui/styles.css"
     CUSTOM_JS_URL: str = "static/swagger/custom-ui/scripts.js"
-    FAVICON_URL: str = "static/swagger/favicon.png"
+    FAVICON_URL: str = "static/image/favicon.ico"
 
     # ================================================= #
     # ******************* AI大模型配置 ****************** #
