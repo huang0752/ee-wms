@@ -1,40 +1,32 @@
+from dataclasses import dataclass
+
+from fastapi import Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.common.enums import QueueEnum
-from app.core.base_params import BaseQueryParam
-from app.core.base_schema import BaseSchema
+from app.core.base_params import BaseQueryParam, UserByQueryParam
+from app.core.base_schema import BaseSchema, TenantBySchema
 from app.core.validator import DateTimeStr
 
 
 class EmailConfigCreateSchema(BaseModel):
     """创建 SMTP 配置"""
 
-    name: str = Field(..., min_length=1, max_length=100, description="配置名称")
-    smtp_host: str = Field(..., min_length=1, max_length=255, description="SMTP 服务器地址")
-    smtp_port: int = Field(default=465, ge=1, le=65535, description="SMTP 端口")
-    smtp_user: str = Field(..., min_length=1, max_length=255, description="SMTP 登录用户名")
-    smtp_password: str = Field(..., min_length=1, max_length=255, description="SMTP 授权密码")
-    from_name: str = Field(default="FastapiAdmin", max_length=100, description="发件人显示名")
-    use_tls: bool = Field(default=True, description="是否启用 SSL/TLS")
-    is_default: bool = Field(default=False, description="是否设为默认配置")
-    timeout: int = Field(default=30, ge=5, le=120, description="连接超时（秒）")
-    status: int = Field(default=0, ge=0, le=1, description="状态(0:启动 1:停用)")
-    description: str | None = Field(default=None, max_length=255, description="备注")
-
-
-class EmailConfigUpdateSchema(BaseModel):
-    """更新 SMTP 配置"""
-
     name: str | None = Field(default=None, max_length=100, description="配置名称")
     smtp_host: str | None = Field(default=None, max_length=255, description="SMTP 服务器地址")
+    smtp_port: int | None = Field(default=None, ge=1, le=65535, description="SMTP 端口")
     smtp_user: str | None = Field(default=None, max_length=255, description="SMTP 登录用户名")
     smtp_password: str | None = Field(default=None, max_length=255, description="SMTP 授权密码")
-    smtp_port: int | None = Field(default=None, ge=1, le=65535, description="SMTP 端口")
     from_name: str | None = Field(default=None, max_length=100, description="发件人显示名")
     use_tls: bool | None = Field(default=None, description="是否启用 SSL/TLS")
     is_default: bool | None = Field(default=None, description="是否设为默认配置")
     timeout: int | None = Field(default=None, ge=5, le=120, description="连接超时（秒）")
+    status: int = Field(default=0, ge=0, le=1, description="状态(0:启动 1:停用)")
     description: str | None = Field(default=None, max_length=255, description="备注")
+
+
+class EmailConfigUpdateSchema(EmailConfigCreateSchema):
+    """更新 SMTP 配置"""
 
 
 class EmailConfigOutSchema(EmailConfigCreateSchema, BaseSchema):
@@ -43,19 +35,23 @@ class EmailConfigOutSchema(EmailConfigCreateSchema, BaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
+@dataclass
 class EmailConfigQueryParam(BaseQueryParam):
     """SMTP 配置查询参数"""
 
     def __init__(
         self,
-        name: str | None = None,
-        is_default: bool | None = None,
+        name: str | None = Query(None, description="配置名称"),
+        status: int | None = Query(None, description="状态"),
+        is_default: bool | None = Query(None, description="是否默认配置"),
         *args,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         if name:
             self.name = (QueueEnum.like.value, name)
+        if status is not None:
+            self.status = (QueueEnum.eq.value, status)
         if is_default is not None:
             self.is_default = (QueueEnum.eq.value, is_default)
 
@@ -63,26 +59,18 @@ class EmailConfigQueryParam(BaseQueryParam):
 class EmailTemplateCreateSchema(BaseModel):
     """创建邮件模板"""
 
-    name: str = Field(..., min_length=1, max_length=100, description="模板名称")
-    template_code: str = Field(..., min_length=1, max_length=100, description="模板编码")
-    subject: str = Field(..., min_length=1, max_length=255, description="邮件主题")
-    body_html: str = Field(..., min_length=1, description="邮件正文 HTML（Jinja2 模板）")
-    body_text: str | None = Field(default=None, description="纯文本版本（降级用）")
-    variables: str | None = Field(default=None, description="变量说明 JSON")
-    description: str | None = Field(default=None, max_length=255, description="备注")
-    status: int = Field(default=0, ge=0, le=1, description="状态(0:启动 1:停用)")
-
-
-class EmailTemplateUpdateSchema(BaseModel):
-    """更新邮件模板"""
-
     name: str | None = Field(default=None, max_length=100, description="模板名称")
     template_code: str | None = Field(default=None, max_length=100, description="模板编码")
     subject: str | None = Field(default=None, max_length=255, description="邮件主题")
     body_html: str | None = Field(default=None, description="邮件正文 HTML")
     body_text: str | None = Field(default=None, description="纯文本版本")
     variables: str | None = Field(default=None, description="变量说明 JSON")
+    status: int = Field(default=0, ge=0, le=1, description="状态(0:启动 1:停用)")
     description: str | None = Field(default=None, max_length=255, description="备注")
+
+
+class EmailTemplateUpdateSchema(EmailTemplateCreateSchema):
+    """更新邮件模板"""
 
 
 class EmailTemplateOutSchema(EmailTemplateCreateSchema, BaseSchema):
@@ -91,13 +79,14 @@ class EmailTemplateOutSchema(EmailTemplateCreateSchema, BaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
+@dataclass
 class EmailTemplateQueryParam(BaseQueryParam):
     """邮件模板查询参数"""
 
     def __init__(
         self,
-        name: str | None = None,
-        template_code: str | None = None,
+        name: str | None = Query(None, description="模板名称"),
+        template_code: str | None = Query(None, description="模板编码"),
         *args,
         **kwargs,
     ) -> None:
@@ -115,11 +104,11 @@ class EmailSendSchema(BaseModel):
     to_name: str | None = Field(default=None, max_length=100, description="收件人姓名")
     template_code: str = Field(..., min_length=1, max_length=100, description="模板编码")
     variables: dict = Field(default_factory=dict, description="模板变量 {key: value}")
-    config_id: int | None = Field(default=None, gt=0, description="指定 SMTP 配置 ID（默认使用 is_default=True 的配置）")
+    config_id: int | None = Field(default=None, gt=0, description="指定 SMTP 配置 ID")
     biz_type: str = Field(default="other", max_length=50, description="业务类型")
 
 
-class EmailLogOutSchema(BaseSchema):
+class EmailLogOutSchema(BaseSchema, TenantBySchema):
     """邮件日志响应"""
 
     model_config = ConfigDict(from_attributes=True)
@@ -136,15 +125,16 @@ class EmailLogOutSchema(BaseSchema):
     sent_time: DateTimeStr | None = None
 
 
-class EmailLogQueryParam(BaseQueryParam):
+@dataclass
+class EmailLogQueryParam(BaseQueryParam, UserByQueryParam):
     """邮件日志查询参数"""
 
     def __init__(
         self,
-        to_email: str | None = None,
-        biz_type: str | None = None,
-        status: int | None = None,
-        template_code: str | None = None,
+        to_email: str | None = Query(None, description="收件人邮箱"),
+        biz_type: str | None = Query(None, description="业务类型"),
+        status: int | None = Query(None, description="状态"),
+        template_code: str | None = Query(None, description="模板编码"),
         *args,
         **kwargs,
     ) -> None:

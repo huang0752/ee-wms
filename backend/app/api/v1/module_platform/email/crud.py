@@ -20,7 +20,7 @@ class EmailConfigCRUD(CRUDBase[EmailConfigModel, EmailConfigCreateSchema, EmailC
         """清除所有配置的 is_default 标记（不管理事务，由调用方控制）"""
         from sqlalchemy import update as sa_update
 
-        await self.db.execute(sa_update(EmailConfigModel).where(EmailConfigModel.is_default == True).values(is_default=False))
+        await self.db.execute(sa_update(EmailConfigModel).where(EmailConfigModel.is_default.is_(True)).values(is_default=False))
 
     async def get_active_by_id(self, config_id: int) -> EmailConfigModel | None:
         return await self.get(id=config_id, status=0)

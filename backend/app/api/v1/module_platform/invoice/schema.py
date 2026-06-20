@@ -1,90 +1,87 @@
-"""发票管理 Schema"""
+from dataclasses import dataclass
+from typing import Literal
 
+from fastapi import Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.common.enums import QueueEnum
 from app.core.base_params import BaseQueryParam
-from app.core.base_schema import BaseSchema
+from app.core.base_schema import BaseSchema, TenantBySchema
 
 
 class InvoiceCreateSchema(BaseModel):
     """创建发票（内部使用）"""
 
-    invoice_no: str
-    order_id: int
-    tenant_id: int
-    invoice_type: str
-    title: str
-    tax_no: str | None = None
-    bank_info: str | None = None
-    address_info: str | None = None
-    amount: int
-    tax_amount: int = 0
-    status: int = 0
-    description: str | None = None
+    invoice_no: str = Field(..., description="发票号码")
+    order_id: int = Field(..., description="关联订单 ID")
+    tenant_id: int = Field(..., description="租户 ID")
+    invoice_type: Literal["vat_normal", "vat_special"] = Field(..., description="发票类型")
+    title: str = Field(..., max_length=200, description="发票抬头")
+    tax_no: str | None = Field(default=None, max_length=50, description="纳税人识别号")
+    bank_info: str | None = Field(default=None, description="开户行及账号")
+    address_info: str | None = Field(default=None, description="注册地址及电话")
+    amount: int = Field(..., ge=0, description="发票金额(分)")
+    tax_amount: int = Field(default=0, ge=0, description="税额(分)")
+    status: int = Field(default=0, ge=0, le=3, description="状态(0:待开票 1:已开票 2:开票失败 3:已作废)")
+    description: str | None = Field(default=None, description="备注")
 
 
 class InvoiceUpdateSchema(BaseModel):
     """更新发票（内部使用）"""
 
-    status: int | None = None
-    pdf_url: str | None = None
-    api_response: str | None = None
-    description: str | None = None
+    status: int | None = Field(default=None, ge=0, le=3, description="状态(0:待开票 1:已开票 2:开票失败 3:已作废)")
+    pdf_url: str | None = Field(default=None, max_length=500, description="PDF 下载地址")
+    api_response: str | None = Field(default=None, description="第三方 API 响应")
+    description: str | None = Field(default=None, description="备注")
 
 
 class InvoiceApplySchema(BaseModel):
     """申请开票"""
 
-    order_id: int = Field(..., description="订单ID")
-    invoice_type: str = Field(..., description="vat_normal/vat_special")
+    order_id: int = Field(..., description="订单 ID")
+    invoice_type: Literal["vat_normal", "vat_special"] = Field(..., description="发票类型")
     title: str = Field(..., max_length=200, description="发票抬头")
-    tax_no: str | None = Field(None, max_length=50, description="纳税人识别号")
-    bank_info: str | None = Field(None, description="开户行及账号")
-    address_info: str | None = Field(None, description="注册地址及电话")
-    description: str | None = Field(None, description="备注")
+    tax_no: str | None = Field(default=None, max_length=50, description="纳税人识别号")
+    bank_info: str | None = Field(default=None, description="开户行及账号")
+    address_info: str | None = Field(default=None, description="注册地址及电话")
+    description: str | None = Field(default=None, description="备注")
 
 
 class InvoiceIssueSchema(BaseModel):
     """超管开票"""
 
-    api_response: str | None = Field(None, description="第三方API响应（手动填入）")
-    pdf_url: str | None = Field(None, description="PDF下载地址")
+    api_response: str | None = Field(default=None, description="第三方 API 响应（手动填入）")
+    pdf_url: str | None = Field(default=None, max_length=500, description="PDF 下载地址")
 
 
 class InvoiceVoidSchema(BaseModel):
     """作废发票"""
 
-    description: str | None = Field(None, description="作废原因")
+    description: str | None = Field(default=None, description="作废原因")
 
 
-class InvoiceOutSchema(BaseSchema):
-    """发票列表输出"""
+class InvoiceOutSchema(InvoiceCreateSchema, BaseSchema, TenantBySchema):
+    """发票响应"""
 
     model_config = ConfigDict(from_attributes=True)
 
-    invoice_no: str
-    order_id: int
-    tenant_id: int
-    invoice_type: str
-    title: str
-    tax_no: str | None = None
-    bank_info: str | None = None
-    address_info: str | None = None
-    amount: int
-    tax_amount: int
     pdf_url: str | None = None
+    api_response: str | None = None
 
 
+@dataclass
 class InvoiceQueryParam(BaseQueryParam):
     """发票查询参数"""
 
     def __init__(
         self,
-        invoice_type: str | None = None,
+        invoice_type: Literal["vat_normal", "vat_special"] | None = Query(None, description="发票类型"),
+        status: int | None = Query(None, description="状态"),
         *args,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         if invoice_type:
             self.invoice_type = (QueueEnum.eq.value, invoice_type)
+        if status is not None:
+            self.status = (QueueEnum.eq.value, status)

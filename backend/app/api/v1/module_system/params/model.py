@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, String, Integer, Text
+from sqlalchemy import Boolean, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base_model import ModelMixin, TenantMixin

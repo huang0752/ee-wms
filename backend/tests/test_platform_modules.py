@@ -94,7 +94,7 @@ class TestTenantModule:
     def test_renew_blocked_for_archived(self) -> None:
         """已归档 (status=5) 的租户不允许续期"""
         forbidden = {3, 4, 5}  # frozen, expired, archived
-        
+
         status = 5  # archived
         assert status in forbidden
 
@@ -199,7 +199,7 @@ class TestTicketModule:
         mock_user = MagicMock()
         mock_user.id = 100
         mock_user.tenant_id = 1
-        
+
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute.return_value = mock_result
@@ -254,7 +254,7 @@ class TestPluginModule:
         import re
 
         pattern = r"^[a-z][a-z0-9_]*$"
-        
+
         valid_codes = ["data_export", "wechat_login", "sms_gateway"]
         invalid_codes = ["DataExport", "wechat-login", "123abc"]
 

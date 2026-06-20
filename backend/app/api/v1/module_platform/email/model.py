@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
-from app.core.base_model import ModelMixin
+from app.core.base_model import ModelMixin, UserMixin
 
 
 class EmailConfigModel(ModelMixin):
@@ -70,16 +70,18 @@ class EmailTemplateModel(ModelMixin):
         return value
 
 
-class EmailLogModel(ModelMixin):
+class EmailLogModel(ModelMixin, UserMixin):
     """
     邮件发送日志表
 
     记录每次邮件发送的结果，支持重试追踪。
     status 覆盖 ModelMixin：0=待发送 1=成功 2=失败。
+    tenant_id 为可空：平台主动发送邮件（注册/重置密码等）无租户归属。
     """
 
     __tablename__: str = "platform_email_log"
     __table_args__: dict = {"comment": "邮件发送日志表"}
+    __loader_options__: list[str] = ["created_by", "updated_by", "deleted_by"]
 
     config_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("platform_email_config.id", ondelete="SET NULL", onupdate="CASCADE"), nullable=True, index=True, comment="使用的 SMTP 配置 ID")
     template_code: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="模板编码（冗余存储，模板删除后仍可追溯）")

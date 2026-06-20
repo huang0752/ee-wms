@@ -1,18 +1,19 @@
-"""发票管理 Model"""
-
 from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.base_model import ModelMixin, TenantMixin
+from app.core.base_model import ModelMixin, TenantMixin, UserMixin
 
 
-class InvoiceModel(ModelMixin, TenantMixin):
-    """平台发票表 platform_invoice
+class InvoiceModel(ModelMixin, TenantMixin, UserMixin):
+    """
+    平台发票表
+
     status: 0=待开票 1=已开票 2=开票失败 3=已作废
     """
 
-    __tablename__ = "platform_invoice"
+    __tablename__: str = "platform_invoice"
     __table_args__: dict[str, str] = {"comment": "发票表"}
+    __loader_options__: list[str] = ["created_by", "updated_by", "deleted_by", "tenant_by"]
 
     invoice_no: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, comment="发票号码")
     order_id: Mapped[int] = mapped_column(Integer, ForeignKey("platform_order.id"), nullable=False, unique=True, comment="关联订单")
@@ -25,5 +26,5 @@ class InvoiceModel(ModelMixin, TenantMixin):
     tax_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="税额(分)")
     pdf_url: Mapped[str | None] = mapped_column(String(500), nullable=True, comment="PDF下载地址")
     api_response: Mapped[str | None] = mapped_column(Text, nullable=True, comment="第三方API响应")
-    status: Mapped[int] = mapped_column(Integer, default=0, nullable=False, comment="状态(0:启动 1:停用)", index=True)
+    status: Mapped[int] = mapped_column(Integer, default=0, nullable=False, comment="状态(0:待开票 1:已开票 2:开票失败 3:已作废)", index=True)
     description: Mapped[str | None] = mapped_column(Text, default=None, nullable=True, comment="备注")

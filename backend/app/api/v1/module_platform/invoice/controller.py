@@ -1,5 +1,3 @@
-"""发票管理 Controller"""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Path, Query
@@ -20,8 +18,6 @@ from .schema import (
     InvoiceVoidSchema,
 )
 from .service import InvoicePlatformService, InvoiceTenantService
-
-# ========== 租户端 API ==========
 
 TenantInvoiceRouter = APIRouter(prefix="/tenant/invoice", route_class=OperationLogRoute, tags=["发票管理"])
 

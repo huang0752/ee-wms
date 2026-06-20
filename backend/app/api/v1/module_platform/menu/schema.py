@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Literal
 
 from fastapi import Query
@@ -58,7 +59,6 @@ class MenuCreateSchema(BaseModel):
     @classmethod
     def _normalize(cls, values):
         if isinstance(values, dict):
-            # 字符串去空格
             for k in [
                 "name",
                 "icon",
@@ -74,19 +74,16 @@ class MenuCreateSchema(BaseModel):
                 "show_text_badge",
             ]:
                 if k in values and isinstance(values[k], str):
-                    values[k] = (
-                        values[k].strip() or None if values[k].strip() == "" else values[k].strip()
-                    )
+                    stripped = values[k].strip()
+                    values[k] = stripped or None
             if "client" in values and isinstance(values["client"], str):
                 cv = values["client"].strip()
                 values["client"] = cv if cv in ("pc", "app") else "pc"
-            # 父ID转整型
             if "parent_id" in values and isinstance(values["parent_id"], str):
                 try:
                     values["parent_id"] = int(values["parent_id"].strip())
                 except (ValueError, TypeError):
-                    pass  # parent_id 不是有效整数，保留原值
-            # 组件路径规范
+                    pass
             if "component_path" in values and isinstance(values["component_path"], str):
                 cp = values["component_path"]
                 if cp and cp.startswith("/"):
@@ -155,12 +152,22 @@ class MenuUpdateSchema(BaseModel):
     def _normalize(cls, values):
         if isinstance(values, dict):
             for k in [
-                "name", "icon", "permission", "route_name", "route_path",
-                "component_path", "redirect", "title", "description",
-                "link", "active_path", "show_text_badge",
+                "name",
+                "icon",
+                "permission",
+                "route_name",
+                "route_path",
+                "component_path",
+                "redirect",
+                "title",
+                "description",
+                "link",
+                "active_path",
+                "show_text_badge",
             ]:
                 if k in values and isinstance(values[k], str):
-                    values[k] = values[k].strip() or None if values[k].strip() == "" else values[k].strip()
+                    stripped = values[k].strip()
+                    values[k] = stripped or None
             if "client" in values and isinstance(values["client"], str):
                 cv = values["client"].strip()
                 values["client"] = cv if cv in ("pc", "app") else None
@@ -199,70 +206,61 @@ class MenuTreeOutSchema(MenuDetailOutSchema):
 MenuOutSchema = MenuDetailOutSchema
 
 
+@dataclass
 class MenuQueryParam:
     """菜单管理查询参数"""
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="菜单名称"),
-        route_path: str | None = Query(None, description="路由地址"),
-        component_path: str | None = Query(None, description="组件路径"),
-        type: Literal[1, 2, 3, 4] | None = Query(
-            None, description="菜单类型(1:目录 2:菜单 3:按钮 4:外链)"
-        ),
-        permission: str | None = Query(None, description="权限标识"),
-        description: str | None = Query(None, description="描述"),
-        status: str | None = Query(None, description="是否启用"),
-        created_time: list[DateTimeStr] | None = Query(
-            None,
-            description="创建时间范围",
-            examples=["2025-01-01 00:00:00", "2025-12-31 23:59:59"],
-        ),
-        updated_time: list[DateTimeStr] | None = Query(
-            None,
-            description="更新时间范围",
-            examples=["2025-01-01 00:00:00", "2025-12-31 23:59:59"],
-        ),
-        created_id: int | None = Query(None, description="创建人"),
-        updated_id: int | None = Query(None, description="更新人"),
-        menu_client: Literal["pc", "app"] | None = Query(
-            None,
-            description="管理端 Tab：pc=桌面端菜单 app=移动端菜单；不传则不过滤终端",
-        ),
-        scope: Literal["tenant"] | None = Query(
-            None,
-            description="菜单范围过滤：tenant=仅租户可用菜单",
-        ),
-    ) -> None:
-        # 模糊查询字段
-        self.name = (QueueEnum.like.value, name)
-        self.route_path = (QueueEnum.like.value, route_path)
-        self.component_path = (QueueEnum.like.value, component_path)
-        self.permission = (QueueEnum.like.value, permission)
-        # 精确查询字段
-        self.type = type
-        # 模糊查询字段
-        if description:
-            self.description = (QueueEnum.like.value, description)
+    name: str | None = Query(None, description="菜单名称")
+    route_path: str | None = Query(None, description="路由地址")
+    component_path: str | None = Query(None, description="组件路径")
+    type: Literal[1, 2, 3, 4] | None = Query(None, description="菜单类型(1:目录 2:菜单 3:按钮 4:外链)")
+    permission: str | None = Query(None, description="权限标识")
+    description: str | None = Query(None, description="描述")
+    status: str | None = Query(None, description="是否启用")
+    created_time: list[DateTimeStr] | None = Query(
+        None,
+        description="创建时间范围",
+        examples=["2025-01-01 00:00:00", "2025-12-31 23:59:59"],
+    )
+    updated_time: list[DateTimeStr] | None = Query(
+        None,
+        description="更新时间范围",
+        examples=["2025-01-01 00:00:00", "2025-12-31 23:59:59"],
+    )
+    created_id: int | None = Query(None, description="创建人")
+    updated_id: int | None = Query(None, description="更新人")
+    menu_client: Literal["pc", "app"] | None = Query(
+        None,
+        description="管理端 Tab：pc=桌面端菜单 app=移动端菜单；不传则不过滤终端",
+    )
+    scope: Literal["tenant"] | None = Query(
+        None,
+        description="菜单范围过滤：tenant=仅租户可用菜单",
+    )
 
-        # 精确查询字段
-        if status:
-            self.status = (QueueEnum.eq.value, status)
-
-        # 时间范围查询
-        if created_time and len(created_time) == 2:
-            self.created_time = (QueueEnum.between.value, (created_time[0], created_time[1]))
-        if updated_time and len(updated_time) == 2:
-            self.updated_time = (QueueEnum.between.value, (updated_time[0], updated_time[1]))
-
-        # 关联查询字段
-        if created_id:
-            self.created_id = (QueueEnum.eq.value, created_id)
-        if updated_id:
-            self.updated_id = (QueueEnum.eq.value, updated_id)
-
-        if menu_client in ("pc", "app"):
-            self.client = (QueueEnum.eq.value, menu_client)
-
-        if scope == "tenant":
+    def __post_init__(self) -> None:
+        """处理查询条件，转换为 ORM 表达式"""
+        if self.name:
+            self.name = (QueueEnum.like.value, self.name)
+        if self.route_path:
+            self.route_path = (QueueEnum.like.value, self.route_path)
+        if self.component_path:
+            self.component_path = (QueueEnum.like.value, self.component_path)
+        if self.permission:
+            self.permission = (QueueEnum.like.value, self.permission)
+        if self.description:
+            self.description = (QueueEnum.like.value, self.description)
+        if self.status:
+            self.status = (QueueEnum.eq.value, self.status)
+        if self.created_time and len(self.created_time) == 2:
+            self.created_time = (QueueEnum.between.value, (self.created_time[0], self.created_time[1]))
+        if self.updated_time and len(self.updated_time) == 2:
+            self.updated_time = (QueueEnum.between.value, (self.updated_time[0], self.updated_time[1]))
+        if self.created_id:
+            self.created_id = (QueueEnum.eq.value, self.created_id)
+        if self.updated_id:
+            self.updated_id = (QueueEnum.eq.value, self.updated_id)
+        if self.menu_client in ("pc", "app"):
+            self.client = (QueueEnum.eq.value, self.menu_client)
+        if self.scope == "tenant":
             self.scope = (QueueEnum.eq.value, "tenant")

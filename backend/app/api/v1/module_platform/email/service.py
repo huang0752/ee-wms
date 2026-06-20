@@ -34,6 +34,19 @@ class EmailConfigService:
         search: EmailConfigQueryParam | None = None,
         order_by: list | None = None,
     ) -> dict:
+        """
+        SMTP 配置分页查询
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - page_no (int): 页码
+        - page_size (int): 每页数量
+        - search (EmailConfigQueryParam | None): 查询参数
+        - order_by (list | None): 排序参数
+
+        返回:
+        - dict: 分页数据
+        """
         return await EmailConfigCRUD(auth).page(
             offset=(page_no - 1) * page_size,
             limit=page_size,
@@ -44,6 +57,16 @@ class EmailConfigService:
 
     @classmethod
     async def detail_service(cls, auth: AuthSchema, id: int) -> EmailConfigOutSchema:
+        """
+        SMTP 配置详情
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - id (int): SMTP 配置 ID
+
+        返回:
+        - EmailConfigOutSchema: SMTP 配置详情
+        """
         obj = await EmailConfigCRUD(auth).get(id=id)
         if not obj:
             raise CustomException(msg="SMTP 配置不存在")
@@ -51,6 +74,16 @@ class EmailConfigService:
 
     @classmethod
     async def create_service(cls, auth: AuthSchema, data: EmailConfigCreateSchema) -> EmailConfigOutSchema:
+        """
+        创建 SMTP 配置
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - data (EmailConfigCreateSchema): SMTP 配置创建模型
+
+        返回:
+        - EmailConfigOutSchema: 新创建的 SMTP 配置
+        """
         crud = EmailConfigCRUD(auth)
         if data.is_default:
             await crud.clear_default()
@@ -59,6 +92,17 @@ class EmailConfigService:
 
     @classmethod
     async def update_service(cls, auth: AuthSchema, id: int, data: EmailConfigUpdateSchema) -> EmailConfigOutSchema:
+        """
+        更新 SMTP 配置
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - id (int): SMTP 配置 ID
+        - data (EmailConfigUpdateSchema): SMTP 配置更新模型
+
+        返回:
+        - EmailConfigOutSchema: 更新后的 SMTP 配置
+        """
         crud = EmailConfigCRUD(auth)
         obj = await crud.get(id=id)
         if not obj:
@@ -70,18 +114,37 @@ class EmailConfigService:
 
     @classmethod
     async def delete_service(cls, auth: AuthSchema, ids: list[int]) -> None:
+        """
+        删除 SMTP 配置（默认配置不可删除）
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - ids (list[int]): SMTP 配置 ID 列表
+
+        返回:
+        - None
+        """
         if not ids:
             raise CustomException(msg="删除对象不能为空")
-        # 不允许删除默认配置
-        for cid in ids:
-            obj = await EmailConfigCRUD(auth).get(id=cid)
-            if obj and obj.is_default:
+        crud = EmailConfigCRUD(auth)
+        configs = await crud.list(search={"id": ("in", ids)})
+        for obj in configs:
+            if obj.is_default:
                 raise CustomException(msg=f"配置「{obj.name}」是默认配置，请先将其他配置设为默认后再删除")
-        await EmailConfigCRUD(auth).delete(ids=ids)
+        await crud.delete(ids=ids)
 
     @classmethod
     async def test_service(cls, auth: AuthSchema, data: EmailTestSchema) -> dict:
-        """测试 SMTP 连接：发送一封测试邮件"""
+        """
+        测试 SMTP 连接：发送一封测试邮件
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - data (EmailTestSchema): 测试参数（配置 ID 与目标邮箱）
+
+        返回:
+        - dict: 测试结果
+        """
         config = await EmailConfigCRUD(auth).get(id=data.config_id)
         if not config:
             raise CustomException(msg="SMTP 配置不存在")
@@ -121,6 +184,19 @@ class EmailTemplateService:
         search: EmailTemplateQueryParam | None = None,
         order_by: list | None = None,
     ) -> dict:
+        """
+        邮件模板分页查询
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - page_no (int): 页码
+        - page_size (int): 每页数量
+        - search (EmailTemplateQueryParam | None): 查询参数
+        - order_by (list | None): 排序参数
+
+        返回:
+        - dict: 分页数据
+        """
         return await EmailTemplateCRUD(auth).page(
             offset=(page_no - 1) * page_size,
             limit=page_size,
@@ -131,6 +207,16 @@ class EmailTemplateService:
 
     @classmethod
     async def detail_service(cls, auth: AuthSchema, id: int) -> EmailTemplateOutSchema:
+        """
+        邮件模板详情
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - id (int): 邮件模板 ID
+
+        返回:
+        - EmailTemplateOutSchema: 邮件模板详情
+        """
         obj = await EmailTemplateCRUD(auth).get(id=id)
         if not obj:
             raise CustomException(msg="邮件模板不存在")
@@ -138,6 +224,16 @@ class EmailTemplateService:
 
     @classmethod
     async def create_service(cls, auth: AuthSchema, data: EmailTemplateCreateSchema) -> EmailTemplateOutSchema:
+        """
+        创建邮件模板
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - data (EmailTemplateCreateSchema): 邮件模板创建模型
+
+        返回:
+        - EmailTemplateOutSchema: 新创建的邮件模板
+        """
         existing = await EmailTemplateCRUD(auth).get_by_code(template_code=data.template_code)
         if existing:
             raise CustomException(msg=f"模板编码「{data.template_code}」已存在")
@@ -147,6 +243,17 @@ class EmailTemplateService:
 
     @classmethod
     async def update_service(cls, auth: AuthSchema, id: int, data: EmailTemplateUpdateSchema) -> EmailTemplateOutSchema:
+        """
+        更新邮件模板
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - id (int): 邮件模板 ID
+        - data (EmailTemplateUpdateSchema): 邮件模板更新模型
+
+        返回:
+        - EmailTemplateOutSchema: 更新后的邮件模板
+        """
         obj = await EmailTemplateCRUD(auth).get(id=id)
         if not obj:
             raise CustomException(msg="邮件模板不存在")
@@ -156,6 +263,16 @@ class EmailTemplateService:
 
     @classmethod
     async def delete_service(cls, auth: AuthSchema, ids: list[int]) -> None:
+        """
+        删除邮件模板
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - ids (list[int]): 邮件模板 ID 列表
+
+        返回:
+        - None
+        """
         if not ids:
             raise CustomException(msg="删除对象不能为空")
         await EmailTemplateCRUD(auth).delete(ids=ids)
@@ -187,7 +304,17 @@ class EmailSendService:
         """
         通过模板发送邮件（核心方法，供内部调用）。
 
-        返回 True=发送成功，False=失败（已降级记录日志）。
+        参数:
+        - to_email (str): 收件人邮箱
+        - template_code (str): 模板编码
+        - variables (dict): 模板变量
+        - biz_type (str): 业务类型
+        - to_name (str | None): 收件人姓名
+        - tenant_id (int | None): 租户 ID
+        - config_id (int | None): 指定 SMTP 配置 ID
+
+        返回:
+        - bool: True=发送成功，False=失败（已降级记录日志）
         """
         # ① 获取模板（独立会话，不影响调用方事务）
         async with async_db_session() as session:
@@ -292,7 +419,16 @@ class EmailSendService:
 
     @classmethod
     async def manual_send_service(cls, auth: AuthSchema, data: EmailSendSchema) -> dict:
-        """超管手动触发发送（测试/补发用）"""
+        """
+        超管手动触发发送（测试/补发用）
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - data (EmailSendSchema): 发送参数
+
+        返回:
+        - dict: 发送结果
+        """
         success = await cls.send_by_template(
             to_email=data.to_email,
             template_code=data.template_code,
@@ -318,6 +454,19 @@ class EmailLogService:
         search: EmailLogQueryParam | None = None,
         order_by: list | None = None,
     ) -> dict:
+        """
+        邮件发送日志分页查询
+
+        参数:
+        - auth (AuthSchema): 认证信息模型
+        - page_no (int): 页码
+        - page_size (int): 每页数量
+        - search (EmailLogQueryParam | None): 查询参数
+        - order_by (list | None): 排序参数
+
+        返回:
+        - dict: 分页数据
+        """
         return await EmailLogCRUD(auth).page(
             offset=(page_no - 1) * page_size,
             limit=page_size,

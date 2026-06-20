@@ -254,7 +254,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
     """请求关联 ID 中间件"""
-    
+
     def __init__(self, app: ASGIApp) -> None:
         self.CORRELATION_ID_HEADER = "X-Correlation-ID"
         super().__init__(app)

@@ -103,7 +103,7 @@ class MenuService:
         - list[dict]: 菜单树形列表对象。
         """
         # 使用树形结构查询，预加载children关系
-        menu_list = await MenuCRUD(auth).get_tree_list(search=search.__dict__, order_by=order_by)
+        menu_list = await MenuCRUD(auth).get_tree_list(search=vars(search) if search else None, order_by=order_by)
         # 转换为字典列表（使用树形 Schema）
         menu_dict_list = [MenuTreeOutSchema.model_validate(menu).model_dump() for menu in menu_list]
         # 使用traversal_to_tree构建树形结构

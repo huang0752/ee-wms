@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[Any, Any]:
         from app.core.database import async_engine
         await async_engine.dispose()
         logger.info("✅ 数据库引擎连接池已释放")
-        
+
         console_close()
 
     except Exception as e:

@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, String, Text, Integer, UniqueConstraint
+from sqlalchemy import JSON, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base_model import ModelMixin, TenantMixin, UserMixin
