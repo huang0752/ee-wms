@@ -131,7 +131,7 @@ class GenTableService:
             raise CustomException(msg="包名不能为空")
         return pn if pn.startswith("module_") else f"module_{pn}"
 
-    def _catalog_menu_dir_key(cls, parent_catalog_id: int | None, package_name: str, module_name: str | None) -> str:
+    def _catalog_menu_dir_key(self, parent_catalog_id: int | None, package_name: str, module_name: str | None) -> str:
         """菜单上「模块目录」节点的 name（与路由第一段 package 独立）。
 
         统一为 **目录 → 菜单 → 按钮**：
@@ -204,7 +204,7 @@ class GenTableService:
         return int(created.id)
 
     @staticmethod
-    def normalize_and_validate_master_sub(cls, data: GenTableSchema) -> None:
+    def normalize_and_validate_master_sub(data: GenTableSchema) -> None:
         """
         主子表业务规则：子表表名与外键列同填或同空；子表表名不得与主表相同。
 
@@ -1133,7 +1133,6 @@ class GenTableService:
         gen_table.sub_table = sub
         gen_table.master_sub_hint = f"主子表已启用：当前子表仅从数据库结构读取（只读）。若想可配置子表字段，请先在「导入」中把子表「{sub_name_raw}」也导入生成器。"
 
-    @staticmethod
     def _sync_preview_diff(
         self,
         current_cols: list[GenTableColumnOutSchema],
@@ -1248,7 +1247,7 @@ class GenTableService:
         return preview
 
     @staticmethod
-    def _assert_master_sub_config_valid(cls, gen_table: GenTableOutSchema) -> None:
+    def _assert_master_sub_config_valid(gen_table: GenTableOutSchema) -> None:
         """预览/生成前校验主子表配置是否可用。"""
         sn = (gen_table.sub_table_name or "").strip()
         fk = (gen_table.sub_table_fk_name or "").strip()
@@ -1259,8 +1258,7 @@ class GenTableService:
         if not gen_table.sub_table:
             raise CustomException(msg=gen_table.master_sub_hint or "无法生成主子表代码：请确认子表已在当前数据库中存在，且外键列名正确")
 
-    @staticmethod
-    async def set_pk_column(cls, gen_table: GenTableOutSchema) -> None:
+    async def set_pk_column(self, gen_table: GenTableOutSchema) -> None:
         """设置主键列信息（主表/子表）。
         - 备注：同时兼容`pk`布尔与`is_pk == '1'`字符串两种标识。
 

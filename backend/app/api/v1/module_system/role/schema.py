@@ -110,17 +110,13 @@ class RoleQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     角色管理查询参数
     """
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="角色名称"),
-        code: str | None = Query(None, description="角色编码"),
-        status: int | None = Query(None, description="状态(0:启动 1:停用)"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.name = (QueueEnum.like.value, name)
-        if code:
-            self.code = (QueueEnum.like.value, code)
-        if status is not None:
-            self.status = (QueueEnum.eq.value, status)
+    name: str | None = Query(None, description="角色名称")
+    code: str | None = Query(None, description="角色编码")
+    status: int | None = Query(None, description="状态(0:启动 1:停用)")
+
+    def __post_init__(self) -> None:
+        self.name = (QueueEnum.like.value, self.name)
+        if self.code:
+            self.code = (QueueEnum.like.value, self.code)
+        if self.status is not None:
+            self.status = (QueueEnum.eq.value, self.status)

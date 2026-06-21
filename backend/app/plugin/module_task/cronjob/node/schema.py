@@ -77,14 +77,10 @@ class NodeOutSchema(NodeCreateSchema, BaseSchema, UserBySchema, TenantBySchema):
 class NodeQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """节点查询参数"""
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="节点名称"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.name = (QueueEnum.like.value, name) if name else None
+    name: str | None = Query(None, description="节点名称")
+
+    def __post_init__(self) -> None:
+        self.name = (QueueEnum.like.value, self.name) if self.name else None
 
 
 class NodeExecuteSchema(BaseModel):

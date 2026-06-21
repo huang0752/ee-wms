@@ -307,14 +307,9 @@ class GenTableQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     - 空值将被忽略，不参与过滤。
     """
 
-    def __init__(
-        self,
-        table_name: str | None = Query(None, description="表名称"),
-        table_comment: str | None = Query(None, description="表注释"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        # 模糊查询字段
-        self.table_name = (QueueEnum.like.value, table_name) if table_name else None
-        self.table_comment = (QueueEnum.like.value, table_comment) if table_comment else None
+    table_name: str | None = Query(None, description="表名称")
+    table_comment: str | None = Query(None, description="表注释")
+
+    def __post_init__(self) -> None:
+        self.table_name = (QueueEnum.like.value, self.table_name) if self.table_name else None
+        self.table_comment = (QueueEnum.like.value, self.table_comment) if self.table_comment else None

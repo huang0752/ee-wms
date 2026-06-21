@@ -12,7 +12,7 @@ tinycss2==1.5.1                        # bleach CSS 清洗依赖
 click==8.1.7                           # 命令行参数解析
 croniter>=1.0.12,<5.0.0                # cron 表达式解析
 cryptography==49.0.0                   # mysql8 密码加密
-fastapi==0.138.0                       # fastapi 框架
+fastapi==0.115.2                       # fastapi 框架
 fastapi-limiter==0.1.6                 # 接口限流
 fastapi-cache2[redis]>=0.1.8           # 缓存
 fastapi-mail==1.5.1                    # 邮件发送（替换手写 aiosmtplib 逻辑）

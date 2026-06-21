@@ -58,14 +58,7 @@ class ChatSessionMessageSchema(BaseModel):
 class ChatSessionQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """会话查询参数"""
 
-    def __init__(
-        self,
-        title: str | None = Query(None, description="会话标题"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.title = title
+    title: str | None = Query(None, description="会话标题")
 
 
 class AiChatRequestSchema(BaseModel):

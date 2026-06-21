@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.response import ResponseSchema, SuccessResponse
+from app.core.base_params import PaginationQueryParam
 from app.core.base_schema import AuthSchema, PageResultSchema
 from app.core.dependencies import AuthPermission, db_getter
 from app.core.exceptions import CustomException
@@ -64,20 +65,22 @@ async def order_detail_controller(
 )
 async def order_list_controller(
     auth: Annotated[AuthSchema, Depends(AuthPermission(["module_platform:order:query"]))],
-    tenant_id: Annotated[int | None, Query()] = None,
-    status: Annotated[int | None, Query()] = None,
-    order_type: Annotated[str | None, Query()] = None,
-    page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    page: Annotated[PaginationQueryParam, Depends()],
+    search: Annotated[OrderQueryParam, Depends()],
 ) -> JSONResponse:
-    params = OrderQueryParam(tenant_id=tenant_id, status=status, order_type=order_type)
-    offset = (page - 1) * page_size
-    items, total = await OrderService.get_list(auth=auth, params=params, offset=offset, limit=page_size)
+    items, total = await OrderService.get_list(
+        auth=auth,
+        page_no=page.page_no,
+        page_size=page.page_size,
+        order_by=page.order_by,
+        search=search,
+    )
+    offset = (page.page_no - 1) * page.page_size
     result = PageResultSchema(
-        page_no=page,
-        page_size=page_size,
+        page_no=page.page_no,
+        page_size=page.page_size,
         total=total,
-        has_next=offset + page_size < total,
+        has_next=offset + page.page_size < total,
         items=items,
     )
     return SuccessResponse(data=result)

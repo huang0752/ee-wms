@@ -65,18 +65,14 @@ class ParamsQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     - 业务字段：参数名称、参数键名、是否系统内置
     """
 
-    def __init__(
-        self,
-        config_name: str | None = Query(None, description="参数名称"),
-        config_key: str | None = Query(None, description="参数键名"),
-        config_type: bool | None = Query(None, description="是否系统内置(True:是 False:否)"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if config_name:
-            self.config_name = (QueueEnum.like.value, config_name)
-        if config_key:
-            self.config_key = (QueueEnum.like.value, config_key)
-        if config_type is not None:
-            self.config_type = (QueueEnum.eq.value, config_type)
+    config_name: str | None = Query(None, description="参数名称")
+    config_key: str | None = Query(None, description="参数键名")
+    config_type: bool | None = Query(None, description="是否系统内置(True:是 False:否)")
+
+    def __post_init__(self) -> None:
+        if self.config_name:
+            self.config_name = (QueueEnum.like.value, self.config_name)
+        if self.config_key:
+            self.config_key = (QueueEnum.like.value, self.config_key)
+        if self.config_type is not None:
+            self.config_type = (QueueEnum.eq.value, self.config_type)

@@ -485,6 +485,7 @@ const positionDetailItems: import("@/components/others/fa-descriptions/index.vue
 const formData = ref<PositionForm>({
   id: undefined,
   name: undefined,
+  code: undefined,
   order: 1,
   status: 0,
   description: undefined,
@@ -494,6 +495,7 @@ const { dialogVisible } = useCrudDialog();
 
 const rules = reactive({
   name: [{ required: true, message: "请输入岗位名称", trigger: "blur" }],
+  code: [{ required: true, message: "请输入岗位编码", trigger: "blur" }],
   order: [{ required: true, message: "请输入岗位排序", trigger: "blur" }],
   status: [{ required: true, message: "请选择岗位状态", trigger: "blur" }],
 });
@@ -501,6 +503,7 @@ const rules = reactive({
 const initialFormData: PositionForm = {
   id: undefined,
   name: undefined,
+  code: undefined,
   order: 1,
   status: 0,
   description: undefined,
@@ -549,6 +552,13 @@ const positionDialogFormItems = computed<FormItem[]>(() => [
     type: "input",
     span: 24,
     props: { placeholder: "请输入岗位名称", maxlength: 50 },
+  },
+  {
+    label: "岗位编码",
+    key: "code",
+    type: "input",
+    span: 24,
+    props: { placeholder: "请输入岗位编码", maxlength: 64 },
   },
   {
     label: "排序",

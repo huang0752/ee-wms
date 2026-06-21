@@ -85,18 +85,14 @@ class DemoOutSchema(DemoCreateSchema, BaseSchema, UserBySchema, TenantBySchema):
 class DemoQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """示例查询参数（演示 Mixin 继承用法）"""
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="名称"),
-        description: str | None = Query(None, description="描述"),
-        status: str | None = Query(None, description="是否启用"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if name:
-            self.name = (QueueEnum.like.value, name)
-        if description:
-            self.description = (QueueEnum.like.value, description)
-        if status:
-            self.status = (QueueEnum.eq.value, status)
+    name: str | None = Query(None, description="名称")
+    description: str | None = Query(None, description="描述")
+    status: str | None = Query(None, description="是否启用")
+
+    def __post_init__(self) -> None:
+        if self.name:
+            self.name = (QueueEnum.like.value, self.name)
+        if self.description:
+            self.description = (QueueEnum.like.value, self.description)
+        if self.status:
+            self.status = (QueueEnum.eq.value, self.status)

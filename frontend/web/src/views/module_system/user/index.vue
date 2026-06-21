@@ -946,7 +946,7 @@ async function handleBatchDelete() {
     if (userStore.basicInfo.id && ids.includes(userStore.basicInfo.id)) {
       userStore.clearUserInfo();
     } else {
-      ElMessage.success("删除成功");
+      console.info(`删除 ${ids.length} 条数据`);
     }
     selectedRows.value = [];
     await refreshRemove();

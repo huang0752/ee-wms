@@ -116,25 +116,34 @@ class OrderService:
         return OrderOutSchema.model_validate(order) if order else None
 
     @classmethod
-    async def get_list(cls, auth: AuthSchema, params: OrderQueryParam, offset: int, limit: int) -> tuple[list, int]:
+    async def get_list(
+        cls,
+        auth: AuthSchema,
+        page_no: int,
+        page_size: int,
+        search: OrderQueryParam,
+        order_by: list[dict[str, str]] | None = None,
+    ) -> tuple[list, int]:
         """
         订单列表
 
         参数:
         - auth (AuthSchema): 认证信息模型
-        - params (OrderQueryParam): 查询参数
-        - offset (int): 偏移量
-        - limit (int): 每页数量
+        - page_no (int): 当前页码
+        - page_size (int): 每页数量
+        - search (OrderQueryParam): 查询参数
+        - order_by (list[dict] | None): 排序字段
 
         返回:
         - tuple[list, int]: (订单列表, 总数)
         """
+        offset = (page_no - 1) * page_size
         rows, total = await OrderCRUD(auth).query(
-            tenant_id=params.tenant_id,
-            status=params.status,
-            order_type=params.order_type,
+            tenant_id=search.tenant_id,
+            status=search.status,
+            order_type=search.order_type,
             offset=offset,
-            limit=limit,
+            limit=page_size,
         )
         items = [OrderOutSchema.model_validate(r) for r in rows]
         return items, total

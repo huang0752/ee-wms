@@ -345,7 +345,7 @@ class CRUDBase[ModelType: MappedBase, CreateSchemaType: BaseModel, UpdateSchemaT
         - 新创建的对象实例
         """
         try:
-            obj_dict = data.model_dump()
+            obj_dict = data if isinstance(data, dict) else data.model_dump()
             obj = self.model(**obj_dict)
 
             if self.auth and self.auth.user:
@@ -380,7 +380,7 @@ class CRUDBase[ModelType: MappedBase, CreateSchemaType: BaseModel, UpdateSchemaT
         - 更新后的对象实例
         """
         try:
-            obj_dict = data.model_dump(exclude_unset=True, exclude={"id"})
+            obj_dict = data if isinstance(data, dict) else data.model_dump(exclude_unset=True, exclude={"id"})
             model_defaults = getattr(self.model, "__loader_options__", [])
             obj = await self._get_one(id=id, preload=model_defaults)
             if not obj:

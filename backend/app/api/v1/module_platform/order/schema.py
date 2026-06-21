@@ -126,24 +126,20 @@ class OrderOutSchema(BaseSchema, TenantBySchema):
 class OrderQueryParam(BaseQueryParam):
     """订单查询参数"""
 
-    def __init__(
-        self,
-        tenant_id: int | None = Query(None, description="租户ID"),
-        status: int | None = Query(None, description="订单状态(0:待支付 1:已支付 2:已取消 3:已退款)"),
-        order_type: str | None = Query(None, description="订单类型"),
-        order_no: str | None = Query(None, description="订单号"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if tenant_id is not None:
-            self.tenant_id = (QueueEnum.eq.value, tenant_id)
-        if status is not None:
-            self.status = (QueueEnum.eq.value, status)
-        if order_type:
-            self.order_type = (QueueEnum.eq.value, order_type)
-        if order_no:
-            self.order_no = (QueueEnum.like.value, order_no)
+    tenant_id: int | None = Query(None, description="租户ID")
+    status: int | None = Query(None, description="订单状态(0:待支付 1:已支付 2:已取消 3:已退款)")
+    order_type: str | None = Query(None, description="订单类型")
+    order_no: str | None = Query(None, description="订单号")
+
+    def __post_init__(self) -> None:
+        if self.tenant_id is not None:
+            self.tenant_id = (QueueEnum.eq.value, self.tenant_id)
+        if self.status is not None:
+            self.status = (QueueEnum.eq.value, self.status)
+        if self.order_type:
+            self.order_type = (QueueEnum.eq.value, self.order_type)
+        if self.order_no:
+            self.order_no = (QueueEnum.like.value, self.order_no)
 
 
 class PaymentCallbackSchema(BaseModel):

@@ -82,18 +82,14 @@ class TicketBatchSchema(BaseModel):
 class TicketQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """工单查询参数"""
 
-    def __init__(
-        self,
-        title: str | None = None,
-        ticket_type: str | None = None,
-        assigned_id: int | None = None,
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if title:
-            self.title = (QueueEnum.like.value, title)
-        if ticket_type:
-            self.ticket_type = (QueueEnum.eq.value, ticket_type)
-        if assigned_id:
-            self.assigned_id = (QueueEnum.eq.value, assigned_id)
+    title: str | None = None
+    ticket_type: str | None = None
+    assigned_id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.title:
+            self.title = (QueueEnum.like.value, self.title)
+        if self.ticket_type:
+            self.ticket_type = (QueueEnum.eq.value, self.ticket_type)
+        if self.assigned_id:
+            self.assigned_id = (QueueEnum.eq.value, self.assigned_id)

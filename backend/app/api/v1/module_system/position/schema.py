@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from fastapi import Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -49,14 +51,11 @@ class PositionOutSchema(PositionCreateSchema, BaseSchema, UserBySchema, TenantBy
     model_config = ConfigDict(from_attributes=True)
 
 
+@dataclass
 class PositionQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """岗位管理查询参数"""
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="岗位名称"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.name = (QueueEnum.like.value, name)
+    name: str | None = Query(None, description="岗位名称")
+
+    def __post_init__(self) -> None:
+        self.name = (QueueEnum.like.value, self.name)

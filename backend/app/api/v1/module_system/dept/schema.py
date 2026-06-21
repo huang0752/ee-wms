@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from fastapi import Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -61,14 +63,11 @@ class DeptTreeOutSchema(DeptOutSchema):
     children: list["DeptTreeOutSchema"] | None = Field(default=None, description="子部门列表")
 
 
+@dataclass
 class DeptQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """部门管理查询参数"""
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="部门名称"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.name = (QueueEnum.like.value, name)
+    name: str | None = Query(None, description="部门名称")
+
+    def __post_init__(self) -> None:
+        self.name = (QueueEnum.like.value, self.name)

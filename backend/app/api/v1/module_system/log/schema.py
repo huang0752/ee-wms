@@ -53,36 +53,28 @@ class LoginLogDetailOutSchema(LoginLogOutSchema):
 class LoginLogQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """登录日志查询参数"""
 
-    def __init__(
-        self,
-        username: str | None = Query(None, max_length=64, description="用户名"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if username:
-            self.username = (QueueEnum.like.value, username)
+    username: str | None = Query(None, max_length=64, description="用户名")
+
+    def __post_init__(self) -> None:
+        if self.username:
+            self.username = (QueueEnum.like.value, self.username)
 
 
 @dataclass
 class OperationLogQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """操作日志查询参数"""
 
-    def __init__(
-        self,
-        request_path: str | None = Query(None, description="请求路径"),
-        request_method: str | None = Query(None, description="请求方式"),
-        username: str | None = Query(None, description="用户名"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if request_path:
-            self.request_path = (QueueEnum.like.value, request_path)
-        if request_method:
-            self.request_method = (QueueEnum.eq.value, request_method)
-        if username:
-            self.username = (QueueEnum.like.value, username)
+    request_path: str | None = Query(None, description="请求路径")
+    request_method: str | None = Query(None, description="请求方式")
+    username: str | None = Query(None, description="用户名")
+
+    def __post_init__(self) -> None:
+        if self.request_path:
+            self.request_path = (QueueEnum.like.value, self.request_path)
+        if self.request_method:
+            self.request_method = (QueueEnum.eq.value, self.request_method)
+        if self.username:
+            self.username = (QueueEnum.like.value, self.username)
 
 
 class OperationLogOutSchema(BaseSchema, UserBySchema, TenantBySchema):

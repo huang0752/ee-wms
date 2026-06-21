@@ -184,7 +184,6 @@ const {
       page_size: 50,
     },
     columnsFactory: resolveStatusColumns<InvoiceTable>(() => [
-      { prop: "id", label: "ID", width: 60 },
       { prop: "tenant_id", label: "租户ID", width: 80 },
       { prop: "invoice_no", label: "发票号", width: 180, showOverflowTooltip: true },
       { prop: "title", label: "抬头", minWidth: 180, showOverflowTooltip: true },
@@ -276,7 +275,6 @@ const {
       page_size: 50,
     },
     columnsFactory: resolveStatusColumns<InvoiceTable>(() => [
-      { prop: "id", label: "ID", width: 60 },
       { prop: "invoice_no", label: "发票号", width: 180, showOverflowTooltip: true },
       { prop: "title", label: "抬头", minWidth: 180, showOverflowTooltip: true },
       {

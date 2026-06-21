@@ -86,15 +86,11 @@ class PluginInstallSchema(BaseModel):
 class PluginQueryParam(BaseQueryParam):
     """插件查询参数"""
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="插件名称"),
-        category: str | None = Query(None, description="插件分类(tool/ai/monitor/business)"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if name:
-            self.name = (QueueEnum.like.value, name)
-        if category:
-            self.category = (QueueEnum.eq.value, category)
+    name: str | None = Query(None, description="插件名称")
+    category: str | None = Query(None, description="插件分类(tool/ai/monitor/business)")
+
+    def __post_init__(self) -> None:
+        if self.name:
+            self.name = (QueueEnum.like.value, self.name)
+        if self.category:
+            self.category = (QueueEnum.eq.value, self.category)

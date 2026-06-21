@@ -155,7 +155,6 @@
 </template>
 
 <script setup lang="ts">
-import { h } from "vue";
 import { useAuth } from "@/hooks/core/useAuth";
 import { renderTableOperationCell, type TableOperationAction } from "@/utils/table";
 import { useTable } from "@/hooks/core/useTable";
@@ -279,9 +278,7 @@ const {
     columnsFactory: (): ColumnOption<DemoTable>[] => [
       { type: "globalIndex", width: 56, label: "序号" },
       { type: "selection", width: 48, fixed: "left" },
-      { prop: "id", label: "ID", width: 72 },
       { prop: "name", label: "名称", minWidth: 120, showOverflowTooltip: true },
-      { prop: "uuid", label: "UUID", minWidth: 168, showOverflowTooltip: true },
       {
         prop: "status",
         label: "状态",
@@ -307,15 +304,6 @@ const {
       { prop: "time_val", label: "时间", minWidth: 96, showOverflowTooltip: true },
       { prop: "datetime_val", label: "日期时间", minWidth: 168, showOverflowTooltip: true },
       { prop: "text_val", label: "长文本", minWidth: 120, showOverflowTooltip: true },
-      {
-        prop: "json_val",
-        label: "元数据",
-        minWidth: 160,
-        formatter: (row: DemoTable) => {
-          if (row.json_val == null) return h("span", { class: "text-g-500" }, "—");
-          return h(FaJsonPretty, { value: row.json_val, height: "120px" });
-        },
-      },
       { prop: "description", label: "描述", minWidth: 120, showOverflowTooltip: true },
       { prop: "created_time", label: "创建时间", width: 168, showOverflowTooltip: true },
       { prop: "updated_time", label: "更新时间", width: 168, showOverflowTooltip: true },

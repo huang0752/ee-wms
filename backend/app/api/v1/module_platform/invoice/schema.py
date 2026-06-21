@@ -75,15 +75,14 @@ class InvoiceOutSchema(InvoiceCreateSchema, BaseSchema, UserBySchema, TenantBySc
 class InvoiceQueryParam(BaseQueryParam):
     """发票查询参数"""
 
-    def __init__(
-        self,
-        invoice_type: InvoiceTypeEnum | None = Query(None, description="发票类型"),
-        status: int | None = Query(None, description="状态"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if invoice_type:
-            self.invoice_type = (QueueEnum.eq.value, invoice_type)
-        if status is not None:
-            self.status = (QueueEnum.eq.value, status)
+    invoice_type: InvoiceTypeEnum | None = Query(None, description="发票类型")
+    status: int | None = Query(None, description="状态")
+    tenant_id: int | None = Query(None, description="租户ID")
+
+    def __post_init__(self) -> None:
+        if self.invoice_type:
+            self.invoice_type = (QueueEnum.eq.value, self.invoice_type)
+        if self.status is not None:
+            self.status = (QueueEnum.eq.value, self.status)
+        if self.tenant_id is not None:
+            self.tenant_id = (QueueEnum.eq.value, self.tenant_id)

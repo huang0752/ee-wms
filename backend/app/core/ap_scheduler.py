@@ -1094,28 +1094,28 @@ class SchedulerUtil:
                 logger.info(f"任务 {job_id} 的执行日志已标记为已取消")
 
     @classmethod
-    def get_job_status(cls, job_id: str | int) -> str:
+    def get_job_status(cls, job_id: str | int) -> int:
         """
-        获取单个任务的当前状态文案。
+        获取单个任务的当前状态。
 
         参数:
         - job_id (str | int): 调度器任务 ID。
 
         返回:
-        - str: 运行中 / 暂停中 / 已停止 / 未知 等。
+        - int: 0=运行中 1=暂停中 2=已停止 3=未知。
         """
         job = cls.get_job(job_id=str(job_id))
         if not job:
-            return "未知"
+            return 3
 
         # 判断是否暂停：next_run_time 为 None 表示任务已暂停
         if job.next_run_time is None:
-            return "暂停中"
+            return 1
 
         if scheduler.state == 0:
-            return "已停止"
+            return 2
 
-        return "运行中"
+        return 0
 
     @classmethod
     def add_and_run_job_now(cls, job_info: NodeModel) -> Job:

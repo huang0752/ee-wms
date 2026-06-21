@@ -56,7 +56,7 @@ class JobService:
             job_id=job_id,
             job_name=job_name,
             trigger_type=trigger_type,
-            status="running",
+            status=1,  # 执行中
         )
         obj = await JobCRUD(self.auth).create_obj_crud(data=data)
         if not obj:
@@ -66,7 +66,7 @@ class JobService:
     async def update_job_log(
         self,
         id: int,
-        status: str,
+        status: int,
         result: str | None = None,
         error: str | None = None,
     ) -> dict:

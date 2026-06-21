@@ -88,18 +88,14 @@ class DictTypeOutSchema(DictTypeCreateSchema, BaseSchema, UserBySchema, TenantBy
 class DictTypeQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """字典类型查询参数"""
 
-    def __init__(
-        self,
-        dict_name: str | None = Query(default=None, description="字典名称", max_length=100),
-        dict_type: str | None = Query(default=None, description="字典类型", max_length=100),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if dict_name:
-            self.dict_name = (QueueEnum.like.value, dict_name)
-        if dict_type:
-            self.dict_type = (QueueEnum.eq.value, dict_type)
+    dict_name: str | None = Query(default=None, description="字典名称", max_length=100)
+    dict_type: str | None = Query(default=None, description="字典类型", max_length=100)
+
+    def __post_init__(self) -> None:
+        if self.dict_name:
+            self.dict_name = (QueueEnum.like.value, self.dict_name)
+        if self.dict_type:
+            self.dict_type = (QueueEnum.eq.value, self.dict_type)
 
 
 class DictDataCreateSchema(BaseModel):
@@ -167,18 +163,14 @@ class DictDataOutSchema(DictDataCreateSchema, BaseSchema, UserBySchema, TenantBy
 class DictDataQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """字典数据查询参数"""
 
-    def __init__(
-        self,
-        dict_label: str | None = Query(default=None, description="字典标签", max_length=100),
-        dict_type: str | None = Query(default=None, description="字典类型", max_length=100),
-        dict_type_id: int | None = Query(default=None, description="字典类型ID"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if dict_label:
-            self.dict_label = (QueueEnum.like.value, dict_label)
-        if dict_type:
-            self.dict_type = (QueueEnum.eq.value, dict_type)
-        if dict_type_id is not None:
-            self.dict_type_id = (QueueEnum.eq.value, dict_type_id)
+    dict_label: str | None = Query(default=None, description="字典标签", max_length=100)
+    dict_type: str | None = Query(default=None, description="字典类型", max_length=100)
+    dict_type_id: int | None = Query(default=None, description="字典类型ID")
+
+    def __post_init__(self) -> None:
+        if self.dict_label:
+            self.dict_label = (QueueEnum.like.value, self.dict_label)
+        if self.dict_type:
+            self.dict_type = (QueueEnum.eq.value, self.dict_type)
+        if self.dict_type_id is not None:
+            self.dict_type_id = (QueueEnum.eq.value, self.dict_type_id)

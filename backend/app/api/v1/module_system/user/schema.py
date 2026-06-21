@@ -308,29 +308,25 @@ class UserQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     - 业务字段：用户名、名称、手机号、邮箱、部门、状态
     """
 
-    def __init__(
-        self,
-        username: str | None = Query(None, description="用户名"),
-        name: str | None = Query(None, description="名称"),
-        mobile: str | None = Query(None, description="手机号", pattern=r"^1[3-9]\d{9}$"),
-        email: str | None = Query(
-            None,
-            description="邮箱",
-            pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$",
-        ),
-        dept_id: int | None = Query(None, description="部门ID"),
-        status: str | None = Query(None, description="是否可用"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.username = (QueueEnum.like.value, username)
-        self.name = (QueueEnum.like.value, name)
-        if mobile:
-            self.mobile = (QueueEnum.like.value, mobile)
-        if email:
-            self.email = (QueueEnum.like.value, email)
-        if dept_id:
-            self.dept_id = (QueueEnum.eq.value, dept_id)
-        if status:
-            self.status = (QueueEnum.eq.value, status)
+    username: str | None = Query(None, description="用户名")
+    name: str | None = Query(None, description="名称")
+    mobile: str | None = Query(None, description="手机号", pattern=r"^1[3-9]\d{9}$")
+    email: str | None = Query(
+        None,
+        description="邮箱",
+        pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$",
+    )
+    dept_id: int | None = Query(None, description="部门ID")
+    status: str | None = Query(None, description="是否可用")
+
+    def __post_init__(self) -> None:
+        self.username = (QueueEnum.like.value, self.username)
+        self.name = (QueueEnum.like.value, self.name)
+        if self.mobile:
+            self.mobile = (QueueEnum.like.value, self.mobile)
+        if self.email:
+            self.email = (QueueEnum.like.value, self.email)
+        if self.dept_id:
+            self.dept_id = (QueueEnum.eq.value, self.dept_id)
+        if self.status:
+            self.status = (QueueEnum.eq.value, self.status)

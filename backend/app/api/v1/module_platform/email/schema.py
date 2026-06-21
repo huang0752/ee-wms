@@ -39,21 +39,17 @@ class EmailConfigOutSchema(EmailConfigCreateSchema, BaseSchema):
 class EmailConfigQueryParam(BaseQueryParam):
     """SMTP 配置查询参数"""
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="配置名称"),
-        status: int | None = Query(None, description="状态"),
-        is_default: bool | None = Query(None, description="是否默认配置"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if name:
-            self.name = (QueueEnum.like.value, name)
-        if status is not None:
-            self.status = (QueueEnum.eq.value, status)
-        if is_default is not None:
-            self.is_default = (QueueEnum.eq.value, is_default)
+    name: str | None = Query(None, description="配置名称")
+    status: int | None = Query(None, description="状态")
+    is_default: bool | None = Query(None, description="是否默认配置")
+
+    def __post_init__(self) -> None:
+        if self.name:
+            self.name = (QueueEnum.like.value, self.name)
+        if self.status is not None:
+            self.status = (QueueEnum.eq.value, self.status)
+        if self.is_default is not None:
+            self.is_default = (QueueEnum.eq.value, self.is_default)
 
 
 class EmailTemplateCreateSchema(BaseModel):
@@ -83,18 +79,14 @@ class EmailTemplateOutSchema(EmailTemplateCreateSchema, BaseSchema):
 class EmailTemplateQueryParam(BaseQueryParam):
     """邮件模板查询参数"""
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="模板名称"),
-        template_code: str | None = Query(None, description="模板编码"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if name:
-            self.name = (QueueEnum.like.value, name)
-        if template_code:
-            self.template_code = (QueueEnum.like.value, template_code)
+    name: str | None = Query(None, description="模板名称")
+    template_code: str | None = Query(None, description="模板编码")
+
+    def __post_init__(self) -> None:
+        if self.name:
+            self.name = (QueueEnum.like.value, self.name)
+        if self.template_code:
+            self.template_code = (QueueEnum.like.value, self.template_code)
 
 
 class EmailSendSchema(BaseModel):
@@ -128,24 +120,20 @@ class EmailLogOutSchema(BaseSchema, UserBySchema):
 class EmailLogQueryParam(BaseQueryParam, UserByQueryParam):
     """邮件日志查询参数"""
 
-    def __init__(
-        self,
-        to_email: str | None = Query(None, description="收件人邮箱"),
-        biz_type: str | None = Query(None, description="业务类型"),
-        status: int | None = Query(None, description="状态"),
-        template_code: str | None = Query(None, description="模板编码"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if to_email:
-            self.to_email = (QueueEnum.like.value, to_email)
-        if biz_type:
-            self.biz_type = (QueueEnum.eq.value, biz_type)
-        if status is not None:
-            self.status = (QueueEnum.eq.value, status)
-        if template_code:
-            self.template_code = (QueueEnum.eq.value, template_code)
+    to_email: str | None = Query(None, description="收件人邮箱")
+    biz_type: str | None = Query(None, description="业务类型")
+    status: int | None = Query(None, description="状态")
+    template_code: str | None = Query(None, description="模板编码")
+
+    def __post_init__(self) -> None:
+        if self.to_email:
+            self.to_email = (QueueEnum.like.value, self.to_email)
+        if self.biz_type:
+            self.biz_type = (QueueEnum.eq.value, self.biz_type)
+        if self.status is not None:
+            self.status = (QueueEnum.eq.value, self.status)
+        if self.template_code:
+            self.template_code = (QueueEnum.eq.value, self.template_code)
 
 
 class EmailTestSchema(BaseModel):

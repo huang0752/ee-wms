@@ -6,6 +6,7 @@ from functools import wraps
 from typing import Any
 
 from redis.asyncio.client import Redis
+from starlette.responses import Response
 
 _ENABLE: bool = True
 _EXPIRE: int = 300
@@ -35,9 +36,19 @@ def cache(expire: int | None = None, namespace: str = "default"):
             key = _build_key(namespace, func, *args, **kwargs)
             cached = await _REDIS.get(key)
             if cached:
-                return json.loads(cached)
+                data = json.loads(cached)
+                return Response(
+                    content=json.dumps(data, ensure_ascii=False),
+                    media_type="application/json; charset=utf-8",
+                    status_code=200,
+                )
             result = await func(*args, **kwargs)
-            await _REDIS.set(key, json.dumps(result), ex=expire or _EXPIRE)
+            # 提取 Response 对象的 body 进行缓存
+            if isinstance(result, Response):
+                body = result.body
+            else:
+                body = json.dumps(result).encode()
+            await _REDIS.set(key, body, ex=expire or _EXPIRE)
             return result
 
         return wrapper

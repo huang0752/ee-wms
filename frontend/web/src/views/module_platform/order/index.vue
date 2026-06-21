@@ -256,7 +256,6 @@ const {
       page_size: 20,
     },
     columnsFactory: resolveStatusColumns<OrderTable>(() => [
-      { prop: "id", label: "ID", width: 60 },
       { prop: "order_no", label: "订单号", minWidth: 180, showOverflowTooltip: true },
       { prop: "tenant_id", label: "租户ID", width: 80 },
       { prop: "package_id", label: "套餐ID", width: 80 },
@@ -406,7 +405,6 @@ const {
       page_size: 20,
     },
     columnsFactory: resolveStatusColumns<PaymentRecordTable>(() => [
-      { prop: "id", label: "ID", width: 60 },
       { prop: "order_id", label: "订单ID", width: 80 },
       {
         prop: "transaction_id",
@@ -513,7 +511,6 @@ const {
       page_size: 20,
     },
     columnsFactory: resolveStatusColumns<RefundTable>(() => [
-      { prop: "id", label: "ID", width: 60 },
       { prop: "refund_no", label: "退款单号", minWidth: 180, showOverflowTooltip: true },
       { prop: "order_id", label: "订单ID", width: 80 },
       {

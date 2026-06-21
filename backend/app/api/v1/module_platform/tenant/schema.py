@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from fastapi import Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -149,21 +151,18 @@ class TenantOutSchema(TenantCreateSchema, BaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
+@dataclass
 class TenantQueryParam(BaseQueryParam):
     """租户查询参数"""
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="租户名称"),
-        code: str | None = Query(None, description="租户编码"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if name:
-            self.name = (QueueEnum.like.value, name)
-        if code:
-            self.code = (QueueEnum.like.value, code)
+    name: str | None = Query(None, description="租户名称")
+    code: str | None = Query(None, description="租户编码")
+
+    def __post_init__(self) -> None:
+        if self.name:
+            self.name = (QueueEnum.like.value, self.name)
+        if self.code:
+            self.code = (QueueEnum.like.value, self.code)
 
 
 class TenantUserAddSchema(BaseModel):

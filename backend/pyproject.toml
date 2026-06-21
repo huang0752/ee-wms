@@ -17,7 +17,7 @@ dependencies = [
     "click==8.1.7",                             # 命令行参数解析
     "croniter>=1.0.12,<5.0.0",                  # cron 表达式解析
     "cryptography==49.0.0",                     # mysql8 密码加密
-    "fastapi==0.138.0",                         # fastapi 框架
+    "fastapi==0.115.2",                         # fastapi 框架
     "fastapi-limiter==0.1.6",                   # 接口限流
     "greenlet==3.5.2",                          # 协程核心依赖（SQLAlchemy 异步）
     "httpx==0.28.1",                            # HTTP 客户端
@@ -35,7 +35,7 @@ dependencies = [
     "python-multipart==0.0.32",                 # request.form() 对表单进行「解析」时安装
     "redis==7.1.0",                             # redis 同/异步操作数据库(用户celery配套使用)redis 异步操作数据库 redis已经完全具备了aioredis的功能，无需重复安全,且aioredis已经不再维护也不兼容3.10+的版本
     "rich==15.0.0",                             # 终端打印美化
-    "sqlalchemy>=2.0.51,<2.1",                       # 数据库ORM
+    "sqlalchemy>=2.0.51,<2.1",                  # 数据库ORM
     "sqlglot[rs]==27.8.0",                      # sql 解析
     "typer==0.26.7",                            # 命令行工具
     "ua-parser==1.0.2",                         # 解析 User-Agent 获取 OS/浏览器

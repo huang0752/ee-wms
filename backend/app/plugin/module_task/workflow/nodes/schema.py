@@ -69,17 +69,13 @@ class WorkflowNodeTypeOutSchema(WorkflowNodeTypeCreateSchema, BaseSchema, UserBy
 class WorkflowNodeTypeQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """查询"""
 
-    def __init__(
-        self,
-        name: str | None = Query(None, description="名称"),
-        code: str | None = Query(None, description="编码"),
-        category: str | None = Query(None, description="分类"),
-        is_active: bool | None = Query(None, description="是否启用"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.name = (QueueEnum.like.value, name) if name else None
-        self.code = (QueueEnum.like.value, code) if code else None
-        self.category = (QueueEnum.eq.value, category) if category else None
-        self.is_active = (QueueEnum.eq.value, is_active) if is_active is not None else None
+    name: str | None = Query(None, description="名称")
+    code: str | None = Query(None, description="编码")
+    category: str | None = Query(None, description="分类")
+    is_active: bool | None = Query(None, description="是否启用")
+
+    def __post_init__(self) -> None:
+        self.name = (QueueEnum.like.value, self.name) if self.name else None
+        self.code = (QueueEnum.like.value, self.code) if self.code else None
+        self.category = (QueueEnum.eq.value, self.category) if self.category else None
+        self.is_active = (QueueEnum.eq.value, self.is_active) if self.is_active is not None else None

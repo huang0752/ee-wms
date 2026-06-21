@@ -98,28 +98,39 @@ class InvoiceTenantService:
         return InvoiceOutSchema.model_validate(invoice)
 
     @classmethod
-    async def list_my(cls, auth: AuthSchema, tenant_id: int, params: InvoiceQueryParam) -> dict:
+    async def list_my(
+        cls,
+        auth: AuthSchema,
+        tenant_id: int,
+        page_no: int,
+        page_size: int,
+        search: InvoiceQueryParam,
+        order_by: list[dict[str, str]] | None = None,
+    ) -> dict:
         """
         租户查询自己的发票列表
 
         参数:
         - auth (AuthSchema): 认证信息模型
         - tenant_id (int): 租户 ID
-        - params (InvoiceQueryParam): 查询参数
+        - page_no (int): 当前页码
+        - page_size (int): 每页数量
+        - search (InvoiceQueryParam): 查询参数
+        - order_by (list[dict] | None): 排序字段
 
         返回:
         - dict: 分页数据
         """
-        search: dict = {"tenant_id": tenant_id}
-        if params.invoice_type:
-            search["invoice_type"] = params.invoice_type
-        if params.status is not None:
-            search["status"] = params.status
+        _search: dict = {"tenant_id": tenant_id}
+        if search.invoice_type:
+            _search["invoice_type"] = search.invoice_type
+        if search.status is not None:
+            _search["status"] = search.status
         return await InvoiceCRUD(auth).page(
-            offset=(params.page_no - 1) * params.page_size,
-            limit=params.page_size,
-            order_by=[{"created_time": "desc"}],
-            search=search,
+            offset=(page_no - 1) * page_size,
+            limit=page_size,
+            order_by=order_by or [{"created_time": "desc"}],
+            search=_search,
             out_schema=InvoiceOutSchema,
         )
 
@@ -149,29 +160,39 @@ class InvoicePlatformService:
     """平台端发票服务"""
 
     @classmethod
-    async def list_all(cls, auth: AuthSchema, params: InvoiceQueryParam) -> dict:
+    async def list_all(
+        cls,
+        auth: AuthSchema,
+        page_no: int,
+        page_size: int,
+        search: InvoiceQueryParam,
+        order_by: list[dict[str, str]] | None = None,
+    ) -> dict:
         """
         平台查询全部发票列表
 
         参数:
         - auth (AuthSchema): 认证信息模型
-        - params (InvoiceQueryParam): 查询参数
+        - page_no (int): 当前页码
+        - page_size (int): 每页数量
+        - search (InvoiceQueryParam): 查询参数
+        - order_by (list[dict] | None): 排序字段
 
         返回:
         - dict: 分页数据
         """
-        search: dict = {}
-        if params.invoice_type:
-            search["invoice_type"] = params.invoice_type
-        if params.status is not None:
-            search["status"] = params.status
-        if params.tenant_id:
-            search["tenant_id"] = params.tenant_id
+        _search: dict = {}
+        if search.invoice_type:
+            _search["invoice_type"] = search.invoice_type
+        if search.status is not None:
+            _search["status"] = search.status
+        if search.tenant_id:
+            _search["tenant_id"] = search.tenant_id
         return await InvoiceCRUD(auth).page(
-            offset=(params.page_no - 1) * params.page_size,
-            limit=params.page_size,
-            order_by=[{"created_time": "desc"}],
-            search=search,
+            offset=(page_no - 1) * page_size,
+            limit=page_size,
+            order_by=order_by or [{"created_time": "desc"}],
+            search=_search,
             out_schema=InvoiceOutSchema,
         )
 

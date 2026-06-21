@@ -68,18 +68,14 @@ class NoticeOutSchema(NoticeCreateSchema, BaseSchema, UserBySchema, TenantBySche
 class NoticeQueryParam(BaseQueryParam, UserByQueryParam, TenantByQueryParam):
     """公告通知查询参数"""
 
-    def __init__(
-        self,
-        notice_title: str | None = Query(None, description="公告标题"),
-        notice_type: str | None = Query(None, description="公告类型"),
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        if notice_title:
-            self.notice_title = (QueueEnum.like.value, notice_title)
-        if notice_type:
-            self.notice_type = (QueueEnum.eq.value, notice_type)
+    notice_title: str | None = Query(None, description="公告标题")
+    notice_type: str | None = Query(None, description="公告类型")
+
+    def __post_init__(self) -> None:
+        if self.notice_title:
+            self.notice_title = (QueueEnum.like.value, self.notice_title)
+        if self.notice_type:
+            self.notice_type = (QueueEnum.eq.value, self.notice_type)
 
 
 class PanelMessageItem(BaseModel):
