@@ -43,11 +43,17 @@ class TestAuth:
         assert_route(test_client, "GET", "/system/auth/tenants", auth=auth_headers)
 
     def test_auth_select_tenant(self, test_client: TestClient, auth_headers: dict) -> None:
+        login_resp = test_client.post(
+            "/system/auth/login",
+            data={"username": "admin", "password": "admin123", "login_type": "PC端"},
+        )
+        assert login_resp.status_code == 200
+        access_token = login_resp.json()["data"]["access_token"]
         assert_route(
             test_client,
             "POST",
             "/system/auth/select-tenant",
-            auth=auth_headers,
+            auth={"Authorization": f"Bearer {access_token}"},
             json={"tenant_id": 1},
         )
 

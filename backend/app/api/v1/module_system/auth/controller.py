@@ -17,7 +17,7 @@ from app.core.base_schema import (
     RefreshTokenPayloadSchema,
 )
 from app.core.cache_util import cache
-from app.core.dependencies import db_getter, get_current_user, redis_getter
+from app.core.dependencies import AuthPermission, db_getter, redis_getter
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 from app.core.redis_crud import RedisCURD
@@ -31,6 +31,7 @@ from .oauth_service import (
     complete_oauth_login,
     oauth_service_error_redirect,
     oauth_service_frontend_redirect_from_token,
+    oauth_service_validate_frontend_redirect,
     save_oauth_state,
 )
 from .schema import (
@@ -108,7 +109,7 @@ async def get_captcha_for_login_controller(
 @AuthRouter.post(
     "/logout",
     summary="退出登录",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(AuthPermission())],
     response_model=ResponseSchema[None],
 )
 async def logout_controller(
@@ -127,10 +128,10 @@ async def logout_controller(
     response_model=ResponseSchema[list[AutoLoginUserSchema]],
 )
 async def get_auto_login_users_controller(
-    auth: Annotated[AuthSchema, Depends(get_current_user)],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:auth:auto_login"]))],
     db: Annotated[AsyncSession, Depends(db_getter)],
 ) -> JSONResponse:
-    tenant_id = None if auth.user.is_superuser else auth.user.tenant_id
+    tenant_id = None if auth.user.is_superuser else auth.tenant_id
     users = await AutoLoginService.get_auto_login_users(db=db, tenant_id=tenant_id)
     return SuccessResponse(data=users, msg="获取成功")
 
@@ -141,12 +142,12 @@ async def get_auto_login_users_controller(
     response_model=ResponseSchema[AutoLoginTokenSchema],
 )
 async def get_auto_login_token_controller(
-    auth: Annotated[AuthSchema, Depends(get_current_user)],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:auth:auto_login"]))],
     redis: Annotated[Redis, Depends(redis_getter)],
     db: Annotated[AsyncSession, Depends(db_getter)],
     user_id: int,
 ) -> JSONResponse:
-    tenant_id = None if auth.user.is_superuser else auth.user.tenant_id
+    tenant_id = None if auth.user.is_superuser else auth.tenant_id
     result = await AutoLoginService.create_auto_login_token(redis=redis, db=db, user_id=user_id, tenant_id=tenant_id)
     return SuccessResponse(data=result, msg="获取成功")
 
@@ -171,12 +172,12 @@ async def auto_login_controller(
     "/select-tenant",
     summary="选择租户",
     response_model=ResponseSchema[SelectTenantOutSchema],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(AuthPermission())],
 )
 async def select_tenant_controller(
     request: Request,
     data: SelectTenantSchema,
-    auth: Annotated[AuthSchema, Depends(get_current_user)],
+    auth: Annotated[AuthSchema, Depends(AuthPermission())],
     redis: Annotated[Redis, Depends(redis_getter)],
 ) -> JSONResponse:
     result = await LoginService(auth).select_tenant(request=request, redis=redis, tenant_id=data.tenant_id)
@@ -188,11 +189,11 @@ async def select_tenant_controller(
     "/tenants",
     summary="获取可选租户列表",
     response_model=ResponseSchema[list[TenantOptionSchema]],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(AuthPermission())],
 )
 @cache(expire=120, namespace=_AUTH_TENANTS_NS)
 async def get_user_tenants_controller(
-    auth: Annotated[AuthSchema, Depends(get_current_user)],
+    auth: Annotated[AuthSchema, Depends(AuthPermission())],
     db: Annotated[AsyncSession, Depends(db_getter)],
 ) -> JSONResponse:
     service = LoginService(auth)
@@ -226,19 +227,20 @@ async def oauth_login_redirect_controller(
             status_code=302,
         )
     try:
+        fe = oauth_service_validate_frontend_redirect(redirect_uri)
         state = secrets.token_urlsafe(32)
         await save_oauth_state(
             redis=redis,
             state=state,
             provider=provider,
-            frontend_redirect=redirect_uri,
+            frontend_redirect=fe,
         )
         cb = _callback_url(request, provider)
         url = build_authorize_url(provider=provider, callback_url=cb, state=state)
         return RedirectResponse(url=url, status_code=302)
     except CustomException as e:
         return RedirectResponse(
-            url=oauth_service_error_redirect(redirect_uri, e.msg),
+            url=oauth_service_error_redirect(settings.OAUTH_FRONTEND_FALLBACK, e.msg),
             status_code=302,
         )
 
@@ -268,8 +270,11 @@ async def oauth_callback_controller(
             raw = raw.decode("utf-8")
         try:
             payload = json.loads(raw)
-            return str(payload.get("frontend_redirect") or fe_fallback).strip() or fe_fallback
+            frontend = str(payload.get("frontend_redirect") or fe_fallback).strip() or fe_fallback
+            return oauth_service_validate_frontend_redirect(frontend)
         except json.JSONDecodeError:
+            return fe_fallback
+        except CustomException:
             return fe_fallback
 
     if provider not in {"wechat", "qq", "github", "gitee"}:
@@ -312,6 +317,3 @@ async def tenant_register_controller(
     )
     logger.info(f"新租户注册: username={data.username} tenant={result.tenant_name}")
     return SuccessResponse(data=result, msg=result.message)
-
-
-

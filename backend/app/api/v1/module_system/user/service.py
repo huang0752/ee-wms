@@ -3,10 +3,12 @@ from typing import Any
 
 import pandas as pd
 from fastapi import UploadFile
+from sqlalchemy import select
 
 from app.api.v1.module_platform.menu.crud import MenuCRUD
 from app.api.v1.module_platform.menu.schema import MenuOutSchema
 from app.api.v1.module_platform.package.service import PackageService
+from app.api.v1.module_platform.tenant.model import TenantUserModel
 from app.api.v1.module_platform.tenant.service import TenantService
 from app.api.v1.module_system.dept.crud import DeptCRUD
 from app.api.v1.module_system.position.crud import PositionCRUD
@@ -37,6 +39,30 @@ class UserService:
 
     def __init__(self, auth: AuthSchema) -> None:
         self.auth = auth
+
+    async def _ensure_tenant_membership(self, user_id: int, tenant_id: int | None, role: str = "member") -> None:
+        """确保用户和租户关系存在，用于登录后的租户上下文校验。"""
+        if not tenant_id:
+            return
+        stmt = (
+            select(TenantUserModel)
+            .where(TenantUserModel.user_id == user_id, TenantUserModel.tenant_id == tenant_id)
+            .limit(1)
+        )
+        result = await self.auth.db.execute(stmt)
+        if result.scalar_one_or_none():
+            return
+        has_any_stmt = select(TenantUserModel).where(TenantUserModel.user_id == user_id).limit(1)
+        has_any_result = await self.auth.db.execute(has_any_stmt)
+        self.auth.db.add(
+            TenantUserModel(
+                user_id=user_id,
+                tenant_id=tenant_id,
+                role=role,
+                is_default=0 if has_any_result.scalar_one_or_none() else 1,
+            )
+        )
+        await self.auth.db.flush()
 
     async def detail(self, id: int) -> UserOutSchema:
         user = await UserCRUD(self.auth).get_or_404(id=id)
@@ -90,11 +116,12 @@ class UserService:
             data.password = PwdUtil.hash_password(password=data.password)
         user_dict = data.model_dump(exclude_unset=True, exclude={"role_ids", "position_ids"})
         new_user = await UserCRUD(self.auth).create(data=user_dict)
+        await self._ensure_tenant_membership(new_user.id, new_user.tenant_id)
         if data.role_ids and len(data.role_ids) > 0:
             await UserCRUD(self.auth).set_user_roles(user_ids=[new_user.id], role_ids=data.role_ids)
         if data.position_ids and len(data.position_ids) > 0:
             await UserCRUD(self.auth).set_user_positions(user_ids=[new_user.id], position_ids=data.position_ids)
-        return UserOutSchema.model_validate(new_user)
+        return await self.detail(new_user.id)
 
     async def update(self, id: int, data: UserUpdateSchema) -> UserOutSchema:
         if not data.username:
@@ -270,9 +297,10 @@ class UserService:
             create_dict["created_id"] = self.auth.user.id
 
         result = await UserCRUD(self.auth).create(data=create_dict)
+        await self._ensure_tenant_membership(result.id, result.tenant_id)
         if data.role_ids:
             await UserCRUD(self.auth).set_user_roles(user_ids=[result.id], role_ids=data.role_ids)
-        return UserOutSchema.model_validate(result)
+        return await self.detail(result.id)
 
     async def forget_password(self, data: UserForgetPasswordSchema) -> UserOutSchema:
         user = await UserCRUD(self.auth).get(username=data.username)
@@ -284,7 +312,10 @@ class UserService:
         if user.is_superuser:
             raise CustomException(msg="超级管理员密码不能重置")
 
-        if data.mobile and user.mobile != data.mobile:
+        if not data.mobile:
+            raise CustomException(msg="手机号不能为空", status_code=400)
+
+        if user.mobile != data.mobile:
             raise CustomException(msg="手机号不匹配")
 
         new_password_hash = PwdUtil.hash_password(password=data.new_password)

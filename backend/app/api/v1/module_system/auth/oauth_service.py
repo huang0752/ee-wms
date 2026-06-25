@@ -11,7 +11,7 @@
 import json
 import secrets
 from typing import Any, Literal
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlparse
 
 import httpx
 from fastapi import Request
@@ -56,6 +56,23 @@ def _frontend_success_redirect(frontend_base: str, access_token: str, refresh_to
     )
     sep = "&" if "?" in frontend_base else "?"
     return f"{frontend_base}{sep}{q}"
+
+
+def _origin(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise CustomException(msg="OAuth 前端回调地址无效")
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def oauth_service_validate_frontend_redirect(frontend_url: str) -> str:
+    """校验 OAuth 前端回跳地址，避免把 token 带到非信任站点。"""
+    frontend_url = frontend_url.strip()
+    frontend_origin = _origin(frontend_url)
+    allowed_origins = set(settings.OAUTH_FRONTEND_ALLOWED_ORIGINS or [_origin(settings.OAUTH_FRONTEND_FALLBACK)])
+    if frontend_origin not in allowed_origins:
+        raise CustomException(msg="OAuth 前端回调地址不在允许列表")
+    return frontend_url
 
 
 def _require_credentials(provider: OAuthProvider) -> tuple[str, str]:
@@ -357,6 +374,7 @@ async def complete_oauth_login(
     frontend = str(payload.get("frontend_redirect") or "").strip()
     if not frontend:
         raise CustomException(msg="缺少前端回调地址")
+    frontend = oauth_service_validate_frontend_redirect(frontend)
 
     callback_url = _callback_url(request, provider)
     cid, csec = _require_credentials(provider)
@@ -431,4 +449,5 @@ __all__ = [
     "_callback_url",
     "oauth_service_frontend_redirect_from_token",
     "oauth_service_error_redirect",
+    "oauth_service_validate_frontend_redirect",
 ]

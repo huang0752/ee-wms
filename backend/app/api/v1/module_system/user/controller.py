@@ -84,9 +84,8 @@ async def reset_password_controller(
 )
 async def register_user_controller(
     data: UserRegisterSchema,
-    db: Annotated[AsyncSession, Depends(db_getter)],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:user:create"]))],
 ) -> JSONResponse:
-    auth = AuthSchema(db=db, check_data_scope=False)
     user_register_result = await UserService(auth).register(data=data)
     logger.info(f"{data.username} 注册用户成功: {user_register_result}")
     return SuccessResponse(data=user_register_result, msg="注册用户成功")
