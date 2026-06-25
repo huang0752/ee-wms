@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from starlette.requests import Request
 
+from app.api.v1.module_platform.package.model import PackagePluginModel
 from app.api.v1.module_platform.plugin.model import PluginModel, TenantPluginModel
 from app.api.v1.module_platform.tenant.model import TenantUserModel
 from app.api.v1.module_system.user.model import UserModel
@@ -362,6 +363,30 @@ async def _validate_generator_plugin_for_tenant(tenant_id: int) -> None:
         await validate_dynamic_plugin_access(_request_for_path("/generator/gencode/list"), auth)
 
 
+async def _validate_path_for_tenant(path: str, tenant_id: int) -> None:
+    async with async_db_session() as db:
+        auth = AuthSchema(db=db, tenant_id=tenant_id)
+        auth.user = SimpleNamespace(is_superuser=False)
+        await validate_dynamic_plugin_access(_request_for_path(path), auth)
+
+
+async def _replace_package_plugins(package_id: int, plugin_codes: list[str]) -> None:
+    async with async_db_session() as db:
+        plugin_ids = []
+        if plugin_codes:
+            plugin_ids = (
+                await db.execute(select(PluginModel.id).where(PluginModel.code.in_(plugin_codes)))
+            ).scalars().all()
+        existing = (
+            await db.execute(select(PackagePluginModel).where(PackagePluginModel.package_id == package_id))
+        ).scalars().all()
+        for item in existing:
+            await db.delete(item)
+        for plugin_id in plugin_ids:
+            db.add(PackagePluginModel(package_id=package_id, plugin_id=plugin_id))
+        await db.commit()
+
+
 def test_dynamic_plugin_access_requires_enabled_tenant_plugin() -> None:
     import asyncio
 
@@ -374,6 +399,28 @@ def test_dynamic_plugin_access_requires_enabled_tenant_plugin() -> None:
             asyncio.run(_validate_generator_plugin_for_tenant(tenant_id=2))
     finally:
         asyncio.run(_set_tenant_plugin_enabled("code_generator", tenant_id=2, enabled=True))
+
+
+def test_dynamic_plugin_access_rejects_empty_package_plugin_list() -> None:
+    import asyncio
+
+    asyncio.run(_replace_package_plugins(2, []))
+    try:
+        with pytest.raises(CustomException):
+            asyncio.run(_validate_generator_plugin_for_tenant(tenant_id=2))
+    finally:
+        asyncio.run(_replace_package_plugins(2, ["code_generator", "ai_assistant"]))
+
+
+def test_ai_websocket_path_uses_dynamic_plugin_guard() -> None:
+    import asyncio
+
+    asyncio.run(_set_tenant_plugin_enabled("ai_assistant", tenant_id=2, enabled=False))
+    try:
+        with pytest.raises(CustomException):
+            asyncio.run(_validate_path_for_tenant("/api/v1/ai/chat/ws", tenant_id=2))
+    finally:
+        asyncio.run(_set_tenant_plugin_enabled("ai_assistant", tenant_id=2, enabled=True))
 
 
 def test_plugin_reload_preserves_dynamic_route_dependencies(

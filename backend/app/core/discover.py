@@ -74,10 +74,15 @@ async def validate_dynamic_plugin_access(
     auth: AuthSchema = Depends(get_current_user),
 ) -> AuthSchema:
     """校验动态插件对当前租户是否已安装、启用且可用。"""
+    return await validate_dynamic_plugin_access_for_path(request.url.path, auth)
+
+
+async def validate_dynamic_plugin_access_for_path(path: str, auth: AuthSchema) -> AuthSchema:
+    """按请求路径校验动态插件访问权限，供 HTTP 与 WebSocket 共用。"""
     if auth.user and auth.user.is_superuser:
         return auth
 
-    module_code = _module_code_from_path(request.url.path)
+    module_code = _module_code_from_path(path)
     if not module_code:
         return auth
     if not auth.db or not auth.tenant_id:
@@ -124,17 +129,19 @@ async def validate_dynamic_plugin_access(
                 select(PackagePluginModel.plugin_id).where(PackagePluginModel.package_id == tenant.package_id)
             )
         ).scalars().all()
-        if package_plugin_ids and plugin.id not in package_plugin_ids:
+        if plugin.id not in package_plugin_ids:
             raise CustomException(msg="当前套餐不支持此插件", code=10403, status_code=403)
 
     return auth
 
 
 def _module_code_from_path(path: str) -> str | None:
-    segment = path.strip("/").split("/", 1)[0]
-    if not segment:
-        return None
-    return f"module_{segment}"
+    known_segments = {prefix.strip("/") for prefix in _registered_plugin_prefixes}
+    known_segments.update(code[7:] for code in _PLUGIN_CODE_ALIASES)
+    for segment in path.strip("/").split("/"):
+        if segment in known_segments:
+            return f"module_{segment}"
+    return None
 
 
 def _plugin_code_candidates(module_code: str) -> list[str]:
@@ -252,6 +259,16 @@ def _route_key(route) -> tuple[str, tuple[str, ...]]:
     return getattr(route, "path", ""), tuple(sorted(methods))
 
 
+def _filter_router_by_prefix(router: APIRouter, prefixes: set[str]) -> APIRouter:
+    filtered = APIRouter()
+    filtered.routes.extend(
+        route
+        for route in router.routes
+        if any(getattr(route, "path", "").startswith(prefix) for prefix in prefixes)
+    )
+    return filtered
+
+
 def reload_dynamic_router() -> APIRouter:
     """
     清除插件模块缓存并重新扫描，同时更新已挂载到 FastAPI app 的路由。
@@ -284,6 +301,8 @@ def reload_dynamic_router() -> APIRouter:
     refreshed_prefixes = _non_empty_prefixes(new_router, discovered_prefixes)
     keep_old_prefixes = previous_prefixes & failed_prefixes
     remove_old_prefixes = previous_prefixes - keep_old_prefixes
+    mount_prefixes = refreshed_prefixes - failed_prefixes
+    mount_router = _filter_router_by_prefix(new_router, mount_prefixes)
 
     # ── 3. 从运行中的 app 移除成功重载前缀的旧路由 ──
     if app and remove_old_prefixes:
@@ -301,9 +320,9 @@ def reload_dynamic_router() -> APIRouter:
         logger.warning("⚠️ 插件热重载未生成可替换的新路由，已保留运行中的旧插件路由")
 
     # ── 4. 将新路由挂载回 app ──
-    if app and refreshed_prefixes:
+    if app and mount_prefixes:
         # 构造与 init_app.py 中相同的依赖项
-        app.include_router(new_router, dependencies=get_dynamic_router_dependencies())
+        app.include_router(mount_router, dependencies=get_dynamic_router_dependencies())
         logger.info("✅ 新插件路由已挂载到运行中的 app")
 
     if keep_old_prefixes:
@@ -313,16 +332,18 @@ def reload_dynamic_router() -> APIRouter:
             if any(key[0].startswith(prefix) for prefix in keep_old_prefixes)
         }
         _registered_plugin_prefixes = discovered_prefixes | keep_old_prefixes
-        _registered_plugin_route_keys = _registered_plugin_route_keys | preserved_route_keys
+        _registered_plugin_route_keys = {_route_key(route) for route in mount_router.routes} | preserved_route_keys
         logger.warning(f"⚠️ 插件前缀 {keep_old_prefixes} 热重载失败，已保留旧路由")
 
     if not keep_old_prefixes:
-        _dynamic_router_cache = new_router
+        _registered_plugin_prefixes = mount_prefixes
+        _registered_plugin_route_keys = {_route_key(route) for route in mount_router.routes}
+        _dynamic_router_cache = mount_router
     else:
         logger.warning("⚠️ 插件路由仅部分热重载成功，保留原动态路由缓存")
 
     logger.info("✅ 插件动态路由热重载完成")
-    return new_router
+    return mount_router
 
 
 def _purge_plugin_modules() -> None:

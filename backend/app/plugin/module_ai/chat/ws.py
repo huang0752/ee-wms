@@ -5,6 +5,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.core.database import async_db_session
 from app.core.dependencies import _authenticate
+from app.core.discover import validate_dynamic_plugin_access_for_path
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 from app.core.router_class import OperationLogRoute
@@ -59,6 +60,7 @@ async def websocket_chat_controller(websocket: WebSocket) -> None:
         redis = websocket.app.state.redis
         async with async_db_session() as db:
             auth = await _authenticate(token, db, redis)
+            await validate_dynamic_plugin_access_for_path(websocket.url.path, auth)
 
             user = auth.user
             logger.info("WebSocket连接已建立: {} - 用户: {}", websocket.client, user.username if user else "未认证")

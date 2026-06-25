@@ -18,7 +18,7 @@ from app.api.v1.module_platform.email.model import EmailConfigModel, EmailTempla
 from app.api.v1.module_platform.invoice.model import InvoiceModel
 from app.api.v1.module_platform.menu.model import MenuModel
 from app.api.v1.module_platform.order.model import OrderModel, PaymentRecordModel, RefundModel
-from app.api.v1.module_platform.package.model import PackageMenuModel, PackageModel
+from app.api.v1.module_platform.package.model import PackageMenuModel, PackageModel, PackagePluginModel
 from app.api.v1.module_platform.plugin.model import PluginModel, TenantPluginModel
 from app.api.v1.module_platform.tenant.model import TenantModel, TenantUserModel
 from app.api.v1.module_system.dept.model import DeptModel
@@ -71,6 +71,7 @@ class InitializeData:
         UserRolesModel,
         TenantUserModel,
         PackageMenuModel,
+        PackagePluginModel,
         TenantPluginModel,
         # ── 其他系统/业务表 ──
         NoticeModel,
