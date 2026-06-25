@@ -66,7 +66,7 @@ class PluginService:
             search=search,
             out_schema=PluginOutSchema,
         )
-        tenant_id = getattr(self.auth, "tenant_id", None) or self.auth.user.tenant_id
+        tenant_id = getattr(self.auth, "tenant_id", None)
         if tenant_id and result.items:
             records = await self.auth.db.execute(
                 sa.select(TenantPluginModel.plugin_id, TenantPluginModel.purchased).where(
@@ -81,7 +81,7 @@ class PluginService:
         return result
 
     async def install(self, plugin_id: int) -> None:
-        tenant_id = getattr(self.auth, "tenant_id", None) or self.auth.user.tenant_id
+        tenant_id = getattr(self.auth, "tenant_id", None)
         if not tenant_id:
             raise CustomException(msg="无法获取租户信息")
 
@@ -89,7 +89,7 @@ class PluginService:
             from app.api.v1.module_platform.package.service import PackageService
 
             allowed_plugin_ids = await PackageService(self.auth).get_tenant_available_plugin_ids(tenant_id)
-            if allowed_plugin_ids and plugin_id not in allowed_plugin_ids:
+            if plugin_id not in allowed_plugin_ids:
                 raise CustomException(msg="当前套餐不支持安装此插件")
 
         plugin = await PluginCRUD(self.auth).get(id=plugin_id)
@@ -139,7 +139,7 @@ class PluginService:
         logger.info(f"租户[{tenant_id}]安装插件[{plugin.name}]")
 
     async def uninstall(self, plugin_id: int) -> None:
-        tenant_id = getattr(self.auth, "tenant_id", None) or self.auth.user.tenant_id
+        tenant_id = getattr(self.auth, "tenant_id", None)
         if not tenant_id:
             raise CustomException(msg="无法获取租户信息")
         await self.auth.db.execute(
@@ -152,7 +152,7 @@ class PluginService:
         logger.info(f"租户[{tenant_id}]卸载插件[{plugin_id}]")
 
     async def toggle(self, plugin_id: int) -> None:
-        tenant_id = getattr(self.auth, "tenant_id", None) or self.auth.user.tenant_id
+        tenant_id = getattr(self.auth, "tenant_id", None)
         tp = await self.auth.db.execute(
             sa.select(TenantPluginModel)
             .where(
@@ -169,7 +169,7 @@ class PluginService:
         logger.info(f"租户[{tenant_id}]插件[{plugin_id}]状态→{tp.enabled}")
 
     async def my_plugins(self) -> list[dict]:
-        tenant_id = getattr(self.auth, "tenant_id", None) or self.auth.user.tenant_id
+        tenant_id = getattr(self.auth, "tenant_id", None)
         if not tenant_id:
             return []
         result = await self.auth.db.execute(

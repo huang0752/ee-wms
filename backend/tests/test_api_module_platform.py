@@ -7,6 +7,16 @@ from conftest import assert_route  # noqa: F401
 from fastapi.testclient import TestClient
 
 
+def _create_order(test_client: TestClient, auth_headers: dict, *, tenant_id: int = 1) -> int:
+    response = test_client.post(
+        "/platform/order/create",
+        headers=auth_headers,
+        json={"tenant_id": tenant_id, "package_id": 1, "order_type": "new"},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["data"]["id"]
+
+
 class TestTenant:
     """租户管理接口。"""
 
@@ -280,20 +290,23 @@ class TestOrder:
         assert_route(test_client, "GET", "/platform/order/list", auth=auth_headers)
 
     def test_order_detail(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "GET", "/platform/order/detail/1", auth=auth_headers)
+        order_id = _create_order(test_client, auth_headers)
+        assert_route(test_client, "GET", f"/platform/order/detail/{order_id}", auth=auth_headers)
 
     def test_order_create(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(
             test_client, "POST", "/platform/order/create", auth=auth_headers,
-            json={"package_id": 1},
+            json={"tenant_id": 1, "package_id": 1, "order_type": "new"},
         )
 
     def test_order_cancel(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "POST", "/platform/order/cancel/1", auth=auth_headers)
+        order_id = _create_order(test_client, auth_headers)
+        assert_route(test_client, "POST", f"/platform/order/cancel/{order_id}", auth=auth_headers)
 
     def test_order_refund_apply(self, test_client: TestClient, auth_headers: dict) -> None:
+        order_id = _create_order(test_client, auth_headers)
         assert_route(
-            test_client, "POST", "/platform/order/refund/apply/1", auth=auth_headers,
+            test_client, "POST", f"/platform/order/refund/apply/{order_id}", auth=auth_headers,
             json={"reason": "测试退款"},
         )
 
@@ -305,19 +318,22 @@ class TestPayment:
         assert_route(test_client, "GET", "/platform/payment/record/list", auth=auth_headers)
 
     def test_payment_pay(self, test_client: TestClient, auth_headers: dict) -> None:
+        order_id = _create_order(test_client, auth_headers)
         assert_route(
-            test_client, "POST", "/platform/payment/pay/1", auth=auth_headers,
+            test_client, "POST", f"/platform/payment/pay/{order_id}", auth=auth_headers,
             json={"method": "wechat"},
         )
 
     def test_payment_status(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "GET", "/platform/payment/status/1", auth=auth_headers)
+        order_id = _create_order(test_client, auth_headers)
+        assert_route(test_client, "GET", f"/platform/payment/status/{order_id}", auth=auth_headers)
 
     def test_payment_callback(self, test_client: TestClient) -> None:
         assert_route(test_client, "POST", "/platform/payment/callback/wechat")
 
     def test_payment_mock_callback(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "POST", "/platform/payment/mock/callback", auth=auth_headers)
+        order_id = _create_order(test_client, auth_headers)
+        assert_route(test_client, "POST", "/platform/payment/mock/callback", auth=auth_headers, json=order_id)
 
 
 class TestRefund:
@@ -371,12 +387,13 @@ class TestSelfService:
         assert_route(test_client, "GET", "/platform/tenant/order/list", auth=auth_headers)
 
     def test_self_order_detail(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "GET", "/platform/tenant/order/detail/1", auth=auth_headers)
+        order_id = _create_order(test_client, auth_headers)
+        assert_route(test_client, "GET", f"/platform/tenant/order/detail/{order_id}", auth=auth_headers)
 
     def test_self_order_create(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(
             test_client, "POST", "/platform/tenant/order/create", auth=auth_headers,
-            json={"package_id": 1},
+            json={"package_id": 1, "order_type": "new"},
         )
 
     def test_self_workspace(self, test_client: TestClient, auth_headers: dict) -> None:

@@ -40,6 +40,7 @@ class TenantService:
     def __init__(self, auth: AuthSchema) -> None:
         self.auth = auth
 
+    @require_superadmin
     async def detail(self, id: int) -> TenantOutSchema:
         """
         租户详情
@@ -52,6 +53,7 @@ class TenantService:
         """
         return await TenantCRUD(self.auth).get_or_404(id=id, out_schema=TenantOutSchema)
 
+    @require_superadmin
     async def page(
         self,
         page_no: int,
@@ -220,6 +222,7 @@ class TenantService:
 
         await TenantCRUD(self.auth).delete(ids=ids)
 
+    @require_superadmin
     async def set_available(self, data: BatchSetAvailable) -> None:
         """
         批量设置租户状态
@@ -234,6 +237,7 @@ class TenantService:
             raise CustomException(msg="系统租户不允许禁用")
         await TenantCRUD(self.auth).set(ids=data.ids, status=data.status)
 
+    @require_superadmin
     async def toggle_status(self, id: int) -> None:
         """
         切换单个租户的启用/禁用状态
@@ -250,6 +254,7 @@ class TenantService:
         new_status = 0 if obj.status == 1 else 1
         await TenantCRUD(self.auth).set(ids=[id], status=new_status)
 
+    @require_superadmin
     async def get_tenant_users(self, tenant_id: int) -> list[TenantUserOutSchema]:
         """获取租户下的用户列表"""
         from sqlalchemy import select
@@ -281,6 +286,7 @@ class TenantService:
             )
         return users
 
+    @require_superadmin
     async def add_tenant_user(self, tenant_id: int, data: TenantUserAddSchema) -> None:
         """
         向租户添加用户
@@ -348,6 +354,7 @@ class TenantService:
 
         logger.info(f"向租户[{tenant.name}]添加用户[{user.username}]成功, role={data.role}")
 
+    @require_superadmin
     async def remove_tenant_user(self, tenant_id: int, user_id: int) -> None:
         """
         从租户移除用户
@@ -544,6 +551,7 @@ class TenantService:
         config = {field: getattr(tenant, field, None) for field in config_fields}
         return config
 
+    @require_superadmin
     async def get_config_items(self, tenant_id: int) -> list[TenantConfigOutSchema]:
         """获取租户所有配置（对外接口，返回结构化列表）"""
         config = await self.get_config(tenant_id)
@@ -604,6 +612,7 @@ class TenantService:
         redis_key = f"{RedisInitKeyConfig.TENANT_CONFIG.key}:{tenant_id}"
         await RedisCURD(redis).delete(redis_key)
 
+    @require_superadmin
     async def update_config(self, redis: Redis, tenant_id: int, config: dict) -> list[TenantConfigOutSchema]:
         """
         更新租户配置（同步 Redis 缓存）
@@ -670,6 +679,7 @@ class TenantService:
                     await TenantService._sync_configs_to_redis(redis, tenant.id, config)
                     logger.info(f"✅ 租户[{tenant.name}](id={tenant.id}) 配置已缓存到 Redis")
 
+    @require_superadmin
     async def renew(self, tenant_id: int, end_time: str) -> TenantOutSchema:
         """租户续期：延长 end_time 并恢复为 active 状态
 
@@ -707,6 +717,7 @@ class TenantService:
 
         return TenantOutSchema.model_validate(tenant)
 
+    @require_superadmin
     async def package_change_preview(self, tenant_id: int, new_package_id: int) -> PackageChangePreviewOut:
         """
         套餐变更影响预览
