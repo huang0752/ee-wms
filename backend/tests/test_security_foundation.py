@@ -8,15 +8,21 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from starlette.requests import Request
 
+from app.api.v1.module_platform.plugin.model import PluginModel, TenantPluginModel
 from app.api.v1.module_platform.tenant.model import TenantUserModel
 from app.api.v1.module_system.user.model import UserModel
 from app.config.setting import settings
-from app.core.base_schema import JWTPayloadSchema
+from app.core.base_schema import AuthSchema, JWTPayloadSchema
 from app.core.database import async_db_session
+from app.core.discover import validate_dynamic_plugin_access
+from app.core.exceptions import CustomException
 from app.core.security import create_access_token
 
 
@@ -61,6 +67,32 @@ def _create_user(test_client: TestClient, auth_headers: dict[str, str], username
         payload["mobile"] = mobile
     resp = test_client.post("/system/user/create", headers=auth_headers, json=payload)
     assert resp.status_code == 200, resp.text
+
+
+def _request_for_path(path: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "headers": [],
+            "query_string": b"",
+            "server": ("testserver", 80),
+            "scheme": "http",
+            "client": ("testclient", 50000),
+        }
+    )
+
+
+def _route_dependency_names(app, path: str, method: str = "GET") -> list[str]:
+    for route in app.routes:
+        if getattr(route, "path", None) != path or method not in (getattr(route, "methods", None) or set()):
+            continue
+        return [
+            getattr(dep.call, "__name__", dep.call.__class__.__name__)
+            for dep in route.dependant.dependencies
+        ]
+    return []
 
 
 def test_public_user_register_requires_authentication(test_client: TestClient) -> None:
@@ -284,3 +316,74 @@ def test_oauth_unsupported_provider_does_not_redirect_to_untrusted_uri(test_clie
     assert resp.status_code == 302
     assert resp.headers["location"].startswith(settings.OAUTH_FRONTEND_FALLBACK)
     assert "evil.example" not in resp.headers["location"]
+
+
+def test_logout_rejects_non_current_session_token(test_client: TestClient) -> None:
+    first = _login(test_client, username="admin", password="admin123")
+    second = _login(test_client, username="admin", password="admin123")
+
+    logout_resp = test_client.post(
+        "/system/auth/logout",
+        headers={"Authorization": f"Bearer {second['access_token']}"},
+        json={"token": first["access_token"]},
+    )
+    assert logout_resp.status_code == 401
+
+    first_session_resp = test_client.get(
+        "/system/user/current/info",
+        headers={"Authorization": f"Bearer {first['access_token']}"},
+    )
+    assert first_session_resp.status_code == 200, first_session_resp.text
+
+
+async def _set_tenant_plugin_enabled(plugin_code: str, tenant_id: int, enabled: bool) -> None:
+    async with async_db_session() as db:
+        plugin = (
+            await db.execute(select(PluginModel).where(PluginModel.code == plugin_code).limit(1))
+        ).scalar_one()
+        tenant_plugin = (
+            await db.execute(
+                select(TenantPluginModel)
+                .where(
+                    TenantPluginModel.tenant_id == tenant_id,
+                    TenantPluginModel.plugin_id == plugin.id,
+                )
+                .limit(1)
+            )
+        ).scalar_one()
+        tenant_plugin.enabled = enabled
+        await db.commit()
+
+
+async def _validate_generator_plugin_for_tenant(tenant_id: int) -> None:
+    async with async_db_session() as db:
+        auth = AuthSchema(db=db, tenant_id=tenant_id)
+        auth.user = SimpleNamespace(is_superuser=False)
+        await validate_dynamic_plugin_access(_request_for_path("/generator/gencode/list"), auth)
+
+
+def test_dynamic_plugin_access_requires_enabled_tenant_plugin() -> None:
+    import asyncio
+
+    asyncio.run(_set_tenant_plugin_enabled("code_generator", tenant_id=2, enabled=True))
+    asyncio.run(_validate_generator_plugin_for_tenant(tenant_id=2))
+
+    asyncio.run(_set_tenant_plugin_enabled("code_generator", tenant_id=2, enabled=False))
+    try:
+        with pytest.raises(CustomException):
+            asyncio.run(_validate_generator_plugin_for_tenant(tenant_id=2))
+    finally:
+        asyncio.run(_set_tenant_plugin_enabled("code_generator", tenant_id=2, enabled=True))
+
+
+def test_plugin_reload_preserves_dynamic_route_dependencies(
+    test_client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    reload_resp = test_client.post("/platform/plugin/reload", headers=auth_headers)
+    assert reload_resp.status_code == 200, reload_resp.text
+
+    dependency_names = _route_dependency_names(test_client.app, "/ai/chat/list")
+
+    assert "RateLimiter" in dependency_names
+    assert "validate_dynamic_plugin_access" in dependency_names

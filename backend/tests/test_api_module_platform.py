@@ -3,18 +3,31 @@
 认证数据测试：admin 登录后验证 CRUD 真实数据。
 """
 
+import asyncio
+
 from conftest import assert_route  # noqa: F401
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from app.api.v1.module_platform.order.model import OrderModel
+from app.core.database import async_db_session
 
 
-def _create_order(test_client: TestClient, auth_headers: dict, *, tenant_id: int = 1) -> int:
+def _create_order(test_client: TestClient, auth_headers: dict, *, tenant_id: int = 1, package_id: int = 1) -> int:
     response = test_client.post(
         "/platform/order/create",
         headers=auth_headers,
-        json={"tenant_id": tenant_id, "package_id": 1, "order_type": "new"},
+        json={"tenant_id": tenant_id, "package_id": package_id, "order_type": "new"},
     )
     assert response.status_code == 200, response.text
     return response.json()["data"]["id"]
+
+
+async def _get_order_status(order_id: int) -> int | None:
+    async with async_db_session() as db:
+        return (
+            await db.execute(select(OrderModel.status).where(OrderModel.id == order_id).limit(1))
+        ).scalar_one_or_none()
 
 
 class TestTenant:
@@ -329,11 +342,22 @@ class TestPayment:
         assert_route(test_client, "GET", f"/platform/payment/status/{order_id}", auth=auth_headers)
 
     def test_payment_callback(self, test_client: TestClient) -> None:
-        assert_route(test_client, "POST", "/platform/payment/callback/wechat")
+        response = test_client.post("/platform/payment/callback/wechat", json={})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["code"] == 400
 
     def test_payment_mock_callback(self, test_client: TestClient, auth_headers: dict) -> None:
-        order_id = _create_order(test_client, auth_headers)
-        assert_route(test_client, "POST", "/platform/payment/mock/callback", auth=auth_headers, json=order_id)
+        order_id = _create_order(test_client, auth_headers, package_id=2)
+        response = test_client.post(
+            "/platform/payment/mock/callback",
+            headers=auth_headers,
+            json=order_id,
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["data"]["status"] == 1
+        assert asyncio.run(_get_order_status(order_id)) == 1
 
 
 class TestRefund:

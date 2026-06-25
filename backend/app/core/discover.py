@@ -25,10 +25,15 @@ import sys
 from pathlib import Path
 
 # 第三方库导入
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 from fastapi import FastAPI as _FastAPI
+from fastapi_limiter.depends import RateLimiter
+from sqlalchemy import select
 
 # 内部库导入
+from app.core.base_schema import AuthSchema
+from app.core.dependencies import get_current_user
+from app.core.exceptions import CustomException
 from app.core.logger import logger
 
 # 模块级缓存：最近一次构建的动态路由实例
@@ -37,8 +42,17 @@ _dynamic_router_cache: APIRouter | None = None
 _registered_plugin_prefixes: set[str] = set()
 # 记录最近一次注册到 app 的动态路由签名，避免热重载误删同前缀的静态路由
 _registered_plugin_route_keys: set[tuple[str, tuple[str, ...]]] = set()
+# 记录最近一次扫描中导入失败的插件前缀；热重载失败时保留旧路由
+_failed_plugin_prefixes: set[str] = set()
 # 运行时引用，由 init_app.py 设置
 _app_ref: _FastAPI | None = None
+
+_PLUGIN_CODE_ALIASES: dict[str, tuple[str, ...]] = {
+    "module_ai": ("ai", "ai_assistant"),
+    "module_generator": ("generator", "code_generator"),
+    "module_task": ("task", "workflow_engine"),
+    "module_example": ("example",),
+}
 
 
 def set_app_ref(app: _FastAPI) -> None:
@@ -47,12 +61,93 @@ def set_app_ref(app: _FastAPI) -> None:
     _app_ref = app
 
 
+def get_dynamic_router_dependencies() -> list:
+    """动态插件 HTTP 路由统一依赖：限流 + 插件运行时边界。"""
+    return [
+        Depends(RateLimiter(times=200, seconds=10)),
+        Depends(validate_dynamic_plugin_access),
+    ]
+
+
+async def validate_dynamic_plugin_access(
+    request: Request,
+    auth: AuthSchema = Depends(get_current_user),
+) -> AuthSchema:
+    """校验动态插件对当前租户是否已安装、启用且可用。"""
+    if auth.user and auth.user.is_superuser:
+        return auth
+
+    module_code = _module_code_from_path(request.url.path)
+    if not module_code:
+        return auth
+    if not auth.db or not auth.tenant_id:
+        raise CustomException(msg="无法获取租户信息", code=10403, status_code=403)
+
+    from app.api.v1.module_platform.package.model import PackagePluginModel
+    from app.api.v1.module_platform.plugin.model import PluginModel, TenantPluginModel
+    from app.api.v1.module_platform.tenant.model import TenantModel
+
+    plugin_codes = _plugin_code_candidates(module_code)
+    plugins = (
+        await auth.db.execute(
+            select(PluginModel).where(
+                PluginModel.code.in_(plugin_codes),
+                PluginModel.status == 0,
+                PluginModel.is_deleted.is_(False),
+            )
+        )
+    ).scalars().all()
+    plugin_map = {plugin.code: plugin for plugin in plugins}
+    plugin = next((plugin_map[code] for code in plugin_codes if code in plugin_map), None)
+    if not plugin:
+        raise CustomException(msg="插件未注册或已停用", code=10403, status_code=403)
+
+    tenant_plugin = (
+        await auth.db.execute(
+            select(TenantPluginModel)
+            .where(
+                TenantPluginModel.tenant_id == auth.tenant_id,
+                TenantPluginModel.plugin_id == plugin.id,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if not tenant_plugin or not tenant_plugin.enabled:
+        raise CustomException(msg="插件未安装或已禁用", code=10403, status_code=403)
+    if plugin.price > 0 and not tenant_plugin.purchased:
+        raise CustomException(msg="付费插件未购买", code=10403, status_code=403)
+
+    tenant = await auth.db.get(TenantModel, auth.tenant_id)
+    if tenant and tenant.package_id:
+        package_plugin_ids = (
+            await auth.db.execute(
+                select(PackagePluginModel.plugin_id).where(PackagePluginModel.package_id == tenant.package_id)
+            )
+        ).scalars().all()
+        if package_plugin_ids and plugin.id not in package_plugin_ids:
+            raise CustomException(msg="当前套餐不支持此插件", code=10403, status_code=403)
+
+    return auth
+
+
+def _module_code_from_path(path: str) -> str | None:
+    segment = path.strip("/").split("/", 1)[0]
+    if not segment:
+        return None
+    return f"module_{segment}"
+
+
+def _plugin_code_candidates(module_code: str) -> list[str]:
+    return [module_code, *_PLUGIN_CODE_ALIASES.get(module_code, ())]
+
+
 def _build_dynamic_router() -> APIRouter:
     """实际执行扫描，返回新的动态路由 APIRouter 实例。"""
     logger.info("🚀 开始动态路由发现与注册")
 
     root_router = APIRouter()
     seen_router_ids: set[int] = set()
+    failed_prefixes: set[str] = set()
     try:
         base_package = importlib.import_module("app.plugin")
         base_dir = Path(next(iter(base_package.__path__)))
@@ -104,6 +199,7 @@ def _build_dynamic_router() -> APIRouter:
                     )
 
             except Exception as e:
+                failed_prefixes.add(prefix)
                 hint = _import_failure_hint(e)
                 logger.error(f"❌ 处理模块失败: {module_path}\n   {hint}\n   异常: {e!s}")
 
@@ -117,9 +213,10 @@ def _build_dynamic_router() -> APIRouter:
             logger.info(f"✅ 注册容器: {prefix} (子路由数: {route_count})")
 
         # 记录本次注册的所有插件前缀，供热重载时精准移除
-        global _registered_plugin_prefixes, _registered_plugin_route_keys
+        global _registered_plugin_prefixes, _registered_plugin_route_keys, _failed_plugin_prefixes
         _registered_plugin_prefixes = set(container_routers.keys())
         _registered_plugin_route_keys = {_route_key(route) for route in root_router.routes}
+        _failed_plugin_prefixes = failed_prefixes
 
         logger.info(f"✅ 动态路由发现完成: 共 {len(container_routers)} 个容器前缀")
         return root_router
@@ -171,7 +268,7 @@ def reload_dynamic_router() -> APIRouter:
     返回:
     - APIRouter: 重新构建后的动态路由实例
     """
-    global _dynamic_router_cache, _registered_plugin_prefixes, _registered_plugin_route_keys, _app_ref
+    global _dynamic_router_cache, _registered_plugin_prefixes, _registered_plugin_route_keys, _failed_plugin_prefixes, _app_ref
 
     app = _app_ref
     previous_prefixes = set(_registered_plugin_prefixes)
@@ -182,18 +279,22 @@ def reload_dynamic_router() -> APIRouter:
 
     # ── 2. 先构建新路由；仅替换成功构建出路由的前缀，避免失败模块导致旧路由下线 ──
     new_router = _build_dynamic_router()
-    refreshed_prefixes = _non_empty_prefixes(new_router, previous_prefixes or _registered_plugin_prefixes)
+    discovered_prefixes = set(_registered_plugin_prefixes)
+    failed_prefixes = set(_failed_plugin_prefixes)
+    refreshed_prefixes = _non_empty_prefixes(new_router, discovered_prefixes)
+    keep_old_prefixes = previous_prefixes & failed_prefixes
+    remove_old_prefixes = previous_prefixes - keep_old_prefixes
 
     # ── 3. 从运行中的 app 移除成功重载前缀的旧路由 ──
-    if app and refreshed_prefixes:
+    if app and remove_old_prefixes:
         before = len(app.routes)
         app.router.routes[:] = [
             r for r in app.router.routes
             if _route_key(r) not in previous_route_keys
-            or not any(getattr(r, "path", "").startswith(p) for p in refreshed_prefixes)
+            or not any(getattr(r, "path", "").startswith(p) for p in remove_old_prefixes)
         ]
         removed = before - len(app.routes)
-        logger.info(f"🧹 已移除 {removed} 条旧插件路由（前缀: {refreshed_prefixes}）")
+        logger.info(f"🧹 已移除 {removed} 条旧插件路由（前缀: {remove_old_prefixes}）")
     elif not app:
         logger.warning("⚠️ _app_ref 未设置，无法更新运行中的 app 路由；请确认 init_app.py 已调用 discover.set_app_ref(app)")
     elif previous_prefixes:
@@ -202,10 +303,20 @@ def reload_dynamic_router() -> APIRouter:
     # ── 4. 将新路由挂载回 app ──
     if app and refreshed_prefixes:
         # 构造与 init_app.py 中相同的依赖项
-        app.include_router(new_router)
+        app.include_router(new_router, dependencies=get_dynamic_router_dependencies())
         logger.info("✅ 新插件路由已挂载到运行中的 app")
 
-    if not previous_prefixes or refreshed_prefixes == _registered_plugin_prefixes:
+    if keep_old_prefixes:
+        preserved_route_keys = {
+            key
+            for key in previous_route_keys
+            if any(key[0].startswith(prefix) for prefix in keep_old_prefixes)
+        }
+        _registered_plugin_prefixes = discovered_prefixes | keep_old_prefixes
+        _registered_plugin_route_keys = _registered_plugin_route_keys | preserved_route_keys
+        logger.warning(f"⚠️ 插件前缀 {keep_old_prefixes} 热重载失败，已保留旧路由")
+
+    if not keep_old_prefixes:
         _dynamic_router_cache = new_router
     else:
         logger.warning("⚠️ 插件路由仅部分热重载成功，保留原动态路由缓存")

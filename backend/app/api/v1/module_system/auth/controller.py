@@ -22,7 +22,7 @@ from app.core.exceptions import CustomException
 from app.core.logger import logger
 from app.core.redis_crud import RedisCURD
 from app.core.router_class import OperationLogRoute
-from app.core.security import CustomOAuth2PasswordRequestForm
+from app.core.security import CustomOAuth2PasswordRequestForm, OAuth2Schema
 
 from .oauth_service import (
     STATE_PREFIX,
@@ -115,8 +115,9 @@ async def get_captcha_for_login_controller(
 async def logout_controller(
     payload: LogoutPayloadSchema,
     redis: Annotated[Redis, Depends(redis_getter)],
+    current_token: Annotated[str, Depends(OAuth2Schema)],
 ) -> JSONResponse:
-    if await LoginService.logout(redis=redis, token=payload):
+    if await LoginService.logout(redis=redis, token=payload, current_token=current_token):
         logger.info("退出成功")
         return SuccessResponse(msg="退出成功")
     return ErrorResponse(msg="退出失败")

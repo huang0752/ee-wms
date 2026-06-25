@@ -166,6 +166,12 @@ async def payment_mock_callback_controller(
         raise HTTPException(status_code=404, detail="订单不存在")
 
     mock_gw = get_mock_gateway()
+    await mock_gw.create_payment(
+        order_no=order.order_no,
+        amount=order.amount,
+        subject=f"FastapiAdmin Mock Order {order.order_no}",
+        notify_url="",
+    )
     callback_data = mock_gw.get_mock_callback_data(order.id, order.order_no)
     result = await PaymentService.handle_callback(auth=auth, method="mock", callback_data=callback_data)
     logger.info(f"Mock 支付回调触发: order_id={order_id}")

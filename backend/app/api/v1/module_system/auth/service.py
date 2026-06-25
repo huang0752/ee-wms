@@ -448,9 +448,14 @@ class LoginService:
         )
 
     @staticmethod
-    async def logout(redis: Redis, token: LogoutPayloadSchema) -> bool:
+    async def logout(redis: Redis, token: LogoutPayloadSchema, current_token: str) -> bool:
         """退出登录"""
         payload: JWTPayloadSchema = decode_access_token(token=token.token)
+        current_payload: JWTPayloadSchema = decode_access_token(token=current_token)
+
+        if payload.is_refresh or current_payload.is_refresh or payload.sub != current_payload.sub:
+            raise CustomException(msg="非法凭证,无法注销非当前会话", code=10401, status_code=401)
+
         session_id = payload.sub
 
         if not session_id:
