@@ -24,7 +24,7 @@ from app.api.v1.module_platform.tenant.model import TenantModel, TenantUserModel
 from app.api.v1.module_system.dept.model import DeptModel
 from app.api.v1.module_system.dict.model import DictDataModel, DictTypeModel
 from app.api.v1.module_system.log.model import LoginLogModel, OperationLogModel
-from app.api.v1.module_system.notice.model import NoticeModel, NoticeReadModel
+from app.api.v1.module_system.notice.model import BusinessNotificationModel, NoticeModel, NoticeReadModel
 from app.api.v1.module_system.params.model import ParamsModel
 from app.api.v1.module_system.position.model import PositionModel
 from app.api.v1.module_system.role.model import RoleModel
@@ -34,6 +34,7 @@ from app.config.path_conf import SCRIPT_DIR
 from app.core.database import async_db_session, create_tables
 from app.core.logger import logger
 from app.plugin.module_example.demo.model import DemoModel
+from app.plugin.module_task.business.task.model import BusinessTaskModel
 from app.plugin.module_task.cronjob.node.model import NodeModel
 from app.plugin.module_task.workflow.nodes.model import WorkflowNodeTypeModel
 
@@ -76,12 +77,14 @@ class InitializeData:
         # ── 其他系统/业务表 ──
         NoticeModel,
         NoticeReadModel,
+        BusinessNotificationModel,
         TicketModel,
         # ── 日志表（追加写入） ──
         LoginLogModel,
         OperationLogModel,
         # ── 插件表 ──
         NodeModel,
+        BusinessTaskModel,
         WorkflowNodeTypeModel,
         DemoModel,
     ]

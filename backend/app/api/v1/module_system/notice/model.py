@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base_model import MappedBase, ModelMixin, TenantMixin, UserMixin
@@ -47,3 +47,22 @@ class NoticeReadModel(MappedBase):
 
     # 关联
     notice: Mapped[NoticeModel] = relationship("NoticeModel", lazy="selectin")
+
+
+class BusinessNotificationModel(ModelMixin, TenantMixin, UserMixin):
+    """业务通知/待办/预警表。"""
+
+    __tablename__: str = "sys_business_notification"
+    __table_args__: dict[str, str] = {"comment": "业务通知待办预警表"}
+    __loader_options__: list[str] = ["created_by", "updated_by", "deleted_by", "tenant_by"]
+
+    module: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment="业务模块")
+    biz_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment="业务类型")
+    biz_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True, comment="业务对象ID")
+    title: Mapped[str] = mapped_column(String(128), nullable=False, comment="标题")
+    content: Mapped[str | None] = mapped_column(Text, nullable=True, comment="内容")
+    level: Mapped[str] = mapped_column(String(32), default="info", nullable=False, index=True, comment="级别")
+    action_url: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="处理链接")
+    handled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True, comment="是否已处理")
+    handled_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="处理时间")
+    description: Mapped[str | None] = mapped_column(Text, default=None, nullable=True, comment="备注")

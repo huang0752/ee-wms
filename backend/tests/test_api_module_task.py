@@ -9,6 +9,7 @@
 
 from conftest import assert_route
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 # ============================================================
 # /task/cronjob — 调度器与任务
@@ -204,3 +205,146 @@ class TestWorkflowNodeType:
 
     def test_wf_node_type_select(self, test_client: TestClient) -> None:
         assert_route(test_client, "GET", "/task/workflow/node-type/select")
+
+
+# ============================================================
+# /task/business — 通用业务任务/试用数据/行业样例框架
+# ============================================================
+
+
+class TestBusinessTask:
+    """通用业务长任务中心。"""
+
+    def test_business_task_create_and_status_flow(self, test_client: TestClient, auth_headers: dict) -> None:
+        create_resp = test_client.post(
+            "/task/business/task/create",
+            headers=auth_headers,
+            json={
+                "module": "wms",
+                "biz_type": "inventory_import",
+                "biz_id": "IMP-001",
+                "title": "库存导入",
+                "payload": {"file": "demo.xlsx"},
+            },
+        )
+        assert create_resp.status_code == 200, create_resp.text
+        task = create_resp.json()["data"]
+        assert task["status"] == "pending"
+        assert task["progress"] == 0
+        assert task["module"] == "wms"
+        assert task["biz_type"] == "inventory_import"
+
+        update_resp = test_client.patch(
+            f"/task/business/task/status/{task['id']}",
+            headers=auth_headers,
+            json={"status": "running", "progress": 45},
+        )
+        assert update_resp.status_code == 200, update_resp.text
+        running = update_resp.json()["data"]
+        assert running["status"] == "running"
+        assert running["progress"] == 45
+
+        finish_resp = test_client.patch(
+            f"/task/business/task/status/{task['id']}",
+            headers=auth_headers,
+            json={"status": "success", "progress": 100, "result": {"rows": 3}},
+        )
+        assert finish_resp.status_code == 200, finish_resp.text
+        finished = finish_resp.json()["data"]
+        assert finished["status"] == "success"
+        assert finished["progress"] == 100
+        assert finished["result"] == {"rows": 3}
+
+    async def test_business_task_is_tenant_isolated(self, test_client: TestClient) -> None:
+        _ = test_client
+        from app.api.v1.module_system.user.model import UserModel
+        from app.core.base_schema import AuthSchema
+        from app.core.database import async_db_session
+        from app.plugin.module_task.business.task.schema import BusinessTaskCreateSchema, BusinessTaskQueryParam
+        from app.plugin.module_task.business.task.service import BusinessTaskService
+
+        async with async_db_session() as db:
+            tenant_a_user = (
+                await db.execute(select(UserModel).where(UserModel.username == "user"))
+            ).scalar_one()
+            tenant_b_user = (
+                await db.execute(select(UserModel).where(UserModel.username == "test_user"))
+            ).scalar_one()
+
+            tenant_a_auth = AuthSchema(db=db, user=tenant_a_user, tenant_id=tenant_a_user.tenant_id)
+            tenant_b_auth = AuthSchema(db=db, user=tenant_b_user, tenant_id=tenant_b_user.tenant_id)
+
+            await BusinessTaskService(tenant_a_auth).create(
+                BusinessTaskCreateSchema(
+                    module="crm",
+                    biz_type="customer_import",
+                    biz_id="TENANT-A-ONLY",
+                    title="租户A任务",
+                )
+            )
+            await db.flush()
+
+            search = BusinessTaskQueryParam(biz_id="TENANT-A-ONLY")
+            page = await BusinessTaskService(tenant_b_auth).page(page_no=1, page_size=10, search=search)
+
+        assert page.total == 0
+        assert page.items == []
+
+    def test_business_task_rejects_invalid_status_transition(self, test_client: TestClient, auth_headers: dict) -> None:
+        create_resp = test_client.post(
+            "/task/business/task/create",
+            headers=auth_headers,
+            json={"module": "wms", "biz_type": "stocktake", "title": "盘点"},
+        )
+        assert create_resp.status_code == 200, create_resp.text
+        task_id = create_resp.json()["data"]["id"]
+
+        finish_resp = test_client.patch(
+            f"/task/business/task/status/{task_id}",
+            headers=auth_headers,
+            json={"status": "success", "progress": 100},
+        )
+        assert finish_resp.status_code == 200, finish_resp.text
+
+        rewind_resp = test_client.patch(
+            f"/task/business/task/status/{task_id}",
+            headers=auth_headers,
+            json={"status": "running", "progress": 50},
+        )
+        assert rewind_resp.status_code == 400, rewind_resp.text
+
+
+class TestDemoBatchAndIndustrySamples:
+    """试用数据初始化任务框架和行业样例包。"""
+
+    def test_demo_batch_trigger_and_clean_framework(self, test_client: TestClient, auth_headers: dict) -> None:
+        trigger_resp = test_client.post(
+            "/task/demo-batch/trigger",
+            headers=auth_headers,
+            json={"module": "wms", "scenario": "starter"},
+        )
+        assert trigger_resp.status_code == 200, trigger_resp.text
+        batch = trigger_resp.json()["data"]
+        assert batch["module"] == "wms"
+        assert batch["scenario"] == "starter"
+        assert batch["is_demo"] is True
+        assert batch["demo_batch_id"]
+        assert batch["task_id"] > 0
+
+        clean_resp = test_client.delete(
+            f"/task/demo-batch/clean/{batch['demo_batch_id']}",
+            headers=auth_headers,
+        )
+        assert clean_resp.status_code == 200, clean_resp.text
+        assert clean_resp.json()["data"]["demo_batch_id"] == batch["demo_batch_id"]
+
+    def test_industry_sample_pack_routes(self, test_client: TestClient, auth_headers: dict) -> None:
+        packs_resp = test_client.get("/task/industry/sample-packs", headers=auth_headers)
+        assert packs_resp.status_code == 200, packs_resp.text
+        packs = packs_resp.json()["data"]
+        assert any(pack["code"] == "wms_starter" for pack in packs)
+
+        terms_resp = test_client.get("/task/industry/terms?wms=true", headers=auth_headers)
+        assert terms_resp.status_code == 200, terms_resp.text
+        terms = terms_resp.json()["data"]
+        assert any(term["term"] == "SKU" for term in terms)

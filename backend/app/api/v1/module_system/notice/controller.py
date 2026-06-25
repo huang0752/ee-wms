@@ -14,13 +14,17 @@ from app.core.router_class import OperationLogRoute
 from app.utils.common_util import bytes2file_response
 
 from .schema import (
+    BusinessNotificationCreateSchema,
+    BusinessNotificationOutSchema,
+    BusinessNotificationQueryParam,
+    BusinessNotificationUpdateSchema,
     NoticeCreateSchema,
     NoticeOutSchema,
     NoticeQueryParam,
     NoticeUpdateSchema,
     PanelDataOut,
 )
-from .service import NoticeService
+from .service import BusinessNotificationService, NoticeService
 
 NoticeRouter = APIRouter(route_class=OperationLogRoute, prefix="/notice", tags=["系统管理", "公告通知"])
 
@@ -193,3 +197,51 @@ async def get_unread_count_controller(
     """获取未读通知数量。通过 LEFT JOIN 统计未读数。"""
     count = await NoticeService(auth).get_unread_count()
     return SuccessResponse(data=count, msg="获取未读数量成功")
+
+
+@NoticeRouter.post(
+    "/business/create",
+    summary="创建业务通知",
+    response_model=ResponseSchema[BusinessNotificationOutSchema],
+)
+async def create_business_notification_controller(
+    data: BusinessNotificationCreateSchema,
+    auth: Annotated[AuthSchema, Depends(AuthPermission())],
+) -> JSONResponse:
+    result = await BusinessNotificationService(auth).create(data=data)
+    await cache_util.clear(namespace=_NOTICE_NS)
+    return SuccessResponse(data=result, msg="创建业务通知成功")
+
+
+@NoticeRouter.get(
+    "/business/list",
+    summary="查询业务通知",
+    response_model=ResponseSchema[PageResultSchema[BusinessNotificationOutSchema]],
+)
+async def list_business_notification_controller(
+    page: Annotated[PaginationQueryParam, Depends()],
+    search: Annotated[BusinessNotificationQueryParam, Depends()],
+    auth: Annotated[AuthSchema, Depends(AuthPermission())],
+) -> JSONResponse:
+    result = await BusinessNotificationService(auth).page(
+        page_no=page.page_no,
+        page_size=page.page_size,
+        search=search,
+        order_by=page.order_by,
+    )
+    return SuccessResponse(data=result, msg="查询业务通知成功")
+
+
+@NoticeRouter.patch(
+    "/business/handle/{id}",
+    summary="处理业务通知",
+    response_model=ResponseSchema[BusinessNotificationOutSchema],
+)
+async def handle_business_notification_controller(
+    data: BusinessNotificationUpdateSchema,
+    id: Annotated[int, Path(description="业务通知ID")],
+    auth: Annotated[AuthSchema, Depends(AuthPermission())],
+) -> JSONResponse:
+    result = await BusinessNotificationService(auth).handle(id=id, data=data)
+    await cache_util.clear(namespace=_NOTICE_NS)
+    return SuccessResponse(data=result, msg="处理业务通知成功")
