@@ -2,6 +2,7 @@ import type { App } from "vue";
 import { createRouter, createWebHashHistory } from "vue-router";
 import { HOME_ROUTE_NAME, ROOT_LAYOUT_ROUTE_NAME, staticRoutes } from "./staticRoutes";
 import { setupAfterEachGuard } from "./afterEach";
+import { filterAppRoutesByAssembly } from "./filterByAssembly";
 import "@utils/ui";
 
 /**
@@ -15,7 +16,7 @@ import "@utils/ui";
  */
 export const router = createRouter({
   history: createWebHashHistory(),
-  routes: staticRoutes,
+  routes: filterAppRoutesByAssembly(staticRoutes),
   scrollBehavior: () => ({ left: 0, top: 0 }),
 });
 

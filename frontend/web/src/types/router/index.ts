@@ -79,6 +79,11 @@ declare module "vue-router" {
     shellRoute?: boolean;
 
     /**
+     * 产品能力装配路由组。用于按 assembly 过滤静态入口。
+     */
+    routeGroup?: string;
+
+    /**
      * 是否在面包屑导航中隐藏
      * true 隐藏, false 显示
      * @default false
@@ -131,6 +136,8 @@ export interface RouteMeta extends Record<string | number | symbol, unknown> {
   parentPath?: string;
   /** 静态壳层菜单（侧边栏可点，组件由静态路由提供） */
   shellRoute?: boolean;
+  /** 产品能力装配路由组 */
+  routeGroup?: string;
   /** @see RouteMeta（vue-router 模块扩展） */
   remountOnFullPath?: boolean;
 }

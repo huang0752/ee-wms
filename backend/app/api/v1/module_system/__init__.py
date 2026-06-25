@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.module_system.auth.controller import AuthRouter
+from app.api.v1.module_system.config.controller import ConfigRouter
 from app.api.v1.module_system.dept.controller import DeptRouter
 from app.api.v1.module_system.dict.controller import DictRouter
 from app.api.v1.module_system.log import LogRouter
@@ -14,6 +15,7 @@ from app.api.v1.module_system.user.controller import UserRouter
 system_router = APIRouter(prefix="/system")
 
 system_router.include_router(AuthRouter)
+system_router.include_router(ConfigRouter)
 system_router.include_router(DeptRouter)
 system_router.include_router(DictRouter)
 system_router.include_router(LogRouter)

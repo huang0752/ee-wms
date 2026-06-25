@@ -5,6 +5,7 @@
  * 保持 App.vue 的 onMounted 为单行调用。
  */
 import { useSiteConfig } from "@/hooks/core/useSiteConfig";
+import { useAssemblyStore } from "@stores";
 import {
   checkStorageCompatibility,
   startVersionPolling,
@@ -14,12 +15,14 @@ import {
 
 export function useAppBootstrap() {
   const { initSiteConfig } = useSiteConfig();
+  const assemblyStore = useAssemblyStore();
 
   const bootstrap = () => {
     checkStorageCompatibility();
     toggleTransition(false);
     systemUpgrade();
     startVersionPolling();
+    assemblyStore.loadPublicConfig();
     initSiteConfig();
   };
 

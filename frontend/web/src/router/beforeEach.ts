@@ -22,7 +22,13 @@
 import type { AppRouteRecord } from "@/types/router";
 import type { Router, RouteLocationNormalized } from "vue-router";
 import { nextTick } from "vue";
-import { useSettingsStore, useUserStore, useMenuStore, useWorktabStore } from "@stores";
+import {
+  useSettingsStore,
+  useUserStore,
+  useMenuStore,
+  useWorktabStore,
+  useAssemblyStore,
+} from "@stores";
 import { IframeRouteManager, ROUTE_PATH_LOGIN_ALT, staticRoutes } from "./staticRoutes";
 import { useCommon } from "@/hooks/core/useCommon";
 import {
@@ -151,6 +157,11 @@ async function handleRouteGuard(
     return { name: "Login", replace: true };
   }
 
+  await ensureAssemblyLoaded();
+  if (!isAssemblyRouteAllowed(to)) {
+    return { name: "404", replace: true };
+  }
+
   const loginRedirect = handleLoginStatus(to, userStore);
   if (loginRedirect) return loginRedirect;
 
@@ -178,6 +189,21 @@ async function handleRouteGuard(
   }
 
   return { name: "404" };
+}
+
+async function ensureAssemblyLoaded(): Promise<void> {
+  const assemblyStore = useAssemblyStore();
+  if (!assemblyStore.loaded) {
+    await assemblyStore.loadPublicConfig();
+  }
+}
+
+function isAssemblyRouteAllowed(to: RouteLocationNormalized): boolean {
+  const assemblyStore = useAssemblyStore();
+  return to.matched.every((record) => {
+    const routeGroup = record.meta?.routeGroup as string | undefined;
+    return assemblyStore.isRouteGroupEnabled(routeGroup);
+  });
 }
 
 /** @returns undefined 继续守卫，或重定向到登录页的路由 */

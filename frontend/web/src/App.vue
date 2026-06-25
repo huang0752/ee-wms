@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeMount, onMounted, onUnmounted } from "vue";
-import { useAppStore, useUserStore } from "./store";
+import { useAppStore, useAssemblyStore, useUserStore } from "./store";
 import { useSettingsStore } from "./store/modules/setting.store";
 import { defaultSettings } from "./config/setting";
 import { ComponentSize } from "./enums/settings/layout.enum";
@@ -39,6 +39,7 @@ import { router } from "@/router";
 const appStore = useAppStore();
 const settingsStore = useSettingsStore();
 const userStore = useUserStore();
+const assemblyStore = useAssemblyStore();
 
 const size = computed(() => appStore.size as ComponentSize);
 const showWatermark = computed(() => settingsStore.showWatermark);
@@ -53,7 +54,7 @@ const locale = computed(() => {
 const enableAiAssistant = computed(() => {
   const isEnabled = settingsStore.userEnableAi;
   const isLoggedIn = userStore.basicInfo && Object.keys(userStore.basicInfo).length > 0;
-  return isEnabled && isLoggedIn;
+  return isEnabled && isLoggedIn && assemblyStore.isFeatureEnabled("aiAssistant", true);
 });
 
 // 水印文字默认使用当前主题色（半透明），随主题色设置变化

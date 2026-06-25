@@ -1,0 +1,4 @@
+name = "saas-admin"
+depends = ["business-admin"]
+
+# 当前 SaaS 底座首版复用 business-admin 的 seed；保留独立 pack 便于后续拆分套餐、计费和插件市场数据。

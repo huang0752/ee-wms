@@ -1,0 +1,62 @@
+name = "minimal"
+depends = []
+
+[[tables]]
+table = "platform_package"
+file = "../../data/platform_package.json"
+
+[[tables]]
+table = "platform_tenant"
+file = "../../data/platform_tenant.json"
+
+[[tables]]
+table = "platform_menu"
+file = "../../data/platform_menu.json"
+
+[[tables]]
+table = "sys_param"
+file = "../../data/sys_param.json"
+
+[[tables]]
+table = "sys_dept"
+file = "../../data/sys_dept.json"
+
+[[tables]]
+table = "sys_role"
+file = "../../data/sys_role.json"
+
+[[tables]]
+table = "sys_dict_type"
+file = "../../data/sys_dict_type.json"
+
+[[tables]]
+table = "sys_dict_data"
+file = "../../data/sys_dict_data.json"
+
+[[tables]]
+table = "sys_position"
+file = "../../data/sys_position.json"
+
+[[tables]]
+table = "sys_user"
+file = "../../data/sys_user.json"
+
+[[tables]]
+table = "sys_user_roles"
+file = "../../data/sys_user_roles.json"
+
+[[tables]]
+table = "platform_user_tenant"
+file = "../../data/platform_user_tenant.json"
+
+[[tables]]
+table = "platform_package_menu"
+file = "../../data/platform_package_menu.json"
+
+[[tables]]
+table = "platform_email_config"
+file = "../../data/platform_email_config.json"
+
+[[tables]]
+table = "platform_email_template"
+file = "../../data/platform_email_template.json"

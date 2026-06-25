@@ -1,0 +1,21 @@
+[assembly]
+name = "saas-admin"
+title = "SaaS 管理后台装配"
+description = "保留租户、套餐、插件、平台管理、任务、通知和代码生成等 SaaS 底座能力。"
+
+[core]
+required = ["auth", "tenant", "user", "role", "permission", "menu", "settings", "audit"]
+
+[backend]
+enabled_plugins = ["module_task", "module_generator", "module_ai"]
+disabled_plugins = ["module_example"]
+
+[frontend]
+enabled_route_groups = ["auth", "home", "dashboard", "system", "platform", "module-task", "module-generator", "ai-chat", "user-profile", "payment", "workspace", "outside", "exception"]
+disabled_route_groups = ["pricing", "article", "tutorial"]
+
+[seed]
+packs = ["saas-admin"]
+
+[features]
+flags = { ai_assistant = true, plugin_market = true, tenant_package = true, demo_content = false, fast_enter = true }

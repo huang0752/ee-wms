@@ -33,7 +33,8 @@
     "lint:stylelint": "stylelint \"**/*.{css,scss,vue}\" --cache --fix",
     "lint:lint-staged": "lint-staged -c ./.husky/lintstagedrc.cjs",
     "commit": "git-cz",
-    "clean:dev": "tsx scripts/clean-dev.ts"
+    "clean:dev": "tsx scripts/clean-dev.ts",
+    "clean:starter": "cd ../../backend && uv run python -m app.scripts.apply_starter"
   },
   "config": {
     "commitizen": {

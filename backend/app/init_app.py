@@ -26,8 +26,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[Any, Any]:
     from app.api.v1.module_system.dict.service import DictDataService
     from app.api.v1.module_system.params.service import ParamsService
     from app.core.ap_scheduler import SchedulerUtil
+    from app.core.assembly import get_assembly
 
     try:
+        get_assembly().log_summary()
         await InitializeData().init_db()
         logger.info("✅ {}数据库初始化完成", settings.DATABASE_TYPE)
         await import_modules_async(modules=settings.EVENT_LIST, desc="全局事件", app=app, status=True)
@@ -103,12 +105,19 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(platform_router, dependencies=[Depends(RateLimiter(times=200, seconds=10))])
     app.include_router(system_router, dependencies=[Depends(RateLimiter(times=200, seconds=10))])
 
-    from app.plugin.module_ai.chat.ws import WS_AI
-    app.include_router(router=WS_AI, dependencies=[Depends(WebSocketRateLimiter(times=200, seconds=10))])
-    
+    from app.core.assembly import is_plugin_enabled
+
+    if is_plugin_enabled("module_ai"):
+        from app.plugin.module_ai.chat.ws import WS_AI
+
+        app.include_router(router=WS_AI, dependencies=[Depends(WebSocketRateLimiter(times=200, seconds=10))])
+    else:
+        logger.info("⏭️  跳过 AI WebSocket 路由：assembly disabled module_ai")
+
     from app.core.discover import get_dynamic_router, get_dynamic_router_dependencies, set_app_ref
     app.include_router(router=get_dynamic_router(), dependencies=get_dynamic_router_dependencies())
     set_app_ref(app)
+
 
 def register_files(app: FastAPI) -> None:
     if settings.STATIC_ENABLE:
