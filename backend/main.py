@@ -8,8 +8,6 @@ from fastapi import FastAPI
 
 from alembic import command
 from app.common.enums import EnvironmentEnum
-from app.config.setting import settings
-from app.core.logger import logger
 from app.utils.banner import worship
 
 fastapiadmin_cli = typer.Typer()
@@ -23,7 +21,10 @@ def create_app() -> FastAPI:
     返回:
     - FastAPI: 已配置生命周期的应用对象。
     """
+    from app.config.setting import get_settings
     from app.init_app import lifespan, register_exceptions, register_files, register_middlewares, register_routers, reset_api_docs
+
+    settings = get_settings()
     # 创建FastAPI应用
     app = FastAPI(**settings.FASTAPI_CONFIG, lifespan=lifespan)
     # 注册异常处理器
@@ -61,6 +62,11 @@ def run(
 
     # 设置环境变量（必须在 import settings 之前，确保加载正确环境）
     os.environ["ENVIRONMENT"] = env.value
+    from app.config.setting import get_settings
+
+    get_settings.cache_clear()
+    settings = get_settings()
+    from app.core.logger import logger
 
     typer.secho(
         message="FastapiAdmin 服务启动",
