@@ -35,6 +35,8 @@ from app.core.logger import logger
 _dynamic_router_cache: APIRouter | None = None
 # 记录最近一次注册到 app 的插件路径前缀，用于热重载时精准移除
 _registered_plugin_prefixes: set[str] = set()
+# 记录最近一次注册到 app 的动态路由签名，避免热重载误删同前缀的静态路由
+_registered_plugin_route_keys: set[tuple[str, tuple[str, ...]]] = set()
 # 运行时引用，由 init_app.py 设置
 _app_ref: _FastAPI | None = None
 
@@ -115,8 +117,9 @@ def _build_dynamic_router() -> APIRouter:
             logger.info(f"✅ 注册容器: {prefix} (子路由数: {route_count})")
 
         # 记录本次注册的所有插件前缀，供热重载时精准移除
-        global _registered_plugin_prefixes
+        global _registered_plugin_prefixes, _registered_plugin_route_keys
         _registered_plugin_prefixes = set(container_routers.keys())
+        _registered_plugin_route_keys = {_route_key(route) for route in root_router.routes}
 
         logger.info(f"✅ 动态路由发现完成: 共 {len(container_routers)} 个容器前缀")
         return root_router
@@ -139,6 +142,19 @@ def get_dynamic_router() -> APIRouter:
     return _dynamic_router_cache
 
 
+def _non_empty_prefixes(router: APIRouter, prefixes: set[str]) -> set[str]:
+    return {
+        prefix
+        for prefix in prefixes
+        if any(getattr(route, "path", "").startswith(prefix) for route in router.routes)
+    }
+
+
+def _route_key(route) -> tuple[str, tuple[str, ...]]:
+    methods = getattr(route, "methods", None) or ()
+    return getattr(route, "path", ""), tuple(sorted(methods))
+
+
 def reload_dynamic_router() -> APIRouter:
     """
     清除插件模块缓存并重新扫描，同时更新已挂载到 FastAPI app 的路由。
@@ -155,36 +171,47 @@ def reload_dynamic_router() -> APIRouter:
     返回:
     - APIRouter: 重新构建后的动态路由实例
     """
-    global _dynamic_router_cache, _registered_plugin_prefixes, _app_ref
+    global _dynamic_router_cache, _registered_plugin_prefixes, _registered_plugin_route_keys, _app_ref
 
     app = _app_ref
+    previous_prefixes = set(_registered_plugin_prefixes)
+    previous_route_keys = set(_registered_plugin_route_keys)
 
-    # ── 1. 从运行中的 app 移除旧的插件路由 ──
-    if app and _registered_plugin_prefixes:
-        before = len(app.routes)
-        app.routes = [
-            r for r in app.routes
-            if not any(
-                getattr(r, "path", "").startswith(p)
-                for p in _registered_plugin_prefixes
-            )
-        ]
-        removed = before - len(app.routes)
-        logger.info(f"🧹 已移除 {removed} 条旧插件路由（前缀: {_registered_plugin_prefixes}）")
-    elif not app:
-        logger.warning("⚠️ _app_ref 未设置，无法更新运行中的 app 路由；请确认 init_app.py 已调用 discover.set_app_ref(app)")
-
-    # ── 2. 清除插件模块缓存，迫使 importlib 重新执行模块代码 ──
+    # ── 1. 清除插件模块缓存，迫使 importlib 重新执行模块代码 ──
     _purge_plugin_modules()
 
-    # ── 3. 将新路由挂载回 app ──
-    if app:
+    # ── 2. 先构建新路由；仅替换成功构建出路由的前缀，避免失败模块导致旧路由下线 ──
+    new_router = _build_dynamic_router()
+    refreshed_prefixes = _non_empty_prefixes(new_router, previous_prefixes or _registered_plugin_prefixes)
+
+    # ── 3. 从运行中的 app 移除成功重载前缀的旧路由 ──
+    if app and refreshed_prefixes:
+        before = len(app.routes)
+        app.router.routes[:] = [
+            r for r in app.router.routes
+            if _route_key(r) not in previous_route_keys
+            or not any(getattr(r, "path", "").startswith(p) for p in refreshed_prefixes)
+        ]
+        removed = before - len(app.routes)
+        logger.info(f"🧹 已移除 {removed} 条旧插件路由（前缀: {refreshed_prefixes}）")
+    elif not app:
+        logger.warning("⚠️ _app_ref 未设置，无法更新运行中的 app 路由；请确认 init_app.py 已调用 discover.set_app_ref(app)")
+    elif previous_prefixes:
+        logger.warning("⚠️ 插件热重载未生成可替换的新路由，已保留运行中的旧插件路由")
+
+    # ── 4. 将新路由挂载回 app ──
+    if app and refreshed_prefixes:
         # 构造与 init_app.py 中相同的依赖项
-        app.include_router(_build_dynamic_router())
+        app.include_router(new_router)
         logger.info("✅ 新插件路由已挂载到运行中的 app")
 
+    if not previous_prefixes or refreshed_prefixes == _registered_plugin_prefixes:
+        _dynamic_router_cache = new_router
+    else:
+        logger.warning("⚠️ 插件路由仅部分热重载成功，保留原动态路由缓存")
+
     logger.info("✅ 插件动态路由热重载完成")
-    return _build_dynamic_router()
+    return new_router
 
 
 def _purge_plugin_modules() -> None:

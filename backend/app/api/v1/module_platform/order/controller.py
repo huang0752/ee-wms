@@ -251,20 +251,6 @@ async def refund_reject_controller(
     return SuccessResponse(data=result, msg=result["message"])
 
 @TenantOrderRouter.post(
-    "/create",
-    summary="租户端创建订单",
-    response_model=ResponseSchema[OrderOutSchema],
-)
-async def tenant_order_create_controller(
-    data: Annotated[OrderCreateSchema, Body()],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["tenant:order:create"]))],
-) -> JSONResponse:
-    if data.tenant_id != auth.tenant_id:
-        raise HTTPException(status_code=403, detail="无权操作")
-    result = await OrderService.create_order(auth=auth, data=data)
-    return SuccessResponse(data=result, msg="订单创建成功")
-
-@TenantOrderRouter.post(
     "/refund/apply/{order_id}",
     summary="申请退款",
     response_model=ResponseSchema[RefundOutSchema],

@@ -270,11 +270,7 @@ def assert_route(
     if headers:
         kwargs["headers"] = headers
 
-    try:
-        response = test_client.request(method, path, **kwargs)
-    except Exception:
-        # 后端代码异常（500 等），路由存在即不计为测试失败
-        return
+    response = test_client.request(method, path, **kwargs)
 
     if expected_status is not None:
         assert response.status_code == expected_status, (

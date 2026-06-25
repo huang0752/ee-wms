@@ -177,7 +177,7 @@ class PluginService:
         )
         plugins = []
         for p, tp in result.all():
-            d = PluginOutSchema.model_validate(p)
+            d = PluginOutSchema.model_validate(p).model_dump(mode="json")
             d["enabled"] = tp.enabled
             d["installed"] = True
             d["installed_time"] = tp.installed_time.strftime("%Y-%m-%d %H:%M") if tp.installed_time else ""

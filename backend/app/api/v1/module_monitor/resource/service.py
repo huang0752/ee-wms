@@ -372,19 +372,16 @@ class ResourceService:
     @staticmethod
     async def move_file(data: ResourceMoveSchema) -> None:
         source_safe = ResourceService._get_safe_path(data.source_path)
-        target_dir_safe = ResourceService._get_safe_path(data.target_dir)
 
         if not os.path.exists(source_safe):
             raise CustomException(msg=f"源文件不存在: {data.source_path}")
 
-        if not os.path.isdir(target_dir_safe):
-            raise CustomException(msg=f"目标目录不存在: {data.target_dir}")
-
-        filename = os.path.basename(source_safe)
-        target_path = os.path.join(target_dir_safe, filename)
+        target_path = ResourceService._resolve_transfer_target_path(source_safe, data.target_path)
 
         if os.path.exists(target_path):
-            raise CustomException(msg=f"目标位置已存在同名文件: {filename}")
+            if not data.overwrite:
+                raise CustomException(msg=f"目标位置已存在: {data.target_path}")
+            ResourceService._remove_existing_path(target_path)
 
         try:
             shutil.move(source_safe, target_path)
@@ -393,24 +390,21 @@ class ResourceService:
         except OSError as e:
             raise CustomException(msg=f"移动文件失败: {e!s}")
 
-        logger.info(f"成功移动文件: {data.source_path} -> {data.target_dir}")
+        logger.info(f"成功移动文件: {data.source_path} -> {data.target_path}")
 
     @staticmethod
     async def copy_file(data: ResourceCopySchema) -> None:
         source_safe = ResourceService._get_safe_path(data.source_path)
-        target_dir_safe = ResourceService._get_safe_path(data.target_dir)
 
         if not os.path.exists(source_safe):
             raise CustomException(msg=f"源文件不存在: {data.source_path}")
 
-        if not os.path.isdir(target_dir_safe):
-            raise CustomException(msg=f"目标目录不存在: {data.target_dir}")
-
-        filename = os.path.basename(source_safe)
-        target_path = os.path.join(target_dir_safe, filename)
+        target_path = ResourceService._resolve_transfer_target_path(source_safe, data.target_path)
 
         if os.path.exists(target_path):
-            raise CustomException(msg=f"目标位置已存在同名文件: {filename}")
+            if not data.overwrite:
+                raise CustomException(msg=f"目标位置已存在: {data.target_path}")
+            ResourceService._remove_existing_path(target_path)
 
         try:
             if os.path.isdir(source_safe):
@@ -422,7 +416,30 @@ class ResourceService:
         except OSError as e:
             raise CustomException(msg=f"复制文件失败: {e!s}")
 
-        logger.info(f"成功复制文件: {data.source_path} -> {data.target_dir}")
+        logger.info(f"成功复制文件: {data.source_path} -> {data.target_path}")
+
+    @staticmethod
+    def _resolve_transfer_target_path(source_safe: str, target_path: str) -> str:
+        target_safe = ResourceService._get_safe_path(target_path)
+        if os.path.isdir(target_safe):
+            return os.path.join(target_safe, os.path.basename(source_safe))
+
+        target_parent = os.path.dirname(target_safe)
+        if not os.path.isdir(target_parent):
+            raise CustomException(msg=f"目标目录不存在: {os.path.dirname(target_path) or '/'}")
+        return target_safe
+
+    @staticmethod
+    def _remove_existing_path(path: str) -> None:
+        try:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+        except PermissionError:
+            raise CustomException(msg=f"没有权限覆盖目标路径: {path}")
+        except OSError as e:
+            raise CustomException(msg=f"覆盖目标路径失败: {e!s}")
 
     @staticmethod
     async def rename_file(data: ResourceRenameSchema) -> None:

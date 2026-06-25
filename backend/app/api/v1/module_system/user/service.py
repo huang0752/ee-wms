@@ -461,7 +461,10 @@ class UserService:
             "updated_id": "更新者ID",
         }
 
-        data = user_list.copy()
+        data = [
+            item.model_dump(mode="json") if hasattr(item, "model_dump") else dict(item)
+            for item in user_list
+        ]
         for item in data:
             item["status"] = "启用" if item.get("status") == 0 else "停用"
             gender = item.get("gender")
