@@ -7,8 +7,17 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from app.api.v1.module_platform.tenant.model import TenantUserModel
+from app.api.v1.module_system.user.model import UserModel
+from app.config.setting import settings
+from app.core.base_schema import JWTPayloadSchema
+from app.core.database import async_db_session
+from app.core.security import create_access_token
 
 
 def _unique(prefix: str) -> str:
@@ -22,6 +31,24 @@ def _login(test_client: TestClient, username: str, password: str) -> dict:
     )
     assert resp.status_code == 200, resp.text
     return resp.json()["data"]
+
+
+async def _get_membership(username: str, tenant_id: int) -> TenantUserModel | None:
+    async with async_db_session() as db:
+        user = (
+            await db.execute(
+                select(UserModel).where(UserModel.username == username).limit(1)
+            )
+        ).scalar_one_or_none()
+        if not user:
+            return None
+        return (
+            await db.execute(
+                select(TenantUserModel)
+                .where(TenantUserModel.user_id == user.id, TenantUserModel.tenant_id == tenant_id)
+                .limit(1)
+            )
+        ).scalar_one_or_none()
 
 
 def _create_user(test_client: TestClient, auth_headers: dict[str, str], username: str, password: str, mobile: str | None = None) -> None:
@@ -190,3 +217,70 @@ def test_old_refresh_token_is_rejected_after_rotation(test_client: TestClient) -
     )
 
     assert second_refresh.status_code == 401
+
+
+def test_token_creation_adds_unique_jti_for_same_payload() -> None:
+    exp = datetime.now() + timedelta(minutes=5)
+    payload = JWTPayloadSchema(sub="same-session", is_refresh=True, exp=exp, iat=1)
+
+    first = create_access_token(payload)
+    second = create_access_token(payload)
+
+    assert first != second
+
+
+def test_tenant_register_creates_membership_and_allows_login(test_client: TestClient) -> None:
+    username = _unique("tenantreg")
+    password = "tenant123"
+    email = f"{username}@example.com"
+
+    register_resp = test_client.post(
+        "/system/auth/tenant/register",
+        json={"username": username, "password": password, "email": email},
+    )
+    assert register_resp.status_code == 200, register_resp.text
+
+    login_data = _login(test_client, username=username, password=password)
+    info_resp = test_client.get(
+        "/system/user/current/info",
+        headers={"Authorization": f"Bearer {login_data['access_token']}"},
+    )
+
+    assert info_resp.status_code == 200, info_resp.text
+    assert info_resp.json()["data"]["username"] == username
+
+
+def test_platform_tenant_create_adds_initial_admin_membership(
+    test_client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    suffix = str(time.time_ns() % 1_000_000_000_000)
+    code = f"T{suffix}"
+
+    resp = test_client.post(
+        "/platform/tenant/create",
+        headers=auth_headers,
+        json={"name": f"租户{suffix}", "code": code},
+    )
+    assert resp.status_code == 200, resp.text
+    tenant_id = resp.json()["data"]["id"]
+
+    import asyncio
+
+    membership = asyncio.run(_get_membership(f"{code}_admin", tenant_id))
+
+    assert membership is not None
+    assert membership.role == "owner"
+    assert membership.is_default == 1
+
+
+def test_oauth_unsupported_provider_does_not_redirect_to_untrusted_uri(test_client: TestClient) -> None:
+    resp = test_client.get(
+        "/system/auth/oauth/notreal/login",
+        params={"redirect_uri": "https://evil.example/callback"},
+        follow_redirects=False,
+    )
+
+    assert resp.status_code == 302
+    assert resp.headers["location"].startswith(settings.OAUTH_FRONTEND_FALLBACK)
+    assert "evil.example" not in resp.headers["location"]

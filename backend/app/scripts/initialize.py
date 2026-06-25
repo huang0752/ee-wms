@@ -186,6 +186,45 @@ class InitializeData:
                 logger.error(f"❌️ 初始化 {table_name} 表数据失败")
                 raise
 
+        await self.__backfill_tenant_memberships(db)
+
+    async def __backfill_tenant_memberships(self, db: AsyncSession) -> None:
+        """回填历史用户的租户关系，保证会话租户校验不会误杀旧数据。"""
+        stmt = (
+            select(UserModel)
+            .where(
+                UserModel.tenant_id.is_not(None),
+                UserModel.is_deleted.is_(False),
+            )
+        )
+        users = (await db.execute(stmt)).scalars().all()
+        added = 0
+        for user in users:
+            exists_stmt = (
+                select(TenantUserModel)
+                .where(
+                    TenantUserModel.user_id == user.id,
+                    TenantUserModel.tenant_id == user.tenant_id,
+                )
+                .limit(1)
+            )
+            if (await db.execute(exists_stmt)).scalar_one_or_none():
+                continue
+            has_any_stmt = select(TenantUserModel).where(TenantUserModel.user_id == user.id).limit(1)
+            has_any = (await db.execute(has_any_stmt)).scalar_one_or_none()
+            db.add(
+                TenantUserModel(
+                    user_id=user.id,
+                    tenant_id=user.tenant_id,
+                    role="owner" if user.is_superuser else "member",
+                    is_default=0 if has_any else 1,
+                )
+            )
+            added += 1
+        if added:
+            await db.flush()
+            logger.info(f"✅️ 已回填 {added} 条用户租户关系")
+
     @staticmethod
     def __create_objects_with_children(data: list[dict], model_class: type) -> list:
         """递归创建树形模型实例，处理嵌套 children 并注入 parent_id"""

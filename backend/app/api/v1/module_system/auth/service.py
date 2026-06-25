@@ -10,6 +10,7 @@ from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.module_monitor.online.schema import OnlineOutSchema
+from app.api.v1.module_platform.tenant.model import TenantUserModel
 from app.api.v1.module_system.user.crud import UserCRUD
 from app.api.v1.module_system.user.model import UserModel
 from app.common.enums import RedisInitKeyConfig
@@ -795,9 +796,7 @@ class TenantRegisterService:
         now = datetime.now()
         trial_end = now + timedelta(days=cls.DEFAULT_TRIAL_DAYS)
 
-        base = tenant_name or username
-        code_suffix = base.encode("utf-8").hex()[:6].upper()
-        tenant_code = f"T{code_suffix}"
+        tenant_code = f"T{uuid.uuid4().hex[:8].upper()}"
 
         tenant = TenantModel(
             name=tenant_name or f"{username}的租户",
@@ -814,6 +813,7 @@ class TenantRegisterService:
         user = UserModel(
             username=username,
             password=PwdUtil.hash_password(password),
+            name=username,
             email=email,
             tenant_id=tenant.id,
             status=0,
@@ -834,6 +834,14 @@ class TenantRegisterService:
 
         user_role = UserRolesModel(user_id=user.id, role_id=owner_role.id)
         db.add(user_role)
+        db.add(
+            TenantUserModel(
+                user_id=user.id,
+                tenant_id=tenant.id,
+                role="owner",
+                is_default=1,
+            )
+        )
 
         if default_pkg:
             pkg_menu_stmt = select(PackageMenuModel).where(

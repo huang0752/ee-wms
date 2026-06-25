@@ -218,7 +218,7 @@ async def oauth_login_redirect_controller(
     fe = redirect_uri or settings.OAUTH_FRONTEND_FALLBACK
     if provider not in allowed:
         return RedirectResponse(
-            url=oauth_service_error_redirect(fe, "不支持的 OAuth 渠道"),
+            url=oauth_service_error_redirect(settings.OAUTH_FRONTEND_FALLBACK, "不支持的 OAuth 渠道"),
             status_code=302,
         )
     if not redirect_uri:

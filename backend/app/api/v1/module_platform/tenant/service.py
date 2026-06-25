@@ -105,6 +105,15 @@ class TenantService:
             user_obj = await UserCRUD(self.auth).create(data=admin_data)
             if not user_obj:
                 raise CustomException(msg="创建租户初始管理员失败")
+            self.auth.db.add(
+                TenantUserModel(
+                    user_id=user_obj.id,
+                    tenant_id=tenant_obj.id,
+                    role="owner",
+                    is_default=1,
+                )
+            )
+            await self.auth.db.flush()
         except CustomException:
             raise
         except Exception as e:
