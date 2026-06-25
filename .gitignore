@@ -50,6 +50,7 @@ node_modules
 .pnpm-debug.log
 
 backend/logs
+backend/static/upload/
 backend/*.db
 backend/alembic/versions/*
 !backend/alembic/versions/.gitkeep
@@ -78,5 +79,4 @@ frontend/app/*
 
 .plan
 CLAUDE.md
-AGENTS.md
 .codebuddy
