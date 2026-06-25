@@ -75,7 +75,7 @@ async def get_obj_list_controller(
 )
 async def create_obj_controller(
     data: NodeCreateSchema,
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_task:cronjob:node:create"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> JSONResponse:
     service = NodeService(auth)
     result_dict = await service.create(data=data)
@@ -90,7 +90,7 @@ async def create_obj_controller(
 async def update_obj_controller(
     data: NodeUpdateSchema,
     id: Annotated[int, Path(description="节点ID")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_task:cronjob:node:update"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> JSONResponse:
     service = NodeService(auth)
     result_dict = await service.update(id=id, data=data)
@@ -104,7 +104,7 @@ async def update_obj_controller(
 )
 async def delete_obj_controller(
     ids: Annotated[list[int], Body(description="ID列表")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_task:cronjob:node:delete"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> JSONResponse:
     service = NodeService(auth)
     await service.delete(ids=ids)
@@ -117,7 +117,7 @@ async def delete_obj_controller(
     response_model=ResponseSchema[None],
 )
 async def clear_obj_controller(
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_task:cronjob:node:delete"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> JSONResponse:
     service = NodeService(auth)
     await service.clear()
@@ -132,7 +132,7 @@ async def clear_obj_controller(
 async def execute_job_controller(
     id: Annotated[int, Path(description="节点ID")],
     data: NodeExecuteSchema,
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_task:cronjob:node:execute"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> JSONResponse:
     service = NodeService(auth)
     result = await service.execute(id=id, execute_data=data)
@@ -147,7 +147,7 @@ async def execute_job_controller(
 async def batch_set_status_controller(
     ids: Annotated[list[int], Body(description="节点ID列表")],
     status: Annotated[int, Body(description="状态值")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_task:cronjob:node:update"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> JSONResponse:
     service = NodeService(auth)
     await service.batch_set_status(ids=ids, status=status)
