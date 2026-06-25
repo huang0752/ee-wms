@@ -17,27 +17,48 @@
 
 import { computed } from "vue";
 import appConfig from "@/config";
+import { useAssemblyStore } from "@stores";
 import type { FastEnterApplication, FastEnterQuickLink } from "@/types/config";
 
+const routeNameGroupMap: Record<string, string> = {
+  FastlinkProfile: "user-profile",
+  FastlinkChangeLog: "changelog",
+  FastlinkPricing: "pricing",
+  FastlinkArticleList: "article",
+  FastlinkTutorial: "tutorial",
+  FastlinkFachat: "ai-chat",
+};
+
+function routeEntryEnabled(
+  entry: Pick<FastEnterApplication | FastEnterQuickLink, "routeName">,
+  assemblyStore: ReturnType<typeof useAssemblyStore>
+): boolean {
+  if (!entry.routeName) return true;
+  return assemblyStore.isRouteGroupEnabled(routeNameGroupMap[entry.routeName]);
+}
+
 export function useFastEnter() {
+  const assemblyStore = useAssemblyStore();
   // 获取快速入口配置
   const fastEnterConfig = computed(() => appConfig.fastEnter);
 
   // 获取启用的应用列表（按排序权重排序）
   const enabledApplications = computed<FastEnterApplication[]>(() => {
     if (!fastEnterConfig.value?.applications) return [];
+    if (!assemblyStore.isFeatureEnabled("fastEnter", true)) return [];
 
     return fastEnterConfig.value.applications
-      .filter((app) => app.enabled !== false)
+      .filter((app) => app.enabled !== false && routeEntryEnabled(app, assemblyStore))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   });
 
   // 获取启用的快速链接（按排序权重排序）
   const enabledQuickLinks = computed<FastEnterQuickLink[]>(() => {
     if (!fastEnterConfig.value?.quickLinks) return [];
+    if (!assemblyStore.isFeatureEnabled("fastEnter", true)) return [];
 
     return fastEnterConfig.value.quickLinks
-      .filter((link) => link.enabled !== false)
+      .filter((link) => link.enabled !== false && routeEntryEnabled(link, assemblyStore))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   });
 

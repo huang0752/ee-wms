@@ -6,6 +6,7 @@ import { useDictStore } from "./modules/dict.store";
 import { useNoticeStore } from "./modules/notice.store";
 import { useConfigStore } from "./modules/config.store";
 import { useWorktabStore } from "./modules/worktab.store";
+import { useAssemblyStore } from "./modules/assembly.store";
 
 const store = createPinia();
 
@@ -16,6 +17,7 @@ export function initStore(app: App<Element>) {
 }
 
 export * from "./modules/app.store";
+export * from "./modules/assembly.store";
 export * from "./modules/config.store";
 export * from "./modules/dict.store";
 export * from "./modules/menu.store";
@@ -52,6 +54,7 @@ export async function refreshAppCaches(opts: RefreshCacheOptions = {}) {
   const dictStore = useDictStore(store);
   const noticeStore = useNoticeStore(store);
   const configStore = useConfigStore(store);
+  const assemblyStore = useAssemblyStore(store);
 
   const tasks: Promise<any>[] = [];
 
@@ -59,6 +62,7 @@ export async function refreshAppCaches(opts: RefreshCacheOptions = {}) {
     tasks.push(userStore.getUserInfo());
   }
   if (refreshConfig) {
+    tasks.push(assemblyStore.loadPublicConfig(true));
     tasks.push(configStore.getConfig(true, userStore.info.tenant_id || userStore.currentTenant?.id));
   }
   if (refreshNotice) {

@@ -27,6 +27,12 @@ ENV_DIR = BASE_DIR / "env"
 # 初始化脚本
 SCRIPT_DIR: Path = BASE_DIR / "app" / "scripts" / "data"
 
+# 产品能力装配配置目录
+ASSEMBLY_DIR: Path = BASE_DIR / "app" / "assemblies"
+
+# Seed pack 配置目录
+SEEDS_DIR: Path = BASE_DIR / "app" / "scripts" / "seeds"
+
 # 模版文件配置（统一管理代码生成模板 + HTML 模板）
 TEMPLATE_DIR: Path = BASE_DIR / "templates"
 

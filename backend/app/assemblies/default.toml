@@ -1,0 +1,21 @@
+[assembly]
+name = "default"
+title = "默认完整装配"
+description = "保持 FastapiAdmin 当前完整行为，不裁剪插件、seed 和静态入口。"
+
+[core]
+required = ["auth", "tenant", "user", "role", "permission", "menu", "settings", "audit"]
+
+[backend]
+enabled_plugins = []
+disabled_plugins = []
+
+[frontend]
+enabled_route_groups = []
+disabled_route_groups = []
+
+[seed]
+packs = ["legacy"]
+
+[features]
+flags = { ai_assistant = true, plugin_market = true, tenant_package = true, demo_content = true }

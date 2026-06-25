@@ -31,12 +31,14 @@ from app.api.v1.module_system.role.model import RoleModel
 from app.api.v1.module_system.ticket.model import TicketModel
 from app.api.v1.module_system.user.model import UserModel, UserRolesModel
 from app.config.path_conf import SCRIPT_DIR
+from app.core.assembly import get_assembly, known_plugin_module_codes, plugin_code_candidates
 from app.core.database import async_db_session, create_tables
 from app.core.logger import logger
 from app.plugin.module_example.demo.model import DemoModel
 from app.plugin.module_task.business.task.model import BusinessTaskModel
 from app.plugin.module_task.cronjob.node.model import NodeModel
 from app.plugin.module_task.workflow.nodes.model import WorkflowNodeTypeModel
+from app.scripts.seed_loader import resolve_seed_files
 
 
 class InitializeData:
@@ -92,6 +94,22 @@ class InitializeData:
     # 树形模型：JSON 含嵌套 children，需递归创建对象
     _RECURSIVE_TABLES: set[str] = {"platform_menu", "sys_dept"}
 
+    def __init__(self) -> None:
+        self._seed_files_by_table = resolve_seed_files()
+        self._assembly = get_assembly()
+        self._disabled_module_codes = {
+            module_code
+            for module_code in known_plugin_module_codes()
+            if not self._assembly.is_plugin_enabled(module_code)
+        }
+        self._disabled_plugin_codes = {
+            plugin_code
+            for module_code in self._disabled_module_codes
+            for plugin_code in plugin_code_candidates(module_code)
+        }
+        self._disabled_plugin_seed_ids: set[int] = set()
+        self._plugin_seed_id_map: dict[int, int] = {}
+
     async def init_db(self) -> None:
         """建表并导入种子数据"""
         try:
@@ -108,7 +126,12 @@ class InitializeData:
         """按依赖顺序初始化各表种子数据"""
         dict_type_mapping: dict[str, Any] = {}  # dict_type → DictTypeModel 实例
 
-        for model in self.prepare_init_models:
+        init_models = [
+            model for model in self.prepare_init_models
+            if model.__tablename__ in self._seed_files_by_table
+        ]
+
+        for model in init_models:
             table_name = model.__tablename__
 
             data = await self.__load_json(table_name)
@@ -248,20 +271,95 @@ class InitializeData:
 
     async def __load_json(self, filename: str) -> list[dict]:
         """读取并解析种子数据 JSON 文件"""
-        json_path = SCRIPT_DIR / f"{filename}.json"
+        json_path = self._seed_files_by_table.get(filename) or SCRIPT_DIR / f"{filename}.json"
         if not json_path.exists():
             return []
 
         try:
             with open(json_path, encoding="utf-8") as f:
                 raw = json.loads(f.read())
-            return [self._parse_date_strings(item) for item in raw]
+            data = self.__filter_seed_data(filename, raw)
+            return [self._parse_date_strings(item) for item in data]
         except json.JSONDecodeError as e:
             logger.error(f"❌️ 解析 {json_path} 失败: {e!s}")
             raise
         except Exception as e:
             logger.error(f"❌️ 读取 {json_path} 失败: {e!s}")
             raise
+
+    def __filter_seed_data(self, table_name: str, data: list[dict]) -> list[dict]:
+        """按当前 assembly 裁剪 legacy seed 中的可选插件数据。"""
+        if not self._disabled_module_codes:
+            return data
+        if table_name == "platform_menu":
+            return self.__filter_menu_tree(data)
+        if table_name == "platform_plugin":
+            return self.__filter_platform_plugins(data)
+        if table_name in {"platform_package_plugin", "platform_tenant_plugin"}:
+            return self.__filter_plugin_relations(data)
+        return data
+
+    def __filter_menu_tree(self, data: list[dict]) -> list[dict]:
+        filtered: list[dict] = []
+        for item in data:
+            next_item = self.__filter_menu_item(item)
+            if next_item is not None:
+                filtered.append(next_item)
+        return filtered
+
+    def __filter_menu_item(self, item: dict) -> dict | None:
+        if self.__menu_item_disabled(item):
+            return None
+
+        children = item.get("children") or []
+        filtered_children = []
+        for child in children:
+            next_child = self.__filter_menu_item(child)
+            if next_child is not None:
+                filtered_children.append(next_child)
+
+        next_item = dict(item)
+        if "children" in next_item:
+            next_item["children"] = filtered_children
+
+        had_children = bool(children)
+        is_empty_catalog = had_children and not filtered_children and not next_item.get("component_path")
+        if is_empty_catalog:
+            return None
+        return next_item
+
+    def __menu_item_disabled(self, item: dict) -> bool:
+        permission = str(item.get("permission") or "")
+        component_path = str(item.get("component_path") or "")
+        for module_code in self._disabled_module_codes:
+            if permission.startswith(f"{module_code}:"):
+                return True
+            if component_path.startswith(f"{module_code}/"):
+                return True
+        return False
+
+    def __filter_platform_plugins(self, data: list[dict]) -> list[dict]:
+        filtered: list[dict] = []
+        self._disabled_plugin_seed_ids = set()
+        self._plugin_seed_id_map = {}
+
+        for original_id, item in enumerate(data, start=1):
+            if item.get("code") in self._disabled_plugin_codes:
+                self._disabled_plugin_seed_ids.add(original_id)
+                continue
+            self._plugin_seed_id_map[original_id] = len(filtered) + 1
+            filtered.append(item)
+        return filtered
+
+    def __filter_plugin_relations(self, data: list[dict]) -> list[dict]:
+        filtered: list[dict] = []
+        for item in data:
+            original_plugin_id = item.get("plugin_id")
+            if original_plugin_id in self._disabled_plugin_seed_ids:
+                continue
+            plugin_id = self._plugin_seed_id_map.get(original_plugin_id, original_plugin_id)
+            filtered.append({**item, "plugin_id": plugin_id})
+        return filtered
 
     @classmethod
     def _parse_date_strings(cls, data: dict) -> dict:

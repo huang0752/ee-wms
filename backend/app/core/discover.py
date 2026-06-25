@@ -31,6 +31,12 @@ from fastapi_limiter.depends import RateLimiter
 from sqlalchemy import select
 
 # 内部库导入
+from app.core.assembly import (
+    get_assembly,
+    is_plugin_enabled,
+    known_plugin_module_codes,
+    plugin_code_candidates,
+)
 from app.core.base_schema import AuthSchema
 from app.core.dependencies import get_current_user
 from app.core.exceptions import CustomException
@@ -46,14 +52,6 @@ _registered_plugin_route_keys: set[tuple[str, tuple[str, ...]]] = set()
 _failed_plugin_prefixes: set[str] = set()
 # 运行时引用，由 init_app.py 设置
 _app_ref: _FastAPI | None = None
-
-_PLUGIN_CODE_ALIASES: dict[str, tuple[str, ...]] = {
-    "module_ai": ("ai", "ai_assistant"),
-    "module_generator": ("generator", "code_generator"),
-    "module_task": ("task", "workflow_engine"),
-    "module_example": ("example",),
-}
-
 
 def set_app_ref(app: _FastAPI) -> None:
     """由 init_app.py 在 app 创建后调用，存储引用供热重载使用。"""
@@ -137,7 +135,7 @@ async def validate_dynamic_plugin_access_for_path(path: str, auth: AuthSchema) -
 
 def _module_code_from_path(path: str) -> str | None:
     known_segments = {prefix.strip("/") for prefix in _registered_plugin_prefixes}
-    known_segments.update(code[7:] for code in _PLUGIN_CODE_ALIASES)
+    known_segments.update(code[7:] for code in known_plugin_module_codes())
     for segment in path.strip("/").split("/"):
         if segment in known_segments:
             return f"module_{segment}"
@@ -145,12 +143,13 @@ def _module_code_from_path(path: str) -> str | None:
 
 
 def _plugin_code_candidates(module_code: str) -> list[str]:
-    return [module_code, *_PLUGIN_CODE_ALIASES.get(module_code, ())]
+    return plugin_code_candidates(module_code)
 
 
 def _build_dynamic_router() -> APIRouter:
     """实际执行扫描，返回新的动态路由 APIRouter 实例。"""
     logger.info("🚀 开始动态路由发现与注册")
+    assembly = get_assembly()
 
     root_router = APIRouter()
     seen_router_ids: set[int] = set()
@@ -168,6 +167,9 @@ def _build_dynamic_router() -> APIRouter:
             rel_path = file.relative_to(base_dir)
             path_parts = rel_path.parts
             top_module = path_parts[0]
+            if not is_plugin_enabled(top_module):
+                logger.info("⏭️  跳过插件模块 {}：assembly {} disabled", top_module, assembly.name)
+                continue
 
             suffix = top_module[7:] if top_module.startswith("module_") else ""
             if not suffix:

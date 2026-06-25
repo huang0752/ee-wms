@@ -1,0 +1,26 @@
+name = "business-admin"
+depends = ["minimal"]
+
+[[tables]]
+table = "platform_plugin"
+file = "../../data/platform_plugin.json"
+
+[[tables]]
+table = "platform_package_plugin"
+file = "../../data/platform_package_plugin.json"
+
+[[tables]]
+table = "platform_tenant_plugin"
+file = "../../data/platform_tenant_plugin.json"
+
+[[tables]]
+table = "task_workflow_node_type"
+file = "../../data/task_workflow_node_type.json"
+
+[[tables]]
+table = "task_industry_terms"
+file = "../../data/task_industry_terms.json"
+
+[[tables]]
+table = "task_industry_sample_pack"
+file = "../../data/task_industry_sample_pack.json"

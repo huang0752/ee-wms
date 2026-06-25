@@ -11,7 +11,7 @@ import type { AppRouteRecord, RouteMeta } from "@/types/router";
 import { defineComponent, h, onMounted, ref } from "vue";
 import type { RouteRecordRaw } from "vue-router";
 import { RouterView, useRoute } from "vue-router";
-import { t } from "@wangeditor-next/editor";
+import { $t } from "@/locales";
 
 /** 首页 / 仪表盘父级 meta（侧栏、静态子路由共用） */
 export const HOME_MENU_META: RouteMeta = {
@@ -19,12 +19,14 @@ export const HOME_MENU_META: RouteMeta = {
   icon: "ri:home-smile-2-line",
   keepAlive: true,
   fixedTab: true,
+  routeGroup: "home",
 };
 
 export const DASHBOARD_PARENT_META: RouteMeta = {
   title: "menus.dashboard.title",
   icon: "ri:pie-chart-line",
   alwaysShow: true,
+  routeGroup: "dashboard",
 };
 
 /** iframe 路由注册表（与动态路由、守卫共用） */
@@ -153,6 +155,7 @@ export const dashboardLayoutChildren: AppRouteRecordRaw[] = [
       title: "menus.dashboard.workplace",
       icon: "ri:bar-chart-box-line",
       keepAlive: true,
+      routeGroup: "dashboard",
     },
   },
   {
@@ -163,6 +166,7 @@ export const dashboardLayoutChildren: AppRouteRecordRaw[] = [
       title: "menus.dashboard.analysis",
       icon: "ri:align-item-bottom-line",
       keepAlive: false,
+      routeGroup: "dashboard",
     },
   },
   {
@@ -174,6 +178,7 @@ export const dashboardLayoutChildren: AppRouteRecordRaw[] = [
       icon: "ri:tv-line",
       keepAlive: false,
       hidden: false,
+      routeGroup: "dashboard",
     },
   },
 ];
@@ -317,7 +322,7 @@ export function mergeShellRoutesIntoMenu(menuList: AppRouteRecord[]): AppRouteRe
 export const staticRoutes: AppRouteRecordRaw[] = [
   {
     path: "/redirect",
-    meta: { hidden: true },
+    meta: { hidden: true, routeGroup: "auth" },
     component: Layout,
     children: [
       {
@@ -329,32 +334,32 @@ export const staticRoutes: AppRouteRecordRaw[] = [
   {
     path: "/login",
     name: "Login",
-    meta: { hidden: true, isHideTab: true, title: "menus.login.title" },
+    meta: { hidden: true, isHideTab: true, title: "menus.login.title", routeGroup: "auth" },
     component: () => import("@views/module_system/auth/login/index.vue"),
   },
   /** 无 Layout 全屏异常页；守卫与白名单跳转使用（勿再在 RootLayout 下重复挂载同组件） */
   {
     path: "/401",
     name: "401",
-    meta: { hidden: true, title: "401" },
+    meta: { hidden: true, title: "401", routeGroup: "exception" },
     component: () => import("@views/exception/401/index.vue"),
   },
   {
     path: "/403",
     name: "403",
     component: () => import("@views/exception/403/index.vue"),
-    meta: { hidden: true, title: "403" },
+    meta: { hidden: true, title: "403", routeGroup: "exception" },
   },
   {
     path: "/404",
     name: "404",
-    meta: { hidden: true, title: "404" },
+    meta: { hidden: true, title: "404", routeGroup: "exception" },
     component: () => import("@views/exception/404/index.vue"),
   },
   {
     path: "/500",
     name: "500",
-    meta: { hidden: true, title: "500" },
+    meta: { hidden: true, title: "500", routeGroup: "exception" },
     component: () => import("@views/exception/500/index.vue"),
   },
   {
@@ -389,17 +394,23 @@ export const staticRoutes: AppRouteRecordRaw[] = [
           {
             path: "profile",
             name: "FastlinkProfile",
-            meta: { title: t("menus.system.userCenter"), icon: "ri:user-line", hidden: true },
+            meta: {
+              title: $t("menus.system.userCenter"),
+              icon: "ri:user-line",
+              hidden: true,
+              routeGroup: "user-profile",
+            },
             component: () => import("@views/fastlink/current/profile.vue"),
           },
           {
             path: "changelog",
             name: "FastlinkChangeLog",
             meta: {
-              title: t("menus.changelog.title"),
+              title: $t("menus.changelog.title"),
               icon: "ri:draft-line",
               hidden: true,
               keepAlive: true,
+              routeGroup: "changelog",
             },
             component: () => import("@views/fastlink/changelog/index.vue"),
           },
@@ -407,10 +418,11 @@ export const staticRoutes: AppRouteRecordRaw[] = [
             path: "pricing",
             name: "FastlinkPricing",
             meta: {
-              title: t("menus.dashboard.pricing"),
+              title: $t("menus.dashboard.pricing"),
               icon: "ri:money-cny-box-line",
               hidden: true,
               keepAlive: true,
+              routeGroup: "pricing",
             },
             component: () => import("@views/fastlink/pricing/index.vue"),
           },
@@ -418,10 +430,11 @@ export const staticRoutes: AppRouteRecordRaw[] = [
             path: "article/list",
             name: "FastlinkArticleList",
             meta: {
-              title: t("menus.article.articleList"),
+              title: $t("menus.article.articleList"),
               icon: "ri:article-line",
               hidden: true,
               keepAlive: true,
+              routeGroup: "article",
             },
             component: () => import("@views/fastlink/article/index.vue"),
           },
@@ -429,10 +442,11 @@ export const staticRoutes: AppRouteRecordRaw[] = [
             path: "tutorial",
             name: "FastlinkTutorial",
             meta: {
-              title: t("menus.dashboard.tutorial"),
+              title: $t("menus.dashboard.tutorial"),
               icon: "ri:book-2-line",
               hidden: true,
               keepAlive: true,
+              routeGroup: "tutorial",
             },
             component: () => import("@views/fastlink/tutorial/index.vue"),
           },
@@ -440,10 +454,11 @@ export const staticRoutes: AppRouteRecordRaw[] = [
             path: "fachat",
             name: "FastlinkFachat",
             meta: {
-              title: t("menus.fachat.title"),
+              title: $t("menus.fachat.title"),
               icon: "ri:message-3-line",
               hidden: true,
               keepAlive: true,
+              routeGroup: "ai-chat",
             },
             component: () => import("@views/fastlink/fachat/index.vue"),
           },
@@ -458,6 +473,7 @@ export const staticRoutes: AppRouteRecordRaw[] = [
           title: "订单支付",
           hidden: true,
           keepAlive: false,
+          routeGroup: "payment",
         },
       },
       /** 租户工作台概览 — 复用自助服务页面 */
@@ -469,6 +485,7 @@ export const staticRoutes: AppRouteRecordRaw[] = [
           title: "工作台",
           hidden: true,
           keepAlive: false,
+          routeGroup: "workspace",
         },
       },
     ],
@@ -477,13 +494,13 @@ export const staticRoutes: AppRouteRecordRaw[] = [
     path: "/outside",
     component: () => import("@/components/layouts/index.vue"),
     name: "Outside",
-    meta: { title: "menus.outside.title" },
+    meta: { title: "menus.outside.title", routeGroup: "outside" },
     children: [
       {
         path: "/outside/iframe/:path",
         name: "Iframe",
         component: IframeView,
-        meta: { title: "iframe" },
+        meta: { title: "iframe", routeGroup: "outside" },
       },
     ],
   },
@@ -492,6 +509,6 @@ export const staticRoutes: AppRouteRecordRaw[] = [
     path: "/:pathMatch(.*)*",
     name: "CatchAll404",
     component: () => import("@views/exception/404/index.vue"),
-    meta: { hidden: true, title: "404" },
+    meta: { hidden: true, title: "404", routeGroup: "exception" },
   },
 ];

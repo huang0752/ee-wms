@@ -1,0 +1,21 @@
+[assembly]
+name = "minimal"
+title = "最小底座装配"
+description = "保留登录、租户、用户、角色、权限、菜单、设置和基础系统能力，默认关闭演示与可选插件。"
+
+[core]
+required = ["auth", "tenant", "user", "role", "permission", "menu", "settings", "audit"]
+
+[backend]
+enabled_plugins = []
+disabled_plugins = ["module_example", "module_ai", "module_generator", "module_task"]
+
+[frontend]
+enabled_route_groups = ["auth", "home", "dashboard", "system", "platform", "user-profile", "payment", "workspace", "outside", "exception"]
+disabled_route_groups = ["pricing", "article", "tutorial", "ai-chat", "changelog"]
+
+[seed]
+packs = ["minimal"]
+
+[features]
+flags = { ai_assistant = false, plugin_market = false, tenant_package = true, demo_content = false, fast_enter = true }
