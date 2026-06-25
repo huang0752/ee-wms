@@ -36,6 +36,7 @@ import { useUserStore } from "@stores";
 import { useAppMode } from "@/hooks/core/useAppMode";
 import type { AppRouteRecord } from "@/types/router";
 import { ROLE_ROOT } from "@/constants";
+import { expandPermissionAliases, hasPermissionInList } from "@/constants/permissions";
 
 type AuthItem = NonNullable<AppRouteRecord["meta"]["authList"]>[number];
 
@@ -72,15 +73,16 @@ export const useAuth = () => {
     if (userPrems.includes("*:*:*")) return true;
 
     /** 登录后由菜单树汇总的全局权限码（与 v-hasPerm 同源） */
-    if (userPrems.includes(auth)) return true;
+    if (hasPermissionInList(userPrems, auth)) return true;
 
     // 前端模式：兼容 info.permissions
     if (isFrontendMode.value) {
-      return frontendAuthList.includes(auth);
+      return hasPermissionInList(frontendAuthList, auth);
     }
 
     // 后端模式：当前路由 meta 短标识（与 v-auth 一致）
-    return backendAuthList.some((item) => item?.authMark === auth);
+    const authMarks = expandPermissionAliases(auth);
+    return backendAuthList.some((item) => item?.authMark && authMarks.includes(item.authMark));
   };
 
   return {

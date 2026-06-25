@@ -89,17 +89,27 @@ async def _decode_token_info(token: str, redis: Redis) -> tuple[dict, str]:
     return user_info, session_id
 
 
-async def _check_token_online(redis: Redis, session_id: str) -> None:
-    """检查 token 是否在线（Redis 中存在对应 session）
+def _decode_redis_value(value) -> str | None:
+    """将 Redis 返回值规整为字符串。"""
+    if value is None:
+        return None
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return str(value)
+
+
+async def _check_token_online(redis: Redis, session_id: str, token: str) -> None:
+    """检查 token 是否在线且为当前会话最新访问令牌
 
     参数:
         redis: Redis 连接
         session_id: 会话 ID
+        token: 当前请求携带的访问令牌
     """
-    online_ok = await RedisCURD(redis).exists(
-        key=f"{RedisInitKeyConfig.ACCESS_TOKEN.key}:{session_id}"
+    current_token = _decode_redis_value(
+        await RedisCURD(redis).get(f"{RedisInitKeyConfig.ACCESS_TOKEN.key}:{session_id}")
     )
-    if not online_ok:
+    if not current_token or current_token != token:
         raise CustomException(msg="认证已失效", code=10401, status_code=401)
 
 
@@ -128,7 +138,7 @@ async def _try_sliding_refresh(redis: Redis, session_id: str) -> None:
             expire=settings.REFRESH_TOKEN_EXPIRE_SECONDS,
         )
 
-async def _load_user_from_db(db: AsyncSession, username: str):
+async def _load_user_from_db(db: AsyncSession, user_id: int, tenant_id: int):
     """从数据库加载用户（含角色、菜单、部门、职位全量预加载）
 
     使用原始查询以绕过 CRUDBase 的权限过滤，确保用户认证阶段不受数据权限影响。
@@ -136,7 +146,8 @@ async def _load_user_from_db(db: AsyncSession, username: str):
 
     参数:
         db: 数据库会话
-        username: 用户名
+        user_id: 用户 ID
+        tenant_id: 当前会话租户 ID
 
     返回:
         UserModel: 已全量加载的用户 ORM 对象
@@ -152,7 +163,7 @@ async def _load_user_from_db(db: AsyncSession, username: str):
             selectinload(UserModel.positions),
             selectinload(UserModel.created_by),
         )
-        .where(UserModel.username == username, UserModel.is_deleted == False)  # noqa: E712
+        .where(UserModel.id == user_id, UserModel.is_deleted == False)  # noqa: E712
     )
     result = await db.execute(stmt)
     user = result.scalars().first()
@@ -163,11 +174,41 @@ async def _load_user_from_db(db: AsyncSession, username: str):
 
     # 过滤不可用的角色和职位（在会话内完成，确保关联数据已加载）
     if hasattr(user, "roles"):
-        user.roles = [role for role in user.roles if role and role.status]
+        user.roles = [
+            role
+            for role in user.roles
+            if role and role.status == 0 and (user.is_superuser or role.tenant_id == tenant_id)
+        ]
     if hasattr(user, "positions"):
-        user.positions = [pos for pos in user.positions if pos and pos.status]
+        user.positions = [pos for pos in user.positions if pos and pos.status == 0]
 
     return user
+
+
+async def _validate_session_tenant(db: AsyncSession, user, tenant_id: int) -> None:
+    """校验当前会话租户有效，且普通用户仍属于该租户。"""
+    from app.api.v1.module_platform.tenant.model import TenantModel, TenantUserModel
+
+    tenant_stmt = (
+        select(TenantModel)
+        .where(TenantModel.id == tenant_id, TenantModel.status == 0, TenantModel.is_deleted.is_(False))
+        .limit(1)
+    )
+    tenant_result = await db.execute(tenant_stmt)
+    if not tenant_result.scalar_one_or_none():
+        raise CustomException(msg="租户不存在或已被禁用", code=10401, status_code=401)
+
+    if user.is_superuser:
+        return
+
+    relation_stmt = (
+        select(TenantUserModel)
+        .where(TenantUserModel.user_id == user.id, TenantUserModel.tenant_id == tenant_id)
+        .limit(1)
+    )
+    relation_result = await db.execute(relation_stmt)
+    if not relation_result.scalar_one_or_none():
+        raise CustomException(msg="租户会话已失效", code=10401, status_code=401)
 
 async def get_current_user(
     request: Request,
@@ -249,17 +290,20 @@ async def _authenticate(
         raise CustomException(msg="认证已失效", code=10401, status_code=401)
 
     # Redis 在线检查 + 滑动续期
-    await _check_token_online(redis, session_id)
+    await _check_token_online(redis, session_id, token)
     await _try_sliding_refresh(redis, session_id)
 
-    username = user_info.get("user_name")
-    if not username:
+    user_id = user_info.get("user_id")
+    if not user_id:
         raise CustomException(msg="认证已失效", code=10401, status_code=401)
     tenant_id = user_info.get("tenant_id")
+    if not tenant_id:
+        raise CustomException(msg="认证已失效", code=10401, status_code=401)
 
     # 用户查询使用独立只读会话（不参与请求事务，查询后立即释放快照）
     async with async_db_session() as lookup_db:
-        user = await _load_user_from_db(lookup_db, username)
+        user = await _load_user_from_db(lookup_db, int(user_id), int(tenant_id))
+        await _validate_session_tenant(lookup_db, user, int(tenant_id))
 
     # 设置请求上下文（仅在当前 request 对象上，业务方通过 request.state.ctx 读取）
     if request:
@@ -272,7 +316,7 @@ async def _authenticate(
         )
 
     # 返回的 auth.db 指向请求级事务会话，供后续读写操作使用
-    auth = AuthSchema(db=db, tenant_id=tenant_id, check_data_scope=False)
+    auth = AuthSchema(db=db, tenant_id=int(tenant_id), check_data_scope=False)
     auth.user = user
     return auth
 
@@ -338,9 +382,9 @@ class AuthPermission:
         if not self.permissions:
             return auth
 
-        # 超级管理员权限标识
+        # 超级管理员权限标识只能由真实超级管理员命中；普通用户不能因接口声明通配符而放行。
         if "*" in self.permissions or "*:*:*" in self.permissions:
-            return auth
+            raise CustomException(msg="无权限操作", code=10403, status_code=403)
 
         # 检查用户是否有角色
         if not auth.user or not auth.user.roles:
@@ -392,7 +436,7 @@ def require_superadmin(func):
     @wraps(func)
     async def wrapper(self, *args, **kwargs):
         if not self.auth.user or not self.auth.user.is_superuser:
-            raise CustomException(msg="仅平台管理员可操作")
+            raise CustomException(msg="仅平台管理员可操作", code=10403, status_code=403)
         return await func(self, *args, **kwargs)
 
     return wrapper

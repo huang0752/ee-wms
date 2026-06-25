@@ -162,12 +162,12 @@ class PackageService:
         if pkg_status != 0:
             return []
 
-        plugin_stmt = select(PackagePluginModel.plugin_id).where(PackagePluginModel.plugin_id == tenant.package_id)
+        plugin_stmt = select(PackagePluginModel.plugin_id).where(PackagePluginModel.package_id == tenant.package_id)
         result = await self.auth.db.execute(plugin_stmt)
         return [row[0] for row in result.all()]
 
     async def get_plugins(self, package_id: int) -> list[int]:
-        stmt = select(PackagePluginModel.plugin_id).where(PackagePluginModel.plugin_id == package_id)
+        stmt = select(PackagePluginModel.plugin_id).where(PackagePluginModel.package_id == package_id)
         result = await self.auth.db.execute(stmt)
         return [row[0] for row in result.all()]
 

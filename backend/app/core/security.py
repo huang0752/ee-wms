@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 import jwt
@@ -108,9 +109,16 @@ def create_access_token(payload: JWTPayloadSchema) -> str:
     - str: 生成的JWT访问令牌。
     """
     payload_dict = payload.model_dump(exclude_none=False)
+    now = datetime.now()
+    if not payload_dict.get("iat"):
+        payload_dict["iat"] = int(now.timestamp())
+    if not payload_dict.get("jti"):
+        payload_dict["jti"] = uuid.uuid4().hex
     # PyJWT 2.x 不支持 datetime 对象，需转为 Unix 时间戳
     if isinstance(payload_dict.get("exp"), datetime):
         payload_dict["exp"] = int(payload_dict["exp"].timestamp())
+    if isinstance(payload_dict.get("iat"), datetime):
+        payload_dict["iat"] = int(payload_dict["iat"].timestamp())
     return jwt.encode(
         payload=payload_dict,
         key=settings.SECRET_KEY,

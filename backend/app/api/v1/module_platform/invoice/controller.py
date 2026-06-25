@@ -24,7 +24,7 @@ TenantInvoiceRouter = APIRouter(prefix="/tenant/invoice", route_class=OperationL
 @TenantInvoiceRouter.post("/apply", summary="申请开票", response_model=ResponseSchema[InvoiceOutSchema])
 async def invoice_apply_controller(
     data: Annotated[InvoiceApplySchema, Body()],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission())],
 ) -> JSONResponse:
     result = await InvoiceTenantService.apply(auth, data, auth.tenant_id)
     return SuccessResponse(data=result, msg="发票申请成功")
@@ -32,7 +32,7 @@ async def invoice_apply_controller(
 
 @TenantInvoiceRouter.get("/list", summary="我的发票列表", response_model=ResponseSchema[PageResultSchema[InvoiceOutSchema]])
 async def invoice_list_my_controller(
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission())],
     page: Annotated[PaginationQueryParam, Depends()],
     search: Annotated[InvoiceQueryParam, Depends()],
 ) -> JSONResponse:
@@ -50,7 +50,7 @@ async def invoice_list_my_controller(
 @TenantInvoiceRouter.get("/{id}/download", summary="下载发票PDF与授权函", response_model=ResponseSchema[dict])
 async def invoice_download_controller(
     id: Annotated[int, Path(ge=1)],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission())],
 ) -> JSONResponse:
     pdf_url = await InvoiceTenantService.download(auth, id, auth.tenant_id)
     oss_license_pdf_url = await InvoiceTenantService.download_license(auth, id, auth.tenant_id)
@@ -63,7 +63,7 @@ async def invoice_download_controller(
 @TenantInvoiceRouter.get("/{id}/license/download", summary="下载开源授权函PDF", response_model=ResponseSchema[dict])
 async def invoice_license_download_controller(
     id: Annotated[int, Path(ge=1)],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission())],
 ) -> JSONResponse:
     oss_license_pdf_url = await InvoiceTenantService.download_license(auth, id, auth.tenant_id)
     return SuccessResponse(msg="授权函下载地址", data={"oss_license_pdf_url": oss_license_pdf_url})

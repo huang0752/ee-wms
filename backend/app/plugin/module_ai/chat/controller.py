@@ -109,12 +109,14 @@ async def delete_session_controller(
 )
 async def ai_chat_controller(
     data: AiChatRequestSchema,
+    redis: Annotated[Redis, Depends(redis_getter)],
     auth: Annotated[AuthSchema, Depends(AuthPermission(["module_ai:chat:query"]))],
 ) -> JSONResponse:
     service = ChatService(auth)
     result = await service.chat_non_stream(
         message=data.message,
         session_id=data.session_id,
+        redis=redis,
     )
     return SuccessResponse(
         data=AiChatResponseSchema(
@@ -150,13 +152,12 @@ async def list_model_config_controller(
     response_model=ResponseSchema[dict[str, Any]],
 )
 async def create_model_config_controller(
-    data: AiModelConfigUpdateSchema,
+    data: AiModelConfigSchema,
     redis: Annotated[Redis, Depends(redis_getter)],
     auth: Annotated[AuthSchema, Depends(AuthPermission(["module_ai:chat:update"]))],
 ) -> JSONResponse:
     service = AiModelConfigService(auth, redis)
-    payload = AiModelConfigSchema(**data.model_dump())
-    result = await service.create(payload)
+    result = await service.create(data)
     return SuccessResponse(data=result, msg="模型配置已新增")
 
 
@@ -172,8 +173,7 @@ async def update_model_config_controller(
     auth: Annotated[AuthSchema, Depends(AuthPermission(["module_ai:chat:update"]))],
 ) -> JSONResponse:
     service = AiModelConfigService(auth, redis)
-    payload = AiModelConfigSchema(**data.model_dump())
-    result = await service.update(config_id, payload)
+    result = await service.update(config_id, data)
     return SuccessResponse(data=result, msg="模型配置已更新")
 
 

@@ -215,6 +215,7 @@ export const useUserStore = defineStore(
           currentTenant.value = found;
           localStorage.setItem(StorageConfig.LAST_TENANT_ID_KEY, String(found.id));
         }
+        await useConfigStore().getConfig(true, tenantId);
       }
     }
 
@@ -326,7 +327,15 @@ export const useUserStore = defineStore(
       }
 
       await getUserInfo();
-      await useConfigStore().getConfig(true);
+      const ui = info.value as UserInfoLike;
+      const activeTenantId = ui.tenant_id || currentTenant.value?.id || tenants[0]?.id;
+      if (activeTenantId) {
+        const found = tenants.find((t: TenantOption) => String(t.id) === String(activeTenantId));
+        if (found) {
+          setCurrentTenant(found);
+        }
+      }
+      await useConfigStore().getConfig(true, activeTenantId);
       setLoginStatus(true);
     }
 

@@ -1,0 +1,34 @@
+[
+  {
+    "package_id": 1,
+    "plugin_id": 1
+  },
+  {
+    "package_id": 2,
+    "plugin_id": 1
+  },
+  {
+    "package_id": 2,
+    "plugin_id": 2
+  },
+  {
+    "package_id": 3,
+    "plugin_id": 1
+  },
+  {
+    "package_id": 3,
+    "plugin_id": 2
+  },
+  {
+    "package_id": 3,
+    "plugin_id": 3
+  },
+  {
+    "package_id": 3,
+    "plugin_id": 4
+  },
+  {
+    "package_id": 3,
+    "plugin_id": 5
+  }
+]

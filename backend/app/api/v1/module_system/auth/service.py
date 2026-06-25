@@ -10,6 +10,7 @@ from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.module_monitor.online.schema import OnlineOutSchema
+from app.api.v1.module_platform.tenant.model import TenantUserModel
 from app.api.v1.module_system.user.crud import UserCRUD
 from app.api.v1.module_system.user.model import UserModel
 from app.common.enums import RedisInitKeyConfig
@@ -46,6 +47,15 @@ from .schema import (
 
 CaptchaKey = NewType("CaptchaKey", str)
 CaptchaBase64 = NewType("CaptchaBase64", str)
+
+
+def _redis_value_to_str(value) -> str | None:
+    """将 Redis 返回值规整为字符串。"""
+    if value is None:
+        return None
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return str(value)
 
 
 async def _write_login_log(
@@ -136,10 +146,7 @@ class LoginService:
         _login_browser = ua_result.user_agent.family if ua_result.user_agent else "Unknown"
         _login_username = login_form.username
 
-        referer = request.headers.get("referer", "")
-        request_from_docs = referer.endswith(("docs", "redoc"))
-
-        if settings.CAPTCHA_ENABLE and not request_from_docs:
+        if settings.CAPTCHA_ENABLE:
             if not login_form.captcha_key or not login_form.captcha:
                 raise CustomException(msg="验证码不能为空")
             await CaptchaService.check_captcha(
@@ -346,23 +353,54 @@ class LoginService:
             raise CustomException(msg="非法凭证，请传入刷新令牌")
 
         session_id = token_payload.sub
+        current_refresh_token = _redis_value_to_str(
+            await RedisCURD(redis).get(f"{RedisInitKeyConfig.REFRESH_TOKEN.key}:{session_id}")
+        )
+        if not current_refresh_token or current_refresh_token != refresh_token.refresh_token:
+            raise CustomException(msg="刷新凭证已失效，请重新登录", code=10401, status_code=401)
+
         session_info = await RedisCURD(redis).get(
             f"{RedisInitKeyConfig.USER_SESSION.key}:{session_id}"
         )
         if not session_info:
             raise CustomException(msg="会话已过期，请重新登录")
 
-        user_id = json.loads(session_info).get("user_id")
+        session_data = json.loads(session_info)
+        user_id = session_data.get("user_id")
+        tenant_id = session_data.get("tenant_id")
 
-        if not session_id or not user_id:
-            raise CustomException(msg="非法凭证,无法获取会话编号或用户ID")
+        if not session_id or not user_id or not tenant_id:
+            raise CustomException(msg="非法凭证,无法获取会话编号、用户ID或租户ID", code=10401, status_code=401)
 
         auth = AuthSchema(db=db, check_data_scope=False)
         user = await UserCRUD(auth).get(id=user_id)
         if not user:
-            raise CustomException(msg="刷新token失败，用户不存在")
+            raise CustomException(msg="刷新token失败，用户不存在", code=10401, status_code=401)
         if user.status == 1:
-            raise CustomException(msg="用户已被停用")
+            raise CustomException(msg="用户已被停用", code=10401, status_code=401)
+
+        from sqlalchemy import select
+
+        from app.api.v1.module_platform.tenant.model import TenantModel, TenantUserModel
+
+        tenant_stmt = (
+            select(TenantModel)
+            .where(TenantModel.id == tenant_id, TenantModel.status == 0, TenantModel.is_deleted.is_(False))
+            .limit(1)
+        )
+        tenant_result = await db.execute(tenant_stmt)
+        if not tenant_result.scalar_one_or_none():
+            raise CustomException(msg="租户不存在或已被禁用", code=10401, status_code=401)
+
+        if not user.is_superuser:
+            relation_stmt = (
+                select(TenantUserModel)
+                .where(TenantUserModel.user_id == user.id, TenantUserModel.tenant_id == tenant_id)
+                .limit(1)
+            )
+            relation_result = await db.execute(relation_stmt)
+            if not relation_result.scalar_one_or_none():
+                raise CustomException(msg="租户会话已失效", code=10401, status_code=401)
 
         access_expires = timedelta(seconds=settings.ACCESS_TOKEN_EXPIRE_SECONDS)
         refresh_expires = timedelta(seconds=settings.REFRESH_TOKEN_EXPIRE_SECONDS)
@@ -410,9 +448,14 @@ class LoginService:
         )
 
     @staticmethod
-    async def logout(redis: Redis, token: LogoutPayloadSchema) -> bool:
+    async def logout(redis: Redis, token: LogoutPayloadSchema, current_token: str) -> bool:
         """退出登录"""
         payload: JWTPayloadSchema = decode_access_token(token=token.token)
+        current_payload: JWTPayloadSchema = decode_access_token(token=current_token)
+
+        if payload.is_refresh or current_payload.is_refresh or payload.sub != current_payload.sub:
+            raise CustomException(msg="非法凭证,无法注销非当前会话", code=10401, status_code=401)
+
         session_id = payload.sub
 
         if not session_id:
@@ -486,7 +529,7 @@ class LoginService:
             if not result.scalar_one_or_none():
                 raise CustomException(msg="您不属于该租户，无法切换")
 
-        tenant_stmt = select(TenantModel).where(TenantModel.id == tenant_id, TenantModel.status == 0).limit(1)
+        tenant_stmt = select(TenantModel).where(TenantModel.id == tenant_id, TenantModel.status == 0, TenantModel.is_deleted.is_(False)).limit(1)
         result = await self.auth.db.execute(tenant_stmt)
         tenant = result.scalar_one_or_none()
         if not tenant:
@@ -526,19 +569,6 @@ class LoginService:
             key=f"{RedisInitKeyConfig.ACCESS_TOKEN.key}:{session_id}",
             value=new_access_token,
             expire=int(access_expires.total_seconds()),
-        )
-
-        new_refresh_token = create_access_token(
-            payload=JWTPayloadSchema(
-                sub=session_id,
-                is_refresh=True,
-                exp=now + refresh_expires,
-            )
-        )
-        await RedisCURD(redis).set(
-            key=f"{RedisInitKeyConfig.REFRESH_TOKEN.key}:{session_id}",
-            value=new_refresh_token,
-            expire=int(refresh_expires.total_seconds()),
         )
 
         from app.core.request_context import set_current_tenant
@@ -771,9 +801,7 @@ class TenantRegisterService:
         now = datetime.now()
         trial_end = now + timedelta(days=cls.DEFAULT_TRIAL_DAYS)
 
-        base = tenant_name or username
-        code_suffix = base.encode("utf-8").hex()[:6].upper()
-        tenant_code = f"T{code_suffix}"
+        tenant_code = f"T{uuid.uuid4().hex[:8].upper()}"
 
         tenant = TenantModel(
             name=tenant_name or f"{username}的租户",
@@ -790,6 +818,7 @@ class TenantRegisterService:
         user = UserModel(
             username=username,
             password=PwdUtil.hash_password(password),
+            name=username,
             email=email,
             tenant_id=tenant.id,
             status=0,
@@ -810,6 +839,14 @@ class TenantRegisterService:
 
         user_role = UserRolesModel(user_id=user.id, role_id=owner_role.id)
         db.add(user_role)
+        db.add(
+            TenantUserModel(
+                user_id=user.id,
+                tenant_id=tenant.id,
+                role="owner",
+                is_default=1,
+            )
+        )
 
         if default_pkg:
             pkg_menu_stmt = select(PackageMenuModel).where(

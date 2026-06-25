@@ -1,11 +1,17 @@
+from datetime import datetime
+
 from app.core.base_schema import AuthSchema, BatchSetAvailable
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 from app.utils.excel_util import ExcelUtil
 
-from .crud import NoticeCRUD
+from .crud import BusinessNotificationCRUD, NoticeCRUD
 from .model import NoticeModel, NoticeReadModel
 from .schema import (
+    BusinessNotificationCreateSchema,
+    BusinessNotificationOutSchema,
+    BusinessNotificationQueryParam,
+    BusinessNotificationUpdateSchema,
     NoticeCreateSchema,
     NoticeOutSchema,
     NoticeQueryParam,
@@ -206,10 +212,67 @@ class NoticeService:
         except Exception as e:
             logger.warning(f"获取面板消息数据失败（操作日志表可能不存在），已跳过: {e}")
 
-        pendings: list[dict] = []
+        pendings = await BusinessNotificationService(self.auth).pending_for_panel(limit=10)
 
         return PanelDataOut(
             notices=notices,
             messages=messages,
             pendings=pendings,
         )
+
+
+class BusinessNotificationService:
+    """业务通知/待办/预警服务。"""
+
+    def __init__(self, auth: AuthSchema) -> None:
+        self.auth = auth
+        self.crud = BusinessNotificationCRUD(auth)
+
+    async def create(self, data: BusinessNotificationCreateSchema) -> BusinessNotificationOutSchema:
+        obj = await self.crud.create(data=data)
+        return BusinessNotificationOutSchema.model_validate(obj)
+
+    async def page(
+        self,
+        page_no: int,
+        page_size: int,
+        search: BusinessNotificationQueryParam | None = None,
+        order_by: list[dict] | None = None,
+    ) -> dict:
+        return await self.crud.page(
+            offset=(page_no - 1) * page_size,
+            limit=page_size,
+            order_by=order_by or [{"created_time": "desc"}],
+            search=vars(search) if search else None,
+            out_schema=BusinessNotificationOutSchema,
+        )
+
+    async def handle(self, id: int, data: BusinessNotificationUpdateSchema) -> BusinessNotificationOutSchema:
+        values = data.model_dump()
+        values["handled_time"] = datetime.now() if data.handled else None
+        obj = await self.crud.update(id=id, data=values)
+        return BusinessNotificationOutSchema.model_validate(obj)
+
+    async def pending_for_panel(self, limit: int = 10) -> list[dict]:
+        items = await self.crud.get_list(
+            search={"handled": False},
+            order_by=[{"created_time": "desc"}],
+            preload=[],
+        )
+        result = []
+        for item in items[:limit]:
+            result.append(
+                {
+                    "id": item.id,
+                    "module": item.module,
+                    "biz_type": item.biz_type,
+                    "biz_id": item.biz_id,
+                    "title": item.title,
+                    "content": item.content,
+                    "level": item.level,
+                    "action_url": item.action_url,
+                    "handled": item.handled,
+                    "time": item.created_time.strftime("%Y-%m-%d %H:%M") if item.created_time else "",
+                }
+            )
+        return result

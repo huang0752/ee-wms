@@ -43,11 +43,17 @@ class TestAuth:
         assert_route(test_client, "GET", "/system/auth/tenants", auth=auth_headers)
 
     def test_auth_select_tenant(self, test_client: TestClient, auth_headers: dict) -> None:
+        login_resp = test_client.post(
+            "/system/auth/login",
+            data={"username": "admin", "password": "admin123", "login_type": "PC端"},
+        )
+        assert login_resp.status_code == 200
+        access_token = login_resp.json()["data"]["access_token"]
         assert_route(
             test_client,
             "POST",
             "/system/auth/select-tenant",
-            auth=auth_headers,
+            auth={"Authorization": f"Bearer {access_token}"},
             json={"tenant_id": 1},
         )
 
@@ -367,6 +373,97 @@ class TestNotice:
             test_client, "PATCH", "/system/notice/status/batch", auth=auth_headers,
             json={"ids": [1], "status": 1},
         )
+
+    def test_business_notification_create_panel_and_handle(self, test_client: TestClient, auth_headers: dict) -> None:
+        create_resp = test_client.post(
+            "/system/notice/business/create",
+            headers=auth_headers,
+            json={
+                "module": "wms",
+                "biz_type": "stock_warning",
+                "biz_id": "SKU-001",
+                "title": "库存预警",
+                "content": "SKU-001 库存低于安全线",
+                "level": "warning",
+                "action_url": "/wms/stock/SKU-001",
+            },
+        )
+        assert create_resp.status_code == 200, create_resp.text
+        notification = create_resp.json()["data"]
+        assert notification["handled"] is False
+        assert notification["module"] == "wms"
+        assert notification["biz_type"] == "stock_warning"
+
+        panel_resp = test_client.get("/system/notice/panel", headers=auth_headers)
+        assert panel_resp.status_code == 200, panel_resp.text
+        pendings = panel_resp.json()["data"]["pendings"]
+        assert any(item["id"] == notification["id"] and item["level"] == "warning" for item in pendings)
+
+        handle_resp = test_client.patch(
+            f"/system/notice/business/handle/{notification['id']}",
+            headers=auth_headers,
+            json={"handled": True},
+        )
+        assert handle_resp.status_code == 200, handle_resp.text
+        assert handle_resp.json()["data"]["handled"] is True
+
+        panel_after = test_client.get("/system/notice/panel", headers=auth_headers)
+        assert panel_after.status_code == 200, panel_after.text
+        assert all(item["id"] != notification["id"] for item in panel_after.json()["data"]["pendings"])
+
+    def test_business_notification_is_tenant_isolated(self, test_client: TestClient) -> None:
+        register_a_resp = test_client.post(
+            "/system/auth/tenant/register",
+            json={
+                "username": "notice_tenant_a",
+                "password": "admin123",
+                "email": "notice_tenant_a@example.com",
+                "tenant_name": "通知隔离租户A",
+            },
+        )
+        assert register_a_resp.status_code == 200, register_a_resp.text
+        tenant_a = test_client.post(
+            "/system/auth/login",
+            data={"username": "notice_tenant_a", "password": "admin123", "login_type": "PC端"},
+        )
+        assert tenant_a.status_code == 200, tenant_a.text
+        tenant_a_headers = {"Authorization": f"Bearer {tenant_a.json()['data']['access_token']}"}
+
+        register_resp = test_client.post(
+            "/system/auth/tenant/register",
+            json={
+                "username": "notice_tenant_b",
+                "password": "admin123",
+                "email": "notice_tenant_b@example.com",
+                "tenant_name": "通知隔离租户",
+            },
+        )
+        assert register_resp.status_code == 200, register_resp.text
+        tenant_b = test_client.post(
+            "/system/auth/login",
+            data={"username": "notice_tenant_b", "password": "admin123", "login_type": "PC端"},
+        )
+        assert tenant_b.status_code == 200, tenant_b.text
+        tenant_b_headers = {"Authorization": f"Bearer {tenant_b.json()['data']['access_token']}"}
+
+        create_resp = test_client.post(
+            "/system/notice/business/create",
+            headers=tenant_a_headers,
+            json={
+                "module": "crm",
+                "biz_type": "followup",
+                "biz_id": "TENANT-A-NOTICE",
+                "title": "租户A通知",
+            },
+        )
+        assert create_resp.status_code == 200, create_resp.text
+
+        list_resp = test_client.get(
+            "/system/notice/business/list?biz_id=TENANT-A-NOTICE",
+            headers=tenant_b_headers,
+        )
+        assert list_resp.status_code == 200, list_resp.text
+        assert list_resp.json()["data"]["total"] == 0
 
 
 class TestParams:

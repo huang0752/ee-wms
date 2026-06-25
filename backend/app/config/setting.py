@@ -9,6 +9,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.common.enums import EnvironmentEnum
 from app.config.path_conf import BASE_DIR, ENV_DIR
 
+DEFAULT_SECRET_KEY = "vgb0tnl9d58+6n-6h-ea&u^1#s0ccp!794=krylxcjq75vzps$"
+
 
 class Settings(BaseSettings):
     """系统配置类"""
@@ -19,6 +21,12 @@ class Settings(BaseSettings):
         extra="ignore",
         case_sensitive=True,  # 区分大小写
     )
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.ENVIRONMENT == EnvironmentEnum.PROD and self.SECRET_KEY == DEFAULT_SECRET_KEY:
+            raise ValueError("生产环境必须通过环境变量配置 SECRET_KEY")
+        if self.ENVIRONMENT == EnvironmentEnum.PROD and self.ALLOW_CREDENTIALS and "*" in self.ALLOW_ORIGINS:
+            raise ValueError("生产环境开启凭证跨域时 ALLOW_ORIGINS 不能包含 '*'")
 
     # ================================================= #
     # ******************* 项目环境 ****************** #
@@ -61,7 +69,7 @@ class Settings(BaseSettings):
     # ================================================= #
     # ******************* 登录认证配置 ****************** #
     # ================================================= #
-    SECRET_KEY: str = "vgb0tnl9d58+6n-6h-ea&u^1#s0ccp!794=krylxcjq75vzps$"  # JWT密钥
+    SECRET_KEY: str = DEFAULT_SECRET_KEY  # JWT密钥
     ALGORITHM: str = "HS256"  # JWT算法
     ACCESS_TOKEN_EXPIRE_SECONDS: int = 60 * 60 * 12  # access_token过期时间(秒)12 小时
     REFRESH_TOKEN_EXPIRE_SECONDS: int = 60 * 60 * 12  # refresh_token过期时间(秒)12 小时
@@ -137,6 +145,8 @@ class Settings(BaseSettings):
     OAUTH_DEFAULT_ROLE_IDS: list[int] = [2]
     # 回调异常时回跳的前端地址（与前端实际 /login 一致，含协议与端口）
     OAUTH_FRONTEND_FALLBACK: str = "http://127.0.0.1:5173/login"
+    # OAuth 完成后允许携带 token 回跳的前端 Origin；为空时默认仅允许 OAUTH_FRONTEND_FALLBACK 的 Origin。
+    OAUTH_FRONTEND_ALLOWED_ORIGINS: list[str] = []
     OAUTH_GITHUB_CLIENT_ID: str = ""
     OAUTH_GITHUB_CLIENT_SECRET: str = ""
     OAUTH_GITEE_CLIENT_ID: str = ""

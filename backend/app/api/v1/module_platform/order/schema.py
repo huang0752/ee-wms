@@ -95,13 +95,14 @@ class OrderCreateSchema(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def check_target(self) -> None:
+    def check_target(self) -> "OrderCreateSchema":
         if self.order_type == "plugin":
             if not self.plugin_id or self.plugin_id <= 0:
                 raise ValueError("插件订单必须指定 plugin_id")
         else:
             if not self.package_id or self.package_id <= 0:
                 raise ValueError("套餐订单必须指定 package_id")
+        return self
 
 
 class OrderOutSchema(BaseSchema, TenantBySchema):

@@ -18,13 +18,13 @@ from app.api.v1.module_platform.email.model import EmailConfigModel, EmailTempla
 from app.api.v1.module_platform.invoice.model import InvoiceModel
 from app.api.v1.module_platform.menu.model import MenuModel
 from app.api.v1.module_platform.order.model import OrderModel, PaymentRecordModel, RefundModel
-from app.api.v1.module_platform.package.model import PackageMenuModel, PackageModel
+from app.api.v1.module_platform.package.model import PackageMenuModel, PackageModel, PackagePluginModel
 from app.api.v1.module_platform.plugin.model import PluginModel, TenantPluginModel
 from app.api.v1.module_platform.tenant.model import TenantModel, TenantUserModel
 from app.api.v1.module_system.dept.model import DeptModel
 from app.api.v1.module_system.dict.model import DictDataModel, DictTypeModel
 from app.api.v1.module_system.log.model import LoginLogModel, OperationLogModel
-from app.api.v1.module_system.notice.model import NoticeModel, NoticeReadModel
+from app.api.v1.module_system.notice.model import BusinessNotificationModel, NoticeModel, NoticeReadModel
 from app.api.v1.module_system.params.model import ParamsModel
 from app.api.v1.module_system.position.model import PositionModel
 from app.api.v1.module_system.role.model import RoleModel
@@ -34,6 +34,7 @@ from app.config.path_conf import SCRIPT_DIR
 from app.core.database import async_db_session, create_tables
 from app.core.logger import logger
 from app.plugin.module_example.demo.model import DemoModel
+from app.plugin.module_task.business.task.model import BusinessTaskModel
 from app.plugin.module_task.cronjob.node.model import NodeModel
 from app.plugin.module_task.workflow.nodes.model import WorkflowNodeTypeModel
 
@@ -71,16 +72,19 @@ class InitializeData:
         UserRolesModel,
         TenantUserModel,
         PackageMenuModel,
+        PackagePluginModel,
         TenantPluginModel,
         # ── 其他系统/业务表 ──
         NoticeModel,
         NoticeReadModel,
+        BusinessNotificationModel,
         TicketModel,
         # ── 日志表（追加写入） ──
         LoginLogModel,
         OperationLogModel,
         # ── 插件表 ──
         NodeModel,
+        BusinessTaskModel,
         WorkflowNodeTypeModel,
         DemoModel,
     ]
@@ -185,6 +189,45 @@ class InitializeData:
             except Exception:
                 logger.error(f"❌️ 初始化 {table_name} 表数据失败")
                 raise
+
+        await self.__backfill_tenant_memberships(db)
+
+    async def __backfill_tenant_memberships(self, db: AsyncSession) -> None:
+        """回填历史用户的租户关系，保证会话租户校验不会误杀旧数据。"""
+        stmt = (
+            select(UserModel)
+            .where(
+                UserModel.tenant_id.is_not(None),
+                UserModel.is_deleted.is_(False),
+            )
+        )
+        users = (await db.execute(stmt)).scalars().all()
+        added = 0
+        for user in users:
+            exists_stmt = (
+                select(TenantUserModel)
+                .where(
+                    TenantUserModel.user_id == user.id,
+                    TenantUserModel.tenant_id == user.tenant_id,
+                )
+                .limit(1)
+            )
+            if (await db.execute(exists_stmt)).scalar_one_or_none():
+                continue
+            has_any_stmt = select(TenantUserModel).where(TenantUserModel.user_id == user.id).limit(1)
+            has_any = (await db.execute(has_any_stmt)).scalar_one_or_none()
+            db.add(
+                TenantUserModel(
+                    user_id=user.id,
+                    tenant_id=user.tenant_id,
+                    role="owner" if user.is_superuser else "member",
+                    is_default=0 if has_any else 1,
+                )
+            )
+            added += 1
+        if added:
+            await db.flush()
+            logger.info(f"✅️ 已回填 {added} 条用户租户关系")
 
     @staticmethod
     def __create_objects_with_children(data: list[dict], model_class: type) -> list:

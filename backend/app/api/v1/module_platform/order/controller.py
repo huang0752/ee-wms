@@ -5,7 +5,9 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.enums import EnvironmentEnum
 from app.common.response import ResponseSchema, SuccessResponse
+from app.config.setting import settings
 from app.core.base_params import PaginationQueryParam
 from app.core.base_schema import AuthSchema, PageResultSchema
 from app.core.dependencies import AuthPermission, db_getter
@@ -119,9 +121,8 @@ async def payment_create_controller(
 )
 async def payment_status_controller(
     order_id: Annotated[int, Path(ge=1)],
-    db: Annotated[AsyncSession, Depends(db_getter)],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_platform:order:query"]))],
 ) -> JSONResponse:
-    auth = AuthSchema(db=db, check_data_scope=False)
     result = await OrderService.check_payment_status(auth=auth, order_id=order_id)
     return SuccessResponse(data=result)
 
@@ -151,18 +152,26 @@ async def payment_callback_controller(
 )
 async def payment_mock_callback_controller(
     order_id: Annotated[int, Body(ge=1, description="订单 ID")],
-    db: Annotated[AsyncSession, Depends(db_getter)],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_platform:order:update"]))],
 ) -> JSONResponse:
     from app.utils.payment import get_mock_gateway
 
     from .crud import OrderCRUD
 
-    auth = AuthSchema(db=db, check_data_scope=False)
+    if settings.ENVIRONMENT != EnvironmentEnum.DEV:
+        raise CustomException(msg="当前环境不允许模拟支付", code=10403, status_code=403)
+
     order = await OrderCRUD(auth).get_by_id(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
 
     mock_gw = get_mock_gateway()
+    await mock_gw.create_payment(
+        order_no=order.order_no,
+        amount=order.amount,
+        subject=f"FastapiAdmin Mock Order {order.order_no}",
+        notify_url="",
+    )
     callback_data = mock_gw.get_mock_callback_data(order.id, order.order_no)
     result = await PaymentService.handle_callback(auth=auth, method="mock", callback_data=callback_data)
     logger.info(f"Mock 支付回调触发: order_id={order_id}")
@@ -246,20 +255,6 @@ async def refund_reject_controller(
         operator_name=auth.user.name if auth.user else "",
     )
     return SuccessResponse(data=result, msg=result["message"])
-
-@TenantOrderRouter.post(
-    "/create",
-    summary="租户端创建订单",
-    response_model=ResponseSchema[OrderOutSchema],
-)
-async def tenant_order_create_controller(
-    data: Annotated[OrderCreateSchema, Body()],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["tenant:order:create"]))],
-) -> JSONResponse:
-    if data.tenant_id != auth.tenant_id:
-        raise HTTPException(status_code=403, detail="无权操作")
-    result = await OrderService.create_order(auth=auth, data=data)
-    return SuccessResponse(data=result, msg="订单创建成功")
 
 @TenantOrderRouter.post(
     "/refund/apply/{order_id}",

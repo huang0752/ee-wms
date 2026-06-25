@@ -76,8 +76,8 @@ class UserRegisterSchema(BaseModel):
     mobile: str | None = Field(default=None, max_length=11, description="手机号")
     username: str = Field(..., min_length=3, max_length=32, description="账号")
     password: str = Field(..., min_length=6, max_length=128, description="密码")
-    role_ids: list[int] | None = Field(default=[1], description="角色ID列表")
-    created_id: int | None = Field(default=1, description="创建人ID")
+    role_ids: list[int] | None = Field(default=None, description="角色ID列表")
+    created_id: int | None = Field(default=None, description="创建人ID")
     description: str | None = Field(default=None, max_length=255, description="备注")
 
     @field_validator("mobile")
@@ -126,7 +126,7 @@ class UserForgetPasswordSchema(BaseModel):
 
     username: str = Field(..., min_length=3, max_length=32, description="用户名")
     new_password: str = Field(..., min_length=6, max_length=128, description="新密码")
-    mobile: str | None = Field(default=None, max_length=11, description="手机号")
+    mobile: str = Field(..., max_length=11, description="手机号")
 
     @field_validator("username")
     @classmethod

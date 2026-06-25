@@ -7,13 +7,16 @@
   >
     <div class="login-center-backdrop__bg" />
     <div class="login-center-backdrop__hero-wrap">
-      <FaThemeSvg :src="loginIcon" size="100%" class="login-center-backdrop__hero" />
+      <img v-if="loginBgSrc" class="login-center-backdrop__hero-img" :src="loginBgSrc" alt="" />
+      <FaThemeSvg v-else :src="loginIcon" size="100%" class="login-center-backdrop__hero" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import loginIcon from "@fa_imgs/background.svg";
+import { useConfigStore } from "@stores";
 
 defineOptions({ name: "LoginCenterBackdrop" });
 
@@ -23,6 +26,11 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), { viewportFixed: false });
+
+const configStore = useConfigStore();
+const loginBgSrc = computed(
+  () => configStore.configData.login_bg?.config_value?.trim() || undefined
+);
 </script>
 
 <style scoped lang="scss">
@@ -63,6 +71,12 @@ withDefaults(defineProps<Props>(), { viewportFixed: false });
 .login-center-backdrop__hero {
   width: 100%;
   height: 100%;
+}
+
+.login-center-backdrop__hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 html.dark .login-center-backdrop__bg {

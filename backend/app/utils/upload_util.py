@@ -433,6 +433,10 @@ class UploadUtil:
           - "avatar": 头像图片
           - "param": 参数配置
           - "resource": 监控资源
+          - "tenant_logo": 租户 Logo
+          - "tenant_favicon": 租户 favicon
+          - "tenant_login_bg": 租户登录背景
+          - "tenant_brand": 租户品牌通用素材
         - target_path (str | None): 目标目录路径（相对路径），仅 resource 类型支持。
           例如: "images", "documents/2024"
 
@@ -471,6 +475,10 @@ class UploadUtil:
                 "avatar": "avatar",
                 "param": "param",
                 "resource": "resource",
+                "tenant_logo": "tenant/brand/logo",
+                "tenant_favicon": "tenant/brand/favicon",
+                "tenant_login_bg": "tenant/brand/login-bg",
+                "tenant_brand": "tenant/brand/file",
             }.get(upload_type, "file")
 
             # 构建目录路径

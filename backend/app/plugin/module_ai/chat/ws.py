@@ -5,12 +5,13 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.core.database import async_db_session
 from app.core.dependencies import _authenticate
+from app.core.discover import validate_dynamic_plugin_access_for_path
 from app.core.exceptions import CustomException
 from app.core.logger import logger
 from app.core.router_class import OperationLogRoute
 
 from .schema import ChatQuerySchema
-from .service import ChatService, get_user_model_config
+from .service import ChatService, resolve_effective_model_config
 
 WS_AI = APIRouter(
     route_class=OperationLogRoute,
@@ -59,6 +60,7 @@ async def websocket_chat_controller(websocket: WebSocket) -> None:
         redis = websocket.app.state.redis
         async with async_db_session() as db:
             auth = await _authenticate(token, db, redis)
+            await validate_dynamic_plugin_access_for_path(websocket.url.path, auth)
 
             user = auth.user
             logger.info("WebSocket连接已建立: {} - 用户: {}", websocket.client, user.username if user else "未认证")
@@ -96,8 +98,8 @@ async def websocket_chat_controller(websocket: WebSocket) -> None:
 
                     is_generating.set()
                     stop_event.clear()
-                    # 读取用户的 AI 模型配置（每次可动态切换）
-                    model_config = await get_user_model_config(redis, user.id)
+                    # 统一解析当前生效模型配置（每次可动态切换）
+                    model_config = await resolve_effective_model_config(redis, auth)
                     try:
                         async for chunk in chat_service.chat_query(
                             query=query,

@@ -20,7 +20,7 @@ JobRouter = APIRouter(route_class=OperationLogRoute, prefix="/cronjob/job", tags
     "/scheduler/status",
     summary="获取调度器状态",
     response_model=ResponseSchema[dict],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:query"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def get_scheduler_status_controller() -> JSONResponse:
     data = JobService.get_scheduler_status()
@@ -31,7 +31,7 @@ async def get_scheduler_status_controller() -> JSONResponse:
     "/scheduler/jobs",
     summary="获取调度器任务列表",
     response_model=ResponseSchema[list[dict]],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:query"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def get_scheduler_jobs_controller() -> JSONResponse:
     data = JobService.get_scheduler_jobs()
@@ -42,7 +42,7 @@ async def get_scheduler_jobs_controller() -> JSONResponse:
     "/scheduler/start",
     summary="启动调度器",
     response_model=ResponseSchema[None],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:scheduler"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def start_scheduler_controller() -> JSONResponse:
     SchedulerUtil.start()
@@ -53,7 +53,7 @@ async def start_scheduler_controller() -> JSONResponse:
     "/scheduler/pause",
     summary="暂停调度器",
     response_model=ResponseSchema[None],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:scheduler"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def pause_scheduler_controller() -> JSONResponse:
     SchedulerUtil.pause()
@@ -64,7 +64,7 @@ async def pause_scheduler_controller() -> JSONResponse:
     "/scheduler/resume",
     summary="恢复调度器",
     response_model=ResponseSchema[None],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:scheduler"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def resume_scheduler_controller() -> JSONResponse:
     SchedulerUtil.resume()
@@ -75,7 +75,7 @@ async def resume_scheduler_controller() -> JSONResponse:
     "/scheduler/shutdown",
     summary="关闭调度器",
     response_model=ResponseSchema[None],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:scheduler"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def shutdown_scheduler_controller() -> JSONResponse:
     await SchedulerUtil.shutdown()
@@ -86,7 +86,7 @@ async def shutdown_scheduler_controller() -> JSONResponse:
     "/scheduler/jobs/clear",
     summary="清空所有任务",
     response_model=ResponseSchema[None],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:task"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def clear_jobs_controller() -> JSONResponse:
     SchedulerUtil.clear_jobs()
@@ -97,7 +97,7 @@ async def clear_jobs_controller() -> JSONResponse:
     "/scheduler/console",
     summary="获取调度器控制台信息",
     response_model=ResponseSchema[str],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:query"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def get_scheduler_console_controller() -> JSONResponse:
     console_output = SchedulerUtil.print_jobs()
@@ -108,7 +108,7 @@ async def get_scheduler_console_controller() -> JSONResponse:
     "/scheduler/sync",
     summary="同步调度器任务到数据库",
     response_model=ResponseSchema[int],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:update"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def sync_jobs_controller() -> JSONResponse:
     sync_count = SchedulerUtil.sync_jobs_to_db()
@@ -119,7 +119,7 @@ async def sync_jobs_controller() -> JSONResponse:
     "/task/pause/{job_id}",
     summary="暂停任务",
     response_model=ResponseSchema[None],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:task"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def pause_job_controller(
     job_id: Annotated[str, Path(description="调度器任务ID")],
@@ -132,7 +132,7 @@ async def pause_job_controller(
     "/task/resume/{job_id}",
     summary="恢复任务",
     response_model=ResponseSchema[None],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:task"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def resume_job_controller(
     job_id: Annotated[str, Path(description="调度器任务ID")],
@@ -145,7 +145,7 @@ async def resume_job_controller(
     "/task/run/{job_id}",
     summary="立即执行任务",
     response_model=ResponseSchema[None],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:task"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def run_job_controller(
     job_id: Annotated[str, Path(description="调度器任务ID")],
@@ -158,7 +158,7 @@ async def run_job_controller(
     "/task/remove/{job_id}",
     summary="移除任务",
     response_model=ResponseSchema[None],
-    dependencies=[Depends(AuthPermission(["module_task:cronjob:job:delete"]))],
+    dependencies=[Depends(AuthPermission(["*:*:*"]))],
 )
 async def remove_job_controller(
     job_id: Annotated[str, Path(description="调度器任务ID")],

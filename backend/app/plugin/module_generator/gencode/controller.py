@@ -54,7 +54,7 @@ async def gen_table_list_controller(
 async def get_gen_db_table_list_controller(
     page: Annotated[PaginationQueryParam, Depends()],
     search: Annotated[GenTableQueryParam, Depends()],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_generator:dblist:query"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> JSONResponse:
     result_dict = await GenTableService(auth).get_gen_db_table_page(
         page_no=page.page_no,
@@ -71,7 +71,7 @@ async def get_gen_db_table_list_controller(
 )
 async def import_gen_table_controller(
     table_names: Annotated[list[str], Body(description="表名列表")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_generator:gencode:import"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> JSONResponse:
     svc = GenTableService(auth)
     add_gen_table_list = await svc.get_gen_db_table_list_by_name(table_names)
@@ -99,7 +99,7 @@ async def gen_table_detail_controller(
 )
 async def create_table_controller(
     body: GenCreateTableSqlBody,
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_generator:gencode:create"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> JSONResponse:
     result = await GenTableService(auth).create_table(body.sql)
     return SuccessResponse(msg="创建表结构成功", data=result)
@@ -138,7 +138,7 @@ async def delete_gen_table_controller(
 )
 async def batch_gen_code_controller(
     table_names: Annotated[list[str], Body(description="表名列表")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_generator:gencode:operate"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> StreamResponse:
     batch_gen_code_result, failed_tables = await GenTableService(auth).batch_gen_code(table_names)
     headers = {"Content-Disposition": "attachment; filename=code.zip"}
@@ -159,7 +159,7 @@ async def batch_gen_code_controller(
 )
 async def gen_code_local_controller(
     table_name: Annotated[str, Path(description="表名")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_generator:gencode:code"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["*:*:*"]))],
 ) -> JSONResponse:
     result = await GenTableService(auth).generate_code(table_name)
     return SuccessResponse(msg="生成代码到指定路径成功", data=result)

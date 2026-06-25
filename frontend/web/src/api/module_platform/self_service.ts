@@ -62,6 +62,23 @@ const SelfServiceAPI = {
       data: body,
     });
   },
+
+  /** 当前租户品牌配置 */
+  getBrandConfig() {
+    return request<ApiResponse<TenantBrandConfigItem[]>>({
+      url: `${API_PATH}/brand/config`,
+      method: "get",
+    });
+  },
+
+  /** 更新当前租户品牌配置 */
+  updateBrandConfig(body: TenantBrandConfigItem[]) {
+    return request<ApiResponse<TenantBrandConfigItem[]>>({
+      url: `${API_PATH}/brand/config`,
+      method: "put",
+      data: body,
+    });
+  },
 };
 
 export default SelfServiceAPI;
@@ -149,4 +166,23 @@ export interface WorkspaceData {
     status: number;
     created_at: string | null;
   }[];
+}
+
+export interface TenantBrandConfigItem {
+  key?: string;
+  value?: string | null;
+  config_key?: string;
+  config_value?: string | null;
+}
+
+export interface TenantBrandForm {
+  tenant_name: string;
+  tenant_logo: string;
+  favicon: string;
+  login_bg: string;
+  copyright: string;
+  keep_record: string;
+  help_doc: string;
+  privacy: string;
+  clause: string;
 }

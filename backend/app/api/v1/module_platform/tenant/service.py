@@ -18,6 +18,7 @@ from .crud import TenantCRUD
 from .model import TenantModel, TenantUserModel
 from .schema import (
     PackageChangePreviewOut,
+    TenantConfigItem,
     TenantConfigOutSchema,
     TenantCreateSchema,
     TenantOutSchema,
@@ -26,6 +27,25 @@ from .schema import (
     TenantUserAddSchema,
     TenantUserOutSchema,
 )
+
+TENANT_CONFIG_FIELDS = [
+    "name", "description", "version", "logo_url", "favicon",
+    "login_bg", "copyright", "keep_record", "help_doc", "privacy",
+    "clause", "git_code",
+]
+
+TENANT_SELF_BRAND_CONFIG_FIELDS = {
+    "name", "logo_url", "favicon", "login_bg", "copyright",
+    "keep_record", "help_doc", "privacy", "clause",
+}
+
+TENANT_BRAND_CONFIG_ALIASES = {
+    "tenant_name": "name",
+    "tenant_version": "version",
+    "tenant_logo": "logo_url",
+}
+
+TENANT_BRAND_CONFIG_FIELDS = {field: alias for alias, field in TENANT_BRAND_CONFIG_ALIASES.items()}
 
 
 class TenantService:
@@ -40,6 +60,7 @@ class TenantService:
     def __init__(self, auth: AuthSchema) -> None:
         self.auth = auth
 
+    @require_superadmin
     async def detail(self, id: int) -> TenantOutSchema:
         """
         租户详情
@@ -52,6 +73,7 @@ class TenantService:
         """
         return await TenantCRUD(self.auth).get_or_404(id=id, out_schema=TenantOutSchema)
 
+    @require_superadmin
     async def page(
         self,
         page_no: int,
@@ -103,6 +125,15 @@ class TenantService:
             user_obj = await UserCRUD(self.auth).create(data=admin_data)
             if not user_obj:
                 raise CustomException(msg="创建租户初始管理员失败")
+            self.auth.db.add(
+                TenantUserModel(
+                    user_id=user_obj.id,
+                    tenant_id=tenant_obj.id,
+                    role="owner",
+                    is_default=1,
+                )
+            )
+            await self.auth.db.flush()
         except CustomException:
             raise
         except Exception as e:
@@ -220,6 +251,7 @@ class TenantService:
 
         await TenantCRUD(self.auth).delete(ids=ids)
 
+    @require_superadmin
     async def set_available(self, data: BatchSetAvailable) -> None:
         """
         批量设置租户状态
@@ -234,6 +266,7 @@ class TenantService:
             raise CustomException(msg="系统租户不允许禁用")
         await TenantCRUD(self.auth).set(ids=data.ids, status=data.status)
 
+    @require_superadmin
     async def toggle_status(self, id: int) -> None:
         """
         切换单个租户的启用/禁用状态
@@ -250,6 +283,7 @@ class TenantService:
         new_status = 0 if obj.status == 1 else 1
         await TenantCRUD(self.auth).set(ids=[id], status=new_status)
 
+    @require_superadmin
     async def get_tenant_users(self, tenant_id: int) -> list[TenantUserOutSchema]:
         """获取租户下的用户列表"""
         from sqlalchemy import select
@@ -281,6 +315,7 @@ class TenantService:
             )
         return users
 
+    @require_superadmin
     async def add_tenant_user(self, tenant_id: int, data: TenantUserAddSchema) -> None:
         """
         向租户添加用户
@@ -348,6 +383,7 @@ class TenantService:
 
         logger.info(f"向租户[{tenant.name}]添加用户[{user.username}]成功, role={data.role}")
 
+    @require_superadmin
     async def remove_tenant_user(self, tenant_id: int, user_id: int) -> None:
         """
         从租户移除用户
@@ -536,18 +572,48 @@ class TenantService:
         if not tenant:
             raise CustomException(msg="该数据不存在")
 
-        config_fields = [
-            "name", "description", "version", "logo_url", "favicon",
-            "login_bg", "copyright", "keep_record", "help_doc", "privacy",
-            "clause", "git_code",
-        ]
-        config = {field: getattr(tenant, field, None) for field in config_fields}
+        config = {field: getattr(tenant, field, None) for field in TENANT_CONFIG_FIELDS}
         return config
 
+    @staticmethod
+    def _normalize_config_input(config: dict | list[TenantConfigItem]) -> dict:
+        """把前端列表契约和历史 dict 契约统一成租户主表字段名。"""
+        if isinstance(config, list):
+            raw_config = {item.key: item.value for item in config}
+        else:
+            raw_config = config
+
+        normalized: dict = {}
+        for key, value in raw_config.items():
+            field = TENANT_BRAND_CONFIG_ALIASES.get(key, key)
+            if field in TENANT_CONFIG_FIELDS:
+                normalized[field] = value
+        return normalized
+
+    @staticmethod
+    def _config_to_items(config: dict) -> list[TenantConfigOutSchema]:
+        items = [
+            TenantConfigOutSchema(config_key=k, config_value=str(v) if v is not None else None)
+            for k, v in config.items()
+        ]
+        for field, alias in TENANT_BRAND_CONFIG_FIELDS.items():
+            value = config.get(field)
+            items.append(TenantConfigOutSchema(config_key=alias, config_value=str(value) if value is not None else None))
+        return items
+
+    @require_superadmin
     async def get_config_items(self, tenant_id: int) -> list[TenantConfigOutSchema]:
         """获取租户所有配置（对外接口，返回结构化列表）"""
         config = await self.get_config(tenant_id)
-        return [TenantConfigOutSchema(config_key=k, config_value=str(v) if v is not None else None) for k, v in config.items()]
+        return self._config_to_items(config)
+
+    async def get_self_brand_config_items(self) -> list[TenantConfigOutSchema]:
+        """获取当前登录租户可自助维护的品牌配置。"""
+        if not self.auth.tenant_id:
+            raise CustomException(msg="当前会话缺少租户信息")
+        config = await self.get_config(self.auth.tenant_id)
+        brand_config = {field: config.get(field) for field in TENANT_SELF_BRAND_CONFIG_FIELDS}
+        return self._config_to_items(brand_config)
 
     @staticmethod
     async def get_config_cache(redis: Redis, tenant_id: int) -> dict:
@@ -589,7 +655,7 @@ class TenantService:
     async def get_config_cache_items(redis: Redis, tenant_id: int) -> list[TenantConfigOutSchema]:
         """获取租户缓存配置（对外接口，返回结构化列表）"""
         config = await TenantService.get_config_cache(redis, tenant_id)
-        return [TenantConfigOutSchema(config_key=k, config_value=str(v) if v is not None else None) for k, v in config.items()]
+        return TenantService._config_to_items(config)
 
     @staticmethod
     async def _sync_configs_to_redis(redis: Redis, tenant_id: int, config: dict) -> None:
@@ -604,7 +670,8 @@ class TenantService:
         redis_key = f"{RedisInitKeyConfig.TENANT_CONFIG.key}:{tenant_id}"
         await RedisCURD(redis).delete(redis_key)
 
-    async def update_config(self, redis: Redis, tenant_id: int, config: dict) -> list[TenantConfigOutSchema]:
+    @require_superadmin
+    async def update_config(self, redis: Redis, tenant_id: int, config: dict | list[TenantConfigItem]) -> list[TenantConfigOutSchema]:
         """
         更新租户配置（同步 Redis 缓存）
 
@@ -620,15 +687,9 @@ class TenantService:
         if not tenant:
             raise CustomException(msg="该数据不存在")
 
-        config_fields = [
-            "name", "description", "version", "logo_url", "favicon",
-            "login_bg", "copyright", "keep_record", "help_doc", "privacy",
-            "clause", "git_code",
-        ]
-
-        for field in config_fields:
-            if field in config:
-                setattr(tenant, field, config[field])
+        normalized_config = self._normalize_config_input(config)
+        for field, value in normalized_config.items():
+            setattr(tenant, field, value)
 
         await self.auth.db.flush()
 
@@ -636,7 +697,41 @@ class TenantService:
         new_config = await self.get_config(tenant_id)
         await TenantService._sync_configs_to_redis(redis, tenant_id, new_config)
         logger.info(f"租户[{tenant_id}]配置已更新")
-        return [TenantConfigOutSchema(config_key=k, config_value=str(v) if v is not None else None) for k, v in new_config.items()]
+        return self._config_to_items(new_config)
+
+    async def update_self_brand_config(
+        self,
+        redis: Redis,
+        config: dict | list[TenantConfigItem],
+    ) -> list[TenantConfigOutSchema]:
+        """当前租户自助更新品牌配置。
+
+        只允许写入展示品牌与法务链接字段，不允许通过自助入口修改套餐、状态、版本、
+        源码地址等平台治理字段。
+        """
+        if not self.auth.tenant_id:
+            raise CustomException(msg="当前会话缺少租户信息")
+
+        tenant_id = self.auth.tenant_id
+        tenant = await TenantCRUD(self.auth).get(id=tenant_id)
+        if not tenant:
+            raise CustomException(msg="该数据不存在")
+
+        normalized_config = {
+            field: value
+            for field, value in self._normalize_config_input(config).items()
+            if field in TENANT_SELF_BRAND_CONFIG_FIELDS
+        }
+        for field, value in normalized_config.items():
+            setattr(tenant, field, value)
+
+        await self.auth.db.flush()
+
+        new_config = await self.get_config(tenant_id)
+        await TenantService._sync_configs_to_redis(redis, tenant_id, new_config)
+        brand_config = {field: new_config.get(field) for field in TENANT_SELF_BRAND_CONFIG_FIELDS}
+        logger.info(f"租户[{tenant_id}]自助品牌配置已更新")
+        return self._config_to_items(brand_config)
 
     @staticmethod
     async def init_cache(redis: Redis) -> None:
@@ -670,6 +765,7 @@ class TenantService:
                     await TenantService._sync_configs_to_redis(redis, tenant.id, config)
                     logger.info(f"✅ 租户[{tenant.name}](id={tenant.id}) 配置已缓存到 Redis")
 
+    @require_superadmin
     async def renew(self, tenant_id: int, end_time: str) -> TenantOutSchema:
         """租户续期：延长 end_time 并恢复为 active 状态
 
@@ -707,6 +803,7 @@ class TenantService:
 
         return TenantOutSchema.model_validate(tenant)
 
+    @require_superadmin
     async def package_change_preview(self, tenant_id: int, new_package_id: int) -> PackageChangePreviewOut:
         """
         套餐变更影响预览

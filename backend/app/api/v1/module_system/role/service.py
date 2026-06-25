@@ -221,7 +221,10 @@ class RoleService:
         }
 
         # 处理数据
-        data = role_list.copy()
+        data = [
+            item.model_dump(mode="json") if hasattr(item, "model_dump") else dict(item)
+            for item in role_list
+        ]
         for item in data:
             item["status"] = "启用" if item.get("status") == 0 else "停用"
             item["data_scope"] = data_scope_map.get(item.get("data_scope", 1), "")

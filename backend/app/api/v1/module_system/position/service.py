@@ -94,7 +94,10 @@ class PositionService:
             "created_id": "创建者ID",
             "updated_id": "更新者ID",
         }
-        data = position_list.copy()
+        data = [
+            item.model_dump(mode="json") if hasattr(item, "model_dump") else dict(item)
+            for item in position_list
+        ]
         for item in data:
             item["status"] = "启用" if item.get("status") == 0 else "停用"
             item["creator"] = item.get("created_by", {}).get("name", "未知") if isinstance(item.get("created_by"), dict) else "未知"

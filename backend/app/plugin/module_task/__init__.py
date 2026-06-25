@@ -1,7 +1,5 @@
-from .cronjob.job import controller as job_controller
-from .cronjob.node import controller as node_controller
+"""任务插件包。
 
-__all__ = [
-    "job_controller",
-    "node_controller",
-]
+动态路由发现会递归导入各 ``controller.py``，这里保持无副作用，避免插件热重载后
+再次导入包时重复注册 SQLAlchemy 模型。
+"""

@@ -166,6 +166,9 @@ def create_payment_gateway(method: str = "") -> BasePaymentGateway:
     if method == "wxpay":
         logger.info("🔔 使用微信支付网关（未实现，回退 Mock）")
         return MockPaymentGateway()
+    if method == "mock":
+        logger.info("🔔 使用共享 Mock 支付网关")
+        return get_mock_gateway()
     if settings.PAYMENT_ALIPAY_APP_ID and settings.PAYMENT_ALIPAY_PRIVATE_KEY:
         logger.info("🔔 自动选择支付宝支付网关")
         return AlipayGateway()

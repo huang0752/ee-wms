@@ -3,12 +3,73 @@
 认证数据测试：admin 登录后验证 CRUD 真实数据。
 """
 
+import asyncio
+
 from conftest import assert_route  # noqa: F401
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from app.api.v1.module_platform.order.model import OrderModel
+from app.api.v1.module_platform.tenant.controller import TenantRouter
+from app.api.v1.module_platform.tenant.model import TenantModel
+from app.core.database import async_db_session
+from app.core.dependencies import AuthPermission
+
+
+def _create_order(test_client: TestClient, auth_headers: dict, *, tenant_id: int = 1, package_id: int = 1) -> int:
+    response = test_client.post(
+        "/platform/order/create",
+        headers=auth_headers,
+        json={"tenant_id": tenant_id, "package_id": package_id, "order_type": "new"},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["data"]["id"]
+
+
+async def _get_order_status(order_id: int) -> int | None:
+    async with async_db_session() as db:
+        return (
+            await db.execute(select(OrderModel.status).where(OrderModel.id == order_id).limit(1))
+        ).scalar_one_or_none()
+
+
+async def _get_tenant_config_snapshot(tenant_id: int) -> dict:
+    async with async_db_session() as db:
+        tenant = (
+            await db.execute(select(TenantModel).where(TenantModel.id == tenant_id).limit(1))
+        ).scalar_one()
+        return {
+            "name": tenant.name,
+            "version": tenant.version,
+            "logo_url": tenant.logo_url,
+            "login_bg": tenant.login_bg,
+        }
+
+
+def _tenant_auth_permissions(path: str, method: str) -> list[str]:
+    for route in TenantRouter.routes:
+        if getattr(route, "path", None) != path or method not in getattr(route, "methods", set()):
+            continue
+        for dep in route.dependant.dependencies:
+            if isinstance(dep.call, AuthPermission):
+                return dep.call.permissions
+    raise AssertionError(f"未找到租户路由权限依赖: {method} {path}")
 
 
 class TestTenant:
     """租户管理接口。"""
+
+    def test_tenant_routes_accept_platform_permissions_with_legacy_system_aliases(self) -> None:
+        expected = {
+            ("GET", "/tenant/list"): ["module_platform:tenant:query", "module_system:tenant:query"],
+            ("POST", "/tenant/create"): ["module_platform:tenant:create", "module_system:tenant:create"],
+            ("PUT", "/tenant/update/{id}"): ["module_platform:tenant:update", "module_system:tenant:update"],
+            ("DELETE", "/tenant/delete"): ["module_platform:tenant:delete", "module_system:tenant:delete"],
+            ("PATCH", "/tenant/status/batch"): ["module_platform:tenant:patch", "module_system:tenant:patch"],
+        }
+
+        for (method, path), permissions in expected.items():
+            assert _tenant_auth_permissions(path, method) == permissions
 
     def test_tenant_list(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(test_client, "GET", "/platform/tenant/list", auth=auth_headers)
@@ -35,7 +96,93 @@ class TestTenant:
         assert_route(test_client, "GET", "/platform/tenant/1/config/info", auth=auth_headers)
 
     def test_tenant_config(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "PUT", "/platform/tenant/1/config", auth=auth_headers, json={"key": "val"})
+        assert_route(
+            test_client,
+            "PUT",
+            "/platform/tenant/1/config",
+            auth=auth_headers,
+            json=[{"key": "description", "value": "平台默认租户"}],
+        )
+
+    def test_tenant_config_update_accepts_item_list_and_returns_brand_aliases(
+        self, test_client: TestClient, auth_headers: dict
+    ) -> None:
+        payload = [
+            {"key": "name", "value": "测试租户品牌"},
+            {"key": "version", "value": "2.1.0"},
+            {"config_key": "logo_url", "config_value": "https://example.test/tenant-2-logo.svg"},
+            {"key": "login_bg", "value": "https://example.test/tenant-2-login-bg.svg"},
+        ]
+
+        resp = test_client.put("/platform/tenant/2/config", headers=auth_headers, json=payload)
+
+        assert resp.status_code == 200, resp.text
+        items = {item["config_key"]: item["config_value"] for item in resp.json()["data"]}
+        assert items["name"] == "测试租户品牌"
+        assert items["tenant_name"] == "测试租户品牌"
+        assert items["version"] == "2.1.0"
+        assert items["tenant_version"] == "2.1.0"
+        assert items["logo_url"] == "https://example.test/tenant-2-logo.svg"
+        assert items["tenant_logo"] == "https://example.test/tenant-2-logo.svg"
+        assert items["login_bg"] == "https://example.test/tenant-2-login-bg.svg"
+
+        snapshot = asyncio.run(_get_tenant_config_snapshot(2))
+        assert snapshot == {
+            "name": "测试租户品牌",
+            "version": "2.1.0",
+            "logo_url": "https://example.test/tenant-2-logo.svg",
+            "login_bg": "https://example.test/tenant-2-login-bg.svg",
+        }
+
+    def test_tenant_self_service_brand_updates_current_tenant_only(
+        self, test_client: TestClient, auth_headers: dict
+    ) -> None:
+        before = asyncio.run(_get_tenant_config_snapshot(1))
+        payload = [
+            {"key": "tenant_name", "value": "自助品牌租户"},
+            {"key": "tenant_logo", "value": "https://example.test/self-logo.svg"},
+            {"key": "favicon", "value": "https://example.test/self-favicon.ico"},
+            {"key": "login_bg", "value": "https://example.test/self-login-bg.svg"},
+            {"key": "version", "value": "9.9.9"},
+            {"key": "git_code", "value": "https://example.test/should-not-write"},
+        ]
+
+        resp = test_client.put("/platform/tenant/brand/config", headers=auth_headers, json=payload)
+
+        assert resp.status_code == 200, resp.text
+        items = {item["config_key"]: item["config_value"] for item in resp.json()["data"]}
+        assert items["tenant_name"] == "自助品牌租户"
+        assert items["tenant_logo"] == "https://example.test/self-logo.svg"
+        assert items["favicon"] == "https://example.test/self-favicon.ico"
+        assert items["login_bg"] == "https://example.test/self-login-bg.svg"
+        assert "version" not in items
+        assert "git_code" not in items
+
+        after = asyncio.run(_get_tenant_config_snapshot(1))
+        assert after["name"] == "自助品牌租户"
+        assert after["logo_url"] == "https://example.test/self-logo.svg"
+        assert after["login_bg"] == "https://example.test/self-login-bg.svg"
+        assert after["version"] == before["version"]
+
+    def test_public_tenant_config_info_is_scoped_to_requested_tenant(
+        self, test_client: TestClient, auth_headers: dict
+    ) -> None:
+        payload = [
+            {"key": "name", "value": "测试租户公开品牌"},
+            {"key": "version", "value": "2.2.0"},
+            {"key": "logo_url", "value": "https://example.test/tenant-2-public-logo.svg"},
+        ]
+        update_resp = test_client.put("/platform/tenant/2/config", headers=auth_headers, json=payload)
+        assert update_resp.status_code == 200, update_resp.text
+
+        resp = test_client.get("/platform/tenant/2/config/info")
+
+        assert resp.status_code == 200, resp.text
+        items = {item["config_key"]: item["config_value"] for item in resp.json()["data"]}
+        assert items["tenant_name"] == "测试租户公开品牌"
+        assert items["tenant_version"] == "2.2.0"
+        assert items["tenant_logo"] == "https://example.test/tenant-2-public-logo.svg"
+        assert items["tenant_name"] != "平台租户"
 
     def test_tenant_renew(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(
@@ -280,20 +427,23 @@ class TestOrder:
         assert_route(test_client, "GET", "/platform/order/list", auth=auth_headers)
 
     def test_order_detail(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "GET", "/platform/order/detail/1", auth=auth_headers)
+        order_id = _create_order(test_client, auth_headers)
+        assert_route(test_client, "GET", f"/platform/order/detail/{order_id}", auth=auth_headers)
 
     def test_order_create(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(
             test_client, "POST", "/platform/order/create", auth=auth_headers,
-            json={"package_id": 1},
+            json={"tenant_id": 1, "package_id": 1, "order_type": "new"},
         )
 
     def test_order_cancel(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "POST", "/platform/order/cancel/1", auth=auth_headers)
+        order_id = _create_order(test_client, auth_headers)
+        assert_route(test_client, "POST", f"/platform/order/cancel/{order_id}", auth=auth_headers)
 
     def test_order_refund_apply(self, test_client: TestClient, auth_headers: dict) -> None:
+        order_id = _create_order(test_client, auth_headers)
         assert_route(
-            test_client, "POST", "/platform/order/refund/apply/1", auth=auth_headers,
+            test_client, "POST", f"/platform/order/refund/apply/{order_id}", auth=auth_headers,
             json={"reason": "测试退款"},
         )
 
@@ -305,19 +455,33 @@ class TestPayment:
         assert_route(test_client, "GET", "/platform/payment/record/list", auth=auth_headers)
 
     def test_payment_pay(self, test_client: TestClient, auth_headers: dict) -> None:
+        order_id = _create_order(test_client, auth_headers)
         assert_route(
-            test_client, "POST", "/platform/payment/pay/1", auth=auth_headers,
+            test_client, "POST", f"/platform/payment/pay/{order_id}", auth=auth_headers,
             json={"method": "wechat"},
         )
 
     def test_payment_status(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "GET", "/platform/payment/status/1", auth=auth_headers)
+        order_id = _create_order(test_client, auth_headers)
+        assert_route(test_client, "GET", f"/platform/payment/status/{order_id}", auth=auth_headers)
 
     def test_payment_callback(self, test_client: TestClient) -> None:
-        assert_route(test_client, "POST", "/platform/payment/callback/wechat")
+        response = test_client.post("/platform/payment/callback/wechat", json={})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["code"] == 400
 
     def test_payment_mock_callback(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "POST", "/platform/payment/mock/callback", auth=auth_headers)
+        order_id = _create_order(test_client, auth_headers, package_id=2)
+        response = test_client.post(
+            "/platform/payment/mock/callback",
+            headers=auth_headers,
+            json=order_id,
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["data"]["status"] == 1
+        assert asyncio.run(_get_order_status(order_id)) == 1
 
 
 class TestRefund:
@@ -371,12 +535,13 @@ class TestSelfService:
         assert_route(test_client, "GET", "/platform/tenant/order/list", auth=auth_headers)
 
     def test_self_order_detail(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "GET", "/platform/tenant/order/detail/1", auth=auth_headers)
+        order_id = _create_order(test_client, auth_headers)
+        assert_route(test_client, "GET", f"/platform/tenant/order/detail/{order_id}", auth=auth_headers)
 
     def test_self_order_create(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(
             test_client, "POST", "/platform/tenant/order/create", auth=auth_headers,
-            json={"package_id": 1},
+            json={"package_id": 1, "order_type": "new"},
         )
 
     def test_self_workspace(self, test_client: TestClient, auth_headers: dict) -> None:
