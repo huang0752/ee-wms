@@ -270,6 +270,8 @@ export interface TenantUserAddForm {
 
 /** 租户配置项 */
 export interface TenantConfigItem {
-  config_key: string;
-  config_value: string | null;
+  key?: string;
+  value?: string | null;
+  config_key?: string;
+  config_value?: string | null;
 }

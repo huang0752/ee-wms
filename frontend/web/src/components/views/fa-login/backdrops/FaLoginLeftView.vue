@@ -14,7 +14,8 @@
     </div>
 
     <div class="left-img">
-      <FaThemeSvg :src="loginIcon" size="100%" />
+      <img v-if="loginBgSrc" class="tenant-login-bg" :src="loginBgSrc" alt="" />
+      <FaThemeSvg v-else :src="loginIcon" size="100%" />
     </div>
 
     <div class="text-wrap">
@@ -123,6 +124,10 @@ const displayVersion = computed(() => {
   const ver = raw || DEFAULT_APP_VERSION;
   return ver.startsWith("v") || ver.startsWith("V") ? ver : `v${ver}`;
 });
+
+const loginBgSrc = computed(
+  () => configStore.configData.login_bg?.config_value?.trim() || undefined
+);
 </script>
 
 <style lang="scss" scoped>
@@ -593,6 +598,12 @@ $bg-mix-light-7: color-mix(in srgb, $primary-light-7 80%, $main-bg);
       display: none;
     }
   }
+}
+
+.tenant-login-bg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 // 暗色主题

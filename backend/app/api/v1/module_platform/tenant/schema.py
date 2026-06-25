@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from fastapi import Query
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.common.enums import QueueEnum
 from app.core.base_params import BaseQueryParam
@@ -208,8 +208,8 @@ class TenantUserOutSchema(BaseModel):
 class TenantConfigItem(BaseModel):
     """租户配置项"""
 
-    key: str = Field(..., description="配置键")
-    value: str | None = Field(default=None, description="配置值")
+    key: str = Field(..., validation_alias=AliasChoices("key", "config_key"), description="配置键")
+    value: str | None = Field(default=None, validation_alias=AliasChoices("value", "config_value"), description="配置值")
 
 
 class TenantConfigOutSchema(BaseModel):

@@ -59,7 +59,7 @@ export async function refreshAppCaches(opts: RefreshCacheOptions = {}) {
     tasks.push(userStore.getUserInfo());
   }
   if (refreshConfig) {
-    tasks.push(configStore.getConfig(true));
+    tasks.push(configStore.getConfig(true, userStore.info.tenant_id || userStore.currentTenant?.id));
   }
   if (refreshNotice) {
     tasks.push(noticeStore.getNotice());

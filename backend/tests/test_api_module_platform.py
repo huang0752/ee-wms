@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.api.v1.module_platform.order.model import OrderModel
+from app.api.v1.module_platform.tenant.model import TenantModel
 from app.core.database import async_db_session
 
 
@@ -28,6 +29,19 @@ async def _get_order_status(order_id: int) -> int | None:
         return (
             await db.execute(select(OrderModel.status).where(OrderModel.id == order_id).limit(1))
         ).scalar_one_or_none()
+
+
+async def _get_tenant_config_snapshot(tenant_id: int) -> dict:
+    async with async_db_session() as db:
+        tenant = (
+            await db.execute(select(TenantModel).where(TenantModel.id == tenant_id).limit(1))
+        ).scalar_one()
+        return {
+            "name": tenant.name,
+            "version": tenant.version,
+            "logo_url": tenant.logo_url,
+            "login_bg": tenant.login_bg,
+        }
 
 
 class TestTenant:
@@ -58,7 +72,63 @@ class TestTenant:
         assert_route(test_client, "GET", "/platform/tenant/1/config/info", auth=auth_headers)
 
     def test_tenant_config(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "PUT", "/platform/tenant/1/config", auth=auth_headers, json={"key": "val"})
+        assert_route(
+            test_client,
+            "PUT",
+            "/platform/tenant/1/config",
+            auth=auth_headers,
+            json=[{"key": "description", "value": "平台默认租户"}],
+        )
+
+    def test_tenant_config_update_accepts_item_list_and_returns_brand_aliases(
+        self, test_client: TestClient, auth_headers: dict
+    ) -> None:
+        payload = [
+            {"key": "name", "value": "测试租户品牌"},
+            {"key": "version", "value": "2.1.0"},
+            {"config_key": "logo_url", "config_value": "https://example.test/tenant-2-logo.svg"},
+            {"key": "login_bg", "value": "https://example.test/tenant-2-login-bg.svg"},
+        ]
+
+        resp = test_client.put("/platform/tenant/2/config", headers=auth_headers, json=payload)
+
+        assert resp.status_code == 200, resp.text
+        items = {item["config_key"]: item["config_value"] for item in resp.json()["data"]}
+        assert items["name"] == "测试租户品牌"
+        assert items["tenant_name"] == "测试租户品牌"
+        assert items["version"] == "2.1.0"
+        assert items["tenant_version"] == "2.1.0"
+        assert items["logo_url"] == "https://example.test/tenant-2-logo.svg"
+        assert items["tenant_logo"] == "https://example.test/tenant-2-logo.svg"
+        assert items["login_bg"] == "https://example.test/tenant-2-login-bg.svg"
+
+        snapshot = asyncio.run(_get_tenant_config_snapshot(2))
+        assert snapshot == {
+            "name": "测试租户品牌",
+            "version": "2.1.0",
+            "logo_url": "https://example.test/tenant-2-logo.svg",
+            "login_bg": "https://example.test/tenant-2-login-bg.svg",
+        }
+
+    def test_public_tenant_config_info_is_scoped_to_requested_tenant(
+        self, test_client: TestClient, auth_headers: dict
+    ) -> None:
+        payload = [
+            {"key": "name", "value": "测试租户公开品牌"},
+            {"key": "version", "value": "2.2.0"},
+            {"key": "logo_url", "value": "https://example.test/tenant-2-public-logo.svg"},
+        ]
+        update_resp = test_client.put("/platform/tenant/2/config", headers=auth_headers, json=payload)
+        assert update_resp.status_code == 200, update_resp.text
+
+        resp = test_client.get("/platform/tenant/2/config/info")
+
+        assert resp.status_code == 200, resp.text
+        items = {item["config_key"]: item["config_value"] for item in resp.json()["data"]}
+        assert items["tenant_name"] == "测试租户公开品牌"
+        assert items["tenant_version"] == "2.2.0"
+        assert items["tenant_logo"] == "https://example.test/tenant-2-public-logo.svg"
+        assert items["tenant_name"] != "平台租户"
 
     def test_tenant_renew(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(
