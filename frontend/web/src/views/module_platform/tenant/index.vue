@@ -32,8 +32,8 @@
         <template #left>
           <FaTableHeaderLeft
             :remove-ids="selectedIds"
-            :perm-create="['module_system:tenant:create']"
-            :perm-delete="['module_system:tenant:delete']"
+            :perm-create="[PLATFORM_TENANT_PERMISSIONS.create]"
+            :perm-delete="[PLATFORM_TENANT_PERMISSIONS.delete]"
             :delete-loading="batchDeleting"
             :create-loading="createLoading"
             @add="handleAdd"
@@ -222,6 +222,7 @@ import TenantAPI, {
 } from "@/api/module_platform/tenant";
 import PackageAPI from "@/api/module_platform/package";
 import { useAuth } from "@/hooks/core/useAuth";
+import { PLATFORM_TENANT_PERMISSIONS } from "@/constants/permissions";
 import { renderTableOperationCell, type TableOperationAction, resolveStatusColumns } from "@utils";
 import type { SearchFormItem } from "@/components/forms/fa-search-bar/index.vue";
 import type FaSearchBar from "@/components/forms/fa-search-bar/index.vue";
@@ -268,7 +269,7 @@ function buildTenantRowActions(
       key: "detail",
       label: "详情",
       artType: "view",
-      perm: "module_system:tenant:query",
+      perm: PLATFORM_TENANT_PERMISSIONS.query,
       run: () => ctx.onDetail(row.id!),
     },
     {
@@ -276,7 +277,7 @@ function buildTenantRowActions(
       label: "编辑",
       artType: "edit",
       icon: "ri:edit-2-line",
-      perm: "module_system:tenant:update",
+      perm: PLATFORM_TENANT_PERMISSIONS.update,
       run: () => ctx.onEdit(row.id!),
     },
     {
@@ -284,7 +285,7 @@ function buildTenantRowActions(
       label: row.status === 0 ? "禁用" : "启用",
       artType: "edit",
       icon: row.status === 0 ? "ri:forbid-2-line" : "ri:checkbox-circle-line",
-      perm: "module_system:tenant:patch",
+      perm: PLATFORM_TENANT_PERMISSIONS.patch,
       run: () => ctx.onToggleStatus(row.id!),
     },
     {
@@ -292,7 +293,7 @@ function buildTenantRowActions(
       label: "删除",
       artType: "delete",
       icon: "ri:delete-bin-4-line",
-      perm: "module_system:tenant:delete",
+      perm: PLATFORM_TENANT_PERMISSIONS.delete,
       run: () => ctx.onDelete(row.id!),
     },
   ];

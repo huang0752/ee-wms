@@ -10,8 +10,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.api.v1.module_platform.order.model import OrderModel
+from app.api.v1.module_platform.tenant.controller import TenantRouter
 from app.api.v1.module_platform.tenant.model import TenantModel
 from app.core.database import async_db_session
+from app.core.dependencies import AuthPermission
 
 
 def _create_order(test_client: TestClient, auth_headers: dict, *, tenant_id: int = 1, package_id: int = 1) -> int:
@@ -44,8 +46,30 @@ async def _get_tenant_config_snapshot(tenant_id: int) -> dict:
         }
 
 
+def _tenant_auth_permissions(path: str, method: str) -> list[str]:
+    for route in TenantRouter.routes:
+        if getattr(route, "path", None) != path or method not in getattr(route, "methods", set()):
+            continue
+        for dep in route.dependant.dependencies:
+            if isinstance(dep.call, AuthPermission):
+                return dep.call.permissions
+    raise AssertionError(f"未找到租户路由权限依赖: {method} {path}")
+
+
 class TestTenant:
     """租户管理接口。"""
+
+    def test_tenant_routes_accept_platform_permissions_with_legacy_system_aliases(self) -> None:
+        expected = {
+            ("GET", "/tenant/list"): ["module_platform:tenant:query", "module_system:tenant:query"],
+            ("POST", "/tenant/create"): ["module_platform:tenant:create", "module_system:tenant:create"],
+            ("PUT", "/tenant/update/{id}"): ["module_platform:tenant:update", "module_system:tenant:update"],
+            ("DELETE", "/tenant/delete"): ["module_platform:tenant:delete", "module_system:tenant:delete"],
+            ("PATCH", "/tenant/status/batch"): ["module_platform:tenant:patch", "module_system:tenant:patch"],
+        }
+
+        for (method, path), permissions in expected.items():
+            assert _tenant_auth_permissions(path, method) == permissions
 
     def test_tenant_list(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(test_client, "GET", "/platform/tenant/list", auth=auth_headers)
@@ -109,6 +133,36 @@ class TestTenant:
             "logo_url": "https://example.test/tenant-2-logo.svg",
             "login_bg": "https://example.test/tenant-2-login-bg.svg",
         }
+
+    def test_tenant_self_service_brand_updates_current_tenant_only(
+        self, test_client: TestClient, auth_headers: dict
+    ) -> None:
+        before = asyncio.run(_get_tenant_config_snapshot(1))
+        payload = [
+            {"key": "tenant_name", "value": "自助品牌租户"},
+            {"key": "tenant_logo", "value": "https://example.test/self-logo.svg"},
+            {"key": "favicon", "value": "https://example.test/self-favicon.ico"},
+            {"key": "login_bg", "value": "https://example.test/self-login-bg.svg"},
+            {"key": "version", "value": "9.9.9"},
+            {"key": "git_code", "value": "https://example.test/should-not-write"},
+        ]
+
+        resp = test_client.put("/platform/tenant/brand/config", headers=auth_headers, json=payload)
+
+        assert resp.status_code == 200, resp.text
+        items = {item["config_key"]: item["config_value"] for item in resp.json()["data"]}
+        assert items["tenant_name"] == "自助品牌租户"
+        assert items["tenant_logo"] == "https://example.test/self-logo.svg"
+        assert items["favicon"] == "https://example.test/self-favicon.ico"
+        assert items["login_bg"] == "https://example.test/self-login-bg.svg"
+        assert "version" not in items
+        assert "git_code" not in items
+
+        after = asyncio.run(_get_tenant_config_snapshot(1))
+        assert after["name"] == "自助品牌租户"
+        assert after["logo_url"] == "https://example.test/self-logo.svg"
+        assert after["login_bg"] == "https://example.test/self-login-bg.svg"
+        assert after["version"] == before["version"]
 
     def test_public_tenant_config_info_is_scoped_to_requested_tenant(
         self, test_client: TestClient, auth_headers: dict

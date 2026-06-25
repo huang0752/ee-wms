@@ -128,6 +128,98 @@
         </div>
       </ElTabPane>
 
+      <!-- ─── 品牌配置 ─── -->
+      <ElTabPane label="品牌配置" name="brand">
+        <ElCard shadow="hover" class="brand-card">
+          <ElForm
+            :model="brandForm"
+            label-width="110px"
+            class="brand-form"
+          >
+            <ElRow :gutter="20">
+              <ElCol :xs="24" :md="12">
+                <ElFormItem label="租户名称" prop="tenant_name">
+                  <ElInput v-model="brandForm.tenant_name" maxlength="100" show-word-limit />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="12">
+                <ElFormItem label="备案号" prop="keep_record">
+                  <ElInput v-model="brandForm.keep_record" maxlength="100" show-word-limit />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="8">
+                <ElFormItem label="站点 Logo" prop="tenant_logo">
+                  <FaUpload
+                    v-model="brandForm.tenant_logo"
+                    :data="{ type: 'tenant_logo' }"
+                    :enable-crop="true"
+                    :crop-cut-width="320"
+                    :crop-cut-height="120"
+                    crop-dialog-title="裁剪站点 Logo"
+                    tip-text="建议透明 PNG / SVG"
+                    show-tip
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="8">
+                <ElFormItem label="网站图标" prop="favicon">
+                  <FaUpload
+                    v-model="brandForm.favicon"
+                    :data="{ type: 'tenant_favicon' }"
+                    :enable-crop="true"
+                    :crop-cut-width="128"
+                    :crop-cut-height="128"
+                    crop-dialog-title="裁剪网站图标"
+                    tip-text="建议 128x128"
+                    show-tip
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="8">
+                <ElFormItem label="登录背景" prop="login_bg">
+                  <FaUpload
+                    v-model="brandForm.login_bg"
+                    :data="{ type: 'tenant_login_bg' }"
+                    :enable-crop="true"
+                    :crop-cut-width="960"
+                    :crop-cut-height="540"
+                    crop-dialog-title="裁剪登录背景"
+                    tip-text="建议 16:9 横图"
+                    show-tip
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="12">
+                <ElFormItem label="版权信息" prop="copyright">
+                  <ElInput v-model="brandForm.copyright" maxlength="255" show-word-limit />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="12">
+                <ElFormItem label="帮助文档" prop="help_doc">
+                  <ElInput v-model="brandForm.help_doc" maxlength="500" />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="12">
+                <ElFormItem label="隐私政策" prop="privacy">
+                  <ElInput v-model="brandForm.privacy" maxlength="500" />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="12">
+                <ElFormItem label="服务条款" prop="clause">
+                  <ElInput v-model="brandForm.clause" maxlength="500" />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <div class="brand-actions">
+              <ElButton :loading="brandLoading" @click="loadBrandConfig">刷新</ElButton>
+              <ElButton type="primary" :loading="brandSaving" @click="saveBrandConfig">
+                保存配置
+              </ElButton>
+            </div>
+          </ElForm>
+        </ElCard>
+      </ElTabPane>
+
       <!-- ─── 选购套餐 ─── -->
       <ElTabPane label="选购套餐" name="packages">
         <div v-if="!packagesLoading && packages.length" class="package-grid">
@@ -275,7 +367,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import type { TabPaneName } from "element-plus";
+import { ElMessage, type TabPaneName } from "element-plus";
 import { useRouter } from "vue-router";
 import { useTable } from "@/hooks/core/useTable";
 import FaStatsCard from "@/components/cards/fa-stats-card/index.vue";
@@ -287,14 +379,17 @@ import type {
   AvailablePackage,
   PackageChangePreview,
   SelfServiceOrderItem,
+  TenantBrandForm,
   WorkspaceData,
 } from "@/api/module_platform/self_service";
 import { resolveStatusColumns } from "@utils";
 import type { DescriptionsItem } from "@/components/others/fa-descriptions/index.vue";
+import { useConfigStore } from "@stores";
 
 defineOptions({ name: "SelfService" });
 
 const router = useRouter();
+const configStore = useConfigStore();
 const activeTab = ref("workspace");
 
 // ─── 工作台 ───
@@ -329,6 +424,59 @@ async function loadWorkspace() {
     // ignore
   } finally {
     workspaceLoading.value = false;
+  }
+}
+
+// ─── 品牌配置 ───
+const brandLoading = ref(false);
+const brandSaving = ref(false);
+const brandForm = ref<TenantBrandForm>({
+  tenant_name: "",
+  tenant_logo: "",
+  favicon: "",
+  login_bg: "",
+  copyright: "",
+  keep_record: "",
+  help_doc: "",
+  privacy: "",
+  clause: "",
+});
+
+function applyBrandItems(items: Array<{ config_key?: string; config_value?: string | null }>) {
+  const map = Object.fromEntries(items.map((item) => [item.config_key, item.config_value || ""]));
+  brandForm.value = {
+    tenant_name: String(map.tenant_name ?? map.name ?? ""),
+    tenant_logo: String(map.tenant_logo ?? map.logo_url ?? ""),
+    favicon: String(map.favicon ?? ""),
+    login_bg: String(map.login_bg ?? ""),
+    copyright: String(map.copyright ?? ""),
+    keep_record: String(map.keep_record ?? ""),
+    help_doc: String(map.help_doc ?? ""),
+    privacy: String(map.privacy ?? ""),
+    clause: String(map.clause ?? ""),
+  };
+}
+
+async function loadBrandConfig() {
+  brandLoading.value = true;
+  try {
+    const { data: res } = await SelfServiceAPI.getBrandConfig();
+    applyBrandItems(res?.data || []);
+  } finally {
+    brandLoading.value = false;
+  }
+}
+
+async function saveBrandConfig() {
+  brandSaving.value = true;
+  try {
+    const payload = Object.entries(brandForm.value).map(([key, value]) => ({ key, value }));
+    const { data: res } = await SelfServiceAPI.updateBrandConfig(payload);
+    applyBrandItems(res?.data || []);
+    await configStore.getConfig(true);
+    ElMessage.success("品牌配置已保存");
+  } finally {
+    brandSaving.value = false;
   }
 }
 
@@ -451,6 +599,7 @@ async function loadPackages() {
 
 function onTabChange(tab: TabPaneName) {
   if (tab === "workspace") loadWorkspace();
+  else if (tab === "brand") loadBrandConfig();
   else if (tab === "packages") loadPackages();
   else if (tab === "orders") getOrderData();
 }
@@ -545,6 +694,35 @@ onMounted(() => {
 
 .workspace-loading {
   padding: 20px 0;
+}
+
+/* ─── 品牌配置 ─── */
+.brand-card {
+  min-height: 100%;
+}
+
+.brand-form {
+  max-width: 1160px;
+}
+
+.brand-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+@media (max-width: 768px) {
+  .brand-actions {
+    flex-direction: column;
+    align-items: stretch;
+
+    :deep(.el-button) {
+      width: 100%;
+      margin-left: 0;
+    }
+  }
 }
 
 /* ─── 套餐卡片 ─── */

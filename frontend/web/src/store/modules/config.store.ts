@@ -44,8 +44,12 @@ const TENANT_CONFIG_ALIASES: Record<string, string> = {
 export const useConfigStore = defineStore(
   "configStore",
   () => {
-    // 配置数据
-    const configData = ref<Record<string, ConfigTable>>({});
+    // 系统配置、租户配置、最终生效配置分层保存，避免来源混淆。
+    const systemConfigData = ref<Record<string, ConfigTable>>({});
+    const tenantConfigData = ref<Record<string, ConfigTable>>({});
+    const effectiveConfigData = ref<Record<string, ConfigTable>>({});
+    // 兼容历史调用方：configData 表示最终生效配置。
+    const configData = effectiveConfigData;
     // 是否已加载配置
     const isConfigLoaded = ref(false);
     // 是否正在加载配置
@@ -70,21 +74,28 @@ export const useConfigStore = defineStore(
       return currentTenantConfigId.value || PUBLIC_TENANT_ID;
     }
 
-    function upsertConfigItem(item: Partial<ConfigTable>) {
+    function upsertConfigItem(target: Record<string, ConfigTable>, item: Partial<ConfigTable>) {
       if (item.config_value !== undefined && item.config_key) {
-        configData.value[item.config_key] = item as ConfigTable;
+        target[item.config_key] = item as ConfigTable;
       }
     }
 
     function upsertTenantConfigItem(item: Partial<ConfigTable>) {
-      upsertConfigItem(item);
+      upsertConfigItem(tenantConfigData.value, item);
       const aliasKey = item.config_key ? TENANT_CONFIG_ALIASES[item.config_key] : undefined;
       if (aliasKey) {
-        upsertConfigItem({
+        upsertConfigItem(tenantConfigData.value, {
           ...item,
           config_key: aliasKey,
         });
       }
+    }
+
+    function syncEffectiveConfig() {
+      effectiveConfigData.value = {
+        ...systemConfigData.value,
+        ...tenantConfigData.value,
+      };
     }
 
     /**
@@ -117,8 +128,9 @@ export const useConfigStore = defineStore(
           console.warn("[configStore] getInitConfig: 响应 data 非数组", response?.data);
           return;
         }
+        systemConfigData.value = {};
         list.forEach((item: ConfigTable) => {
-          upsertConfigItem(item);
+          upsertConfigItem(systemConfigData.value, item);
         });
 
         // 2. 获取租户个性化配置（品牌标识、版权信息等）
@@ -126,6 +138,7 @@ export const useConfigStore = defineStore(
           const tenantResp = await TenantAPI.getTenantConfigInfo(resolvedTenantId);
           const tenantList = tenantResp?.data?.data;
           if (Array.isArray(tenantList)) {
+            tenantConfigData.value = {};
             tenantList.forEach((item: any) => {
               upsertTenantConfigItem(item);
             });
@@ -135,6 +148,7 @@ export const useConfigStore = defineStore(
           console.warn("[configStore] 获取租户配置失败（非关键错误）", e);
         }
 
+        syncEffectiveConfig();
         isConfigLoaded.value = true;
         _lastFetchedAt = Date.now();
       } finally {
@@ -144,6 +158,9 @@ export const useConfigStore = defineStore(
 
     return {
       configData,
+      systemConfigData,
+      tenantConfigData,
+      effectiveConfigData,
       isConfigLoaded,
       configLoading,
       currentTenantConfigId,

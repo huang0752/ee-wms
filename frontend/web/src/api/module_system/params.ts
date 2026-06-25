@@ -3,9 +3,9 @@ import { request, NO_AUTH_FLAG } from "@utils";
 const API_PATH = "/system/param";
 
 const ParamsAPI = {
-  uploadFile(body: any) {
+  uploadFile(body: any, uploadType = "param") {
     return request<ApiResponse<UploadFilePath>>({
-      url: `/common/file/upload?upload_type=param`,
+      url: `/common/file/upload?upload_type=${encodeURIComponent(uploadType)}`,
       method: "post",
       data: body,
       headers: { "Content-Type": "multipart/form-data" },

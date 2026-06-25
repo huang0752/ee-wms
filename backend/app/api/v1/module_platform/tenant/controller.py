@@ -9,9 +9,16 @@ from app.core import cache_util
 from app.core.base_params import PaginationQueryParam
 from app.core.base_schema import AuthSchema, BatchSetAvailable, PageResultSchema
 from app.core.cache_util import cache
-from app.core.dependencies import AuthPermission, redis_getter
+from app.core.dependencies import AuthPermission, get_current_user, redis_getter
 from app.core.router_class import OperationLogRoute
 
+from .permissions import (
+    TENANT_CREATE_PERMISSIONS,
+    TENANT_DELETE_PERMISSIONS,
+    TENANT_PATCH_PERMISSIONS,
+    TENANT_QUERY_PERMISSIONS,
+    TENANT_UPDATE_PERMISSIONS,
+)
 from .schema import (
     PackageChangePreviewOut,
     TenantConfigItem,
@@ -38,7 +45,7 @@ _TENANT_NS = "tenant"
 @cache(expire=120, namespace=_TENANT_NS)
 async def get_obj_detail_controller(
     id: Annotated[int, Path(description="租户ID")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:query"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_QUERY_PERMISSIONS))],
 ) -> JSONResponse:
     result_dict = await TenantService(auth).detail(id=id)
     return SuccessResponse(data=result_dict, msg="获取租户详情成功")
@@ -51,7 +58,7 @@ async def get_obj_detail_controller(
 async def get_obj_list_controller(
     page: Annotated[PaginationQueryParam, Depends()],
     search: Annotated[TenantQueryParam, Depends()],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:query"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_QUERY_PERMISSIONS))],
 ) -> JSONResponse:
     order_by = [{"id": "asc"}]
     if page.order_by:
@@ -71,7 +78,7 @@ async def get_obj_list_controller(
 )
 async def create_obj_controller(
     data: TenantCreateSchema,
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:create"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_CREATE_PERMISSIONS))],
 ) -> JSONResponse:
     result_dict = await TenantService(auth).create(data=data)
     await cache_util.clear(namespace=_TENANT_NS)
@@ -85,7 +92,7 @@ async def create_obj_controller(
 async def update_obj_controller(
     data: TenantUpdateSchema,
     id: Annotated[int, Path(description="租户ID")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:update"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_UPDATE_PERMISSIONS))],
 ) -> JSONResponse:
     result_dict = await TenantService(auth).update(id=id, data=data)
     await cache_util.clear(namespace=_TENANT_NS)
@@ -98,7 +105,7 @@ async def update_obj_controller(
 )
 async def delete_obj_controller(
     ids: Annotated[list[int], Body(..., description="ID列表")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:delete"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_DELETE_PERMISSIONS))],
 ) -> JSONResponse:
     await TenantService(auth).delete(ids=ids)
     await cache_util.clear(namespace=_TENANT_NS)
@@ -111,7 +118,7 @@ async def delete_obj_controller(
 )
 async def batch_set_available_obj_controller(
     data: BatchSetAvailable,
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:patch"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_PATCH_PERMISSIONS))],
 ) -> JSONResponse:
     await TenantService(auth).set_available(data=data)
     await cache_util.clear(namespace=_TENANT_NS)
@@ -124,7 +131,7 @@ async def batch_set_available_obj_controller(
 )
 async def toggle_tenant_status_controller(
     id: Annotated[int, Path(description="租户ID")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:patch"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_PATCH_PERMISSIONS))],
 ) -> JSONResponse:
     await TenantService(auth).toggle_status(id=id)
     await cache_util.clear(namespace=_TENANT_NS)
@@ -138,7 +145,7 @@ async def toggle_tenant_status_controller(
 @cache(expire=120, namespace=_TENANT_NS)
 async def get_tenant_users_controller(
     id: Annotated[int, Path(description="租户ID")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:query"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_QUERY_PERMISSIONS))],
 ) -> JSONResponse:
     result = await TenantService(auth).get_tenant_users(tenant_id=id)
     return SuccessResponse(data=result, msg="获取租户用户列表成功")
@@ -151,7 +158,7 @@ async def get_tenant_users_controller(
 async def add_tenant_user_controller(
     id: Annotated[int, Path(description="租户ID")],
     data: TenantUserAddSchema,
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:create"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_CREATE_PERMISSIONS))],
 ) -> JSONResponse:
     await TenantService(auth).add_tenant_user(tenant_id=id, data=data)
     await cache_util.clear(namespace=_TENANT_NS)
@@ -165,11 +172,36 @@ async def add_tenant_user_controller(
 async def remove_tenant_user_controller(
     id: Annotated[int, Path(description="租户ID")],
     uid: Annotated[int, Path(description="用户ID")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:delete"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_DELETE_PERMISSIONS))],
 ) -> JSONResponse:
     await TenantService(auth).remove_tenant_user(tenant_id=id, user_id=uid)
     await cache_util.clear(namespace=_TENANT_NS)
     return SuccessResponse(msg="移除用户成功")
+
+@TenantRouter.get(
+    "/brand/config",
+    summary="获取当前租户自助品牌配置",
+    response_model=ResponseSchema[list[TenantConfigOutSchema]],
+)
+async def get_self_brand_config_controller(
+    auth: Annotated[AuthSchema, Depends(get_current_user)],
+) -> JSONResponse:
+    result = await TenantService(auth).get_self_brand_config_items()
+    return SuccessResponse(data=result, msg="获取品牌配置成功")
+
+@TenantRouter.put(
+    "/brand/config",
+    summary="更新当前租户自助品牌配置",
+    response_model=ResponseSchema[list[TenantConfigOutSchema]],
+)
+async def update_self_brand_config_controller(
+    data: Annotated[list[TenantConfigItem], Body(..., description="品牌配置项列表")],
+    redis: Annotated[Redis, Depends(redis_getter)],
+    auth: Annotated[AuthSchema, Depends(get_current_user)],
+) -> JSONResponse:
+    result = await TenantService(auth).update_self_brand_config(redis=redis, config=data)
+    await cache_util.clear(namespace=_TENANT_NS)
+    return SuccessResponse(data=result, msg="更新品牌配置成功")
 
 @TenantRouter.get(
     "/{id}/config",
@@ -178,7 +210,7 @@ async def remove_tenant_user_controller(
 )
 async def get_tenant_config_controller(
     id: Annotated[int, Path(description="租户ID")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:query"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_QUERY_PERMISSIONS))],
 ) -> JSONResponse:
     result = await TenantService(auth).get_config_items(tenant_id=id)
     return SuccessResponse(data=result, msg="获取租户配置成功")
@@ -204,7 +236,7 @@ async def update_tenant_config_controller(
     id: Annotated[int, Path(description="租户ID")],
     data: Annotated[list[TenantConfigItem], Body(..., description="配置项列表")],
     redis: Annotated[Redis, Depends(redis_getter)],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:update"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_UPDATE_PERMISSIONS))],
 ) -> JSONResponse:
     result = await TenantService(auth).update_config(redis=redis, tenant_id=id, config=data)
     await cache_util.clear(namespace=_TENANT_NS)
@@ -218,7 +250,7 @@ async def update_tenant_config_controller(
 async def renew_tenant_controller(
     id: Annotated[int, Path(description="租户ID")],
     data: TenantRenewSchema,
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:update"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_UPDATE_PERMISSIONS))],
 ) -> JSONResponse:
     result = await TenantService(auth).renew(tenant_id=id, end_time=data.end_time)
     await cache_util.clear(namespace=_TENANT_NS)
@@ -232,7 +264,7 @@ async def renew_tenant_controller(
 async def package_change_preview_controller(
     id: Annotated[int, Path(description="租户ID")],
     new_package_id: Annotated[int, Query(..., description="目标套餐ID")],
-    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_system:tenant:query"]))],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(TENANT_QUERY_PERMISSIONS))],
 ) -> JSONResponse:
     result = await TenantService(auth).package_change_preview(tenant_id=id, new_package_id=new_package_id)
     return SuccessResponse(data=result, msg="套餐变更预览成功")

@@ -23,6 +23,17 @@ from .service import FileService
 
 FileRouter = APIRouter(route_class=OperationLogRoute, prefix="/file", tags=["公共模块", "文件管理"])
 
+UploadType = Literal[
+    "file",
+    "avatar",
+    "param",
+    "resource",
+    "tenant_logo",
+    "tenant_favicon",
+    "tenant_login_bg",
+    "tenant_brand",
+]
+
 @FileRouter.post(
     "/upload",
     summary="上传文件",
@@ -33,8 +44,8 @@ async def upload_controller(
     file: UploadFile,
     request: Request,
     upload_type: Annotated[
-        Literal["file", "avatar", "param", "resource"] | None,
-        Query(description="上传类型: file=通用文件, avatar=头像, param=参数配置, resource=监控资源"),
+        UploadType | None,
+        Query(description="上传类型: file=通用文件, avatar=头像, param=参数配置, resource=监控资源, tenant_*=租户品牌"),
     ] = "file",
     target_path: Annotated[str | None, Form(description="目标目录路径（仅 resource 类型支持）")] = None,
 ) -> JSONResponse:

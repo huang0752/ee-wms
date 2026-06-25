@@ -2,6 +2,7 @@ import type { Directive, DirectiveBinding } from "vue";
 
 import { useUserStore } from "@stores";
 import { ROLE_ROOT } from "@/constants";
+import { hasPermissionInList } from "@/constants/permissions";
 
 /**
  * 按钮权限
@@ -34,8 +35,8 @@ export const hasPerm: Directive = {
 
     // 检查权限
     const hasAuth = Array.isArray(requiredPerms)
-      ? requiredPerms.some((perm) => userPrems.includes(perm))
-      : userPrems.includes(requiredPerms);
+      ? requiredPerms.some((perm) => hasPermissionInList(userPrems, perm))
+      : hasPermissionInList(userPrems, requiredPerms);
 
     // 如果没有权限，移除该元素
     if (!hasAuth && el.parentNode) {

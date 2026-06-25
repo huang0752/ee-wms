@@ -19,6 +19,7 @@
 import { router } from "@/router";
 import { useUserStore } from "@stores";
 import { ROLE_ROOT } from "@/constants";
+import { expandPermissionAliases, hasPermissionInList } from "@/constants/permissions";
 import { App, Directive, DirectiveBinding } from "vue";
 
 export type AuthDirective = Directive<HTMLElement, string>;
@@ -41,11 +42,12 @@ function hasPermission(auth: string): boolean {
   if (userStore.prems.includes("*:*:*")) return true;
 
   // 检查 userStore.prems（来自菜单树汇总的全局权限码）
-  if (userStore.prems.includes(auth)) return true;
+  if (hasPermissionInList(userStore.prems, auth)) return true;
 
   // 兼容：检查 route.meta.authList
   const authList = (router.currentRoute.value.meta.authList as Array<{ authMark: string }>) || [];
-  if (authList.some((item) => item.authMark === auth)) return true;
+  const authMarks = expandPermissionAliases(auth);
+  if (authList.some((item) => authMarks.includes(item.authMark))) return true;
 
   return false;
 }

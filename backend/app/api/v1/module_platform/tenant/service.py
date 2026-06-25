@@ -34,6 +34,11 @@ TENANT_CONFIG_FIELDS = [
     "clause", "git_code",
 ]
 
+TENANT_SELF_BRAND_CONFIG_FIELDS = {
+    "name", "logo_url", "favicon", "login_bg", "copyright",
+    "keep_record", "help_doc", "privacy", "clause",
+}
+
 TENANT_BRAND_CONFIG_ALIASES = {
     "tenant_name": "name",
     "tenant_version": "version",
@@ -602,6 +607,14 @@ class TenantService:
         config = await self.get_config(tenant_id)
         return self._config_to_items(config)
 
+    async def get_self_brand_config_items(self) -> list[TenantConfigOutSchema]:
+        """获取当前登录租户可自助维护的品牌配置。"""
+        if not self.auth.tenant_id:
+            raise CustomException(msg="当前会话缺少租户信息")
+        config = await self.get_config(self.auth.tenant_id)
+        brand_config = {field: config.get(field) for field in TENANT_SELF_BRAND_CONFIG_FIELDS}
+        return self._config_to_items(brand_config)
+
     @staticmethod
     async def get_config_cache(redis: Redis, tenant_id: int) -> dict:
         """
@@ -685,6 +698,40 @@ class TenantService:
         await TenantService._sync_configs_to_redis(redis, tenant_id, new_config)
         logger.info(f"租户[{tenant_id}]配置已更新")
         return self._config_to_items(new_config)
+
+    async def update_self_brand_config(
+        self,
+        redis: Redis,
+        config: dict | list[TenantConfigItem],
+    ) -> list[TenantConfigOutSchema]:
+        """当前租户自助更新品牌配置。
+
+        只允许写入展示品牌与法务链接字段，不允许通过自助入口修改套餐、状态、版本、
+        源码地址等平台治理字段。
+        """
+        if not self.auth.tenant_id:
+            raise CustomException(msg="当前会话缺少租户信息")
+
+        tenant_id = self.auth.tenant_id
+        tenant = await TenantCRUD(self.auth).get(id=tenant_id)
+        if not tenant:
+            raise CustomException(msg="该数据不存在")
+
+        normalized_config = {
+            field: value
+            for field, value in self._normalize_config_input(config).items()
+            if field in TENANT_SELF_BRAND_CONFIG_FIELDS
+        }
+        for field, value in normalized_config.items():
+            setattr(tenant, field, value)
+
+        await self.auth.db.flush()
+
+        new_config = await self.get_config(tenant_id)
+        await TenantService._sync_configs_to_redis(redis, tenant_id, new_config)
+        brand_config = {field: new_config.get(field) for field in TENANT_SELF_BRAND_CONFIG_FIELDS}
+        logger.info(f"租户[{tenant_id}]自助品牌配置已更新")
+        return self._config_to_items(brand_config)
 
     @staticmethod
     async def init_cache(redis: Redis) -> None:

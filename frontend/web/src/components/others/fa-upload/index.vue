@@ -204,7 +204,8 @@ async function uploadFileInternal(file: File | UploadRawFile) {
     formData.append(key, String(value));
   }
 
-  const response = await ParamsAPI.uploadFile(formData);
+  const uploadType = String(props.data.upload_type || props.data.type || "param");
+  const response = await ParamsAPI.uploadFile(formData, uploadType);
 
   if (response.data.code === 0 && response.data) {
     const fileInfo: UploadFilePath = response.data.data;
