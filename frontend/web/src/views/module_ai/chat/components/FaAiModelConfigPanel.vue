@@ -109,23 +109,8 @@
                   <span class="detail-label">API Key</span>
                   <div class="api-key-wrap">
                     <span class="detail-value api-key">
-                      {{ showKeyId === item.id ? item.api_key : `****${maskKey(item.api_key)}` }}
+                      {{ item.api_key_masked || "未配置" }}
                     </span>
-                    <ElButton
-                      text
-                      size="small"
-                      @click="showKeyId = showKeyId === item.id ? null : item.id"
-                    >
-                      <ElIcon><View v-if="showKeyId !== item.id" /><Hide v-else /></ElIcon>
-                    </ElButton>
-                    <ElButton
-                      text
-                      size="small"
-                      :disabled="!item.api_key"
-                      @click="copyKey(item.api_key)"
-                    >
-                      <ElIcon><CopyDocument /></ElIcon>
-                    </ElButton>
                   </div>
                 </div>
                 <div class="detail-row">
@@ -205,7 +190,7 @@
           <ElInput
             v-model="form.api_key"
             type="password"
-            placeholder="sk-..."
+            :placeholder="form.id ? '留空则保留已有 API Key' : 'sk-...'"
             show-password
             clearable
           />
@@ -254,9 +239,6 @@ import {
   RefreshLeft,
   Loading,
   Check,
-  View,
-  Hide,
-  CopyDocument,
 } from "@element-plus/icons-vue";
 import AiChatAPI, {
   type AiModelConfigInput,
@@ -271,12 +253,16 @@ const saving = ref(false);
 const items = ref<AiModelConfigItem[]>([]);
 const activeId = ref<string | null>(null);
 const expandedId = ref<string | null>(null);
-const showKeyId = ref<string | null>(null);
 const flashId = ref<string | null>(null);
 const dialogVisible = ref(false);
 
+type AiModelConfigForm = AiModelConfigInput & {
+  id: string;
+  created_time: string | null;
+};
+
 const formRef = ref<FormInstance>();
-const form = reactive<AiModelConfigItem>({
+const form = reactive<AiModelConfigForm>({
   id: "",
   name: "",
   base_url: "",
@@ -312,7 +298,18 @@ const rules: FormRules<AiModelConfigInput> = {
       trigger: "blur",
     },
   ],
-  api_key: [{ required: true, message: "请输入 API Key", trigger: "blur" }],
+  api_key: [
+    {
+      validator: (_rule, value: string | null | undefined, callback) => {
+        if (!form.id && !value) {
+          callback(new Error("请输入 API Key"));
+          return;
+        }
+        callback();
+      },
+      trigger: "blur",
+    },
+  ],
   model_id: [{ required: true, message: "请输入模型 ID", trigger: "blur" }],
   temperature: [{ required: true, message: "请设置温度", trigger: "change" }],
 };
@@ -359,7 +356,7 @@ const openEdit = (item: AiModelConfigItem) => {
   form.id = item.id;
   form.name = item.name;
   form.base_url = item.base_url;
-  form.api_key = item.api_key;
+  form.api_key = "";
   form.model_id = item.model_id;
   form.temperature = item.temperature;
   form.created_time = item.created_time;
@@ -379,7 +376,7 @@ const handleSave = async () => {
     const payload: AiModelConfigInput = {
       name: form.name,
       base_url: form.base_url,
-      api_key: form.api_key,
+      api_key: form.api_key || null,
       model_id: form.model_id,
       temperature: form.temperature,
     };
@@ -475,22 +472,6 @@ const handleDelete = async (item: AiModelConfigItem) => {
 
 const toggleExpand = (id: string) => {
   expandedId.value = expandedId.value === id ? null : id;
-  if (expandedId.value !== id) showKeyId.value = null;
-};
-
-const copyKey = async (key: string) => {
-  if (!key) return;
-  try {
-    await navigator.clipboard.writeText(key);
-    ElMessage.success("已复制到剪贴板");
-  } catch {
-    ElMessage.error("复制失败");
-  }
-};
-
-const maskKey = (key: string): string => {
-  if (!key) return "";
-  return key.length <= 4 ? key : key.slice(-4);
 };
 
 defineExpose({ refresh: loadList });

@@ -99,14 +99,20 @@ export const AiChatAPI = {
 export interface AiModelConfigInput {
   name: string;
   base_url: string;
-  api_key: string;
+  api_key?: string | null;
   model_id: string;
   temperature: number;
 }
 
-export interface AiModelConfigItem extends AiModelConfigInput {
+export interface AiModelConfigItem {
   id: string;
+  name: string;
+  base_url: string;
+  model_id: string;
+  temperature: number;
   created_time: string | null;
+  has_api_key: boolean;
+  api_key_masked: string | null;
 }
 
 export interface AiModelConfigList {

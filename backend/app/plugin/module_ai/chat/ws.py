@@ -11,7 +11,7 @@ from app.core.logger import logger
 from app.core.router_class import OperationLogRoute
 
 from .schema import ChatQuerySchema
-from .service import ChatService, get_user_model_config
+from .service import ChatService, resolve_effective_model_config
 
 WS_AI = APIRouter(
     route_class=OperationLogRoute,
@@ -98,8 +98,8 @@ async def websocket_chat_controller(websocket: WebSocket) -> None:
 
                     is_generating.set()
                     stop_event.clear()
-                    # 读取用户的 AI 模型配置（每次可动态切换）
-                    model_config = await get_user_model_config(redis, user.id)
+                    # 统一解析当前生效模型配置（每次可动态切换）
+                    model_config = await resolve_effective_model_config(redis, auth)
                     try:
                         async for chunk in chat_service.chat_query(
                             query=query,
