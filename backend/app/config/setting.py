@@ -75,6 +75,13 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_SECONDS: int = 60 * 60 * 12  # refresh_token过期时间(秒)12 小时
     TOKEN_TYPE: str = "Bearer"  # token类型（RFC 6750 标准大小写）
     TOKEN_SLIDING_EXPIRE: bool = True  # 是否启用滑动过期(用户操作时自动续期)
+    AUTH_LOGIN_REGISTER_ENABLE: bool = False  # 是否开放登录页租户自助注册
+    AUTH_LOGIN_FORGOT_PASSWORD_ENABLE: bool = True  # 是否开放忘记密码
+    AUTH_PASSWORD_RESET_MODE: Literal["email_code", "legacy_mobile", "disabled"] = "email_code"  # 忘记密码模式
+    AUTH_LOGIN_MOBILE_ENABLE: bool = False  # 是否开放手机号登录入口
+    AUTH_LOGIN_QR_ENABLE: bool = False  # 是否开放扫码登录入口
+    AUTH_LOGIN_REMEMBER_ME_ENABLE: bool = True  # 是否显示记住密码
+    AUTH_LOGIN_DEMO_ACCOUNTS_ENABLE: bool = False  # 是否显示演示快捷账号
 
     # 多租户中间件白名单路径（不需要租户上下文的公开接口）
     TENANT_WHITELIST_PATHS: list[str] = [

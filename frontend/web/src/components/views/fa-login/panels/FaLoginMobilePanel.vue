@@ -67,6 +67,7 @@
     </div>
 
     <FaLoginAuthLinkRow
+      v-if="showRegister"
       :hint="$t('login.noAccount')"
       :link-text="$t('login.register')"
       @link="$emit('register')"
@@ -79,6 +80,10 @@ import { Iphone } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 
 defineOptions({ name: "FaLoginMobilePanel" });
+
+defineProps<{
+  showRegister: boolean;
+}>();
 
 interface Emits {
   back: [];

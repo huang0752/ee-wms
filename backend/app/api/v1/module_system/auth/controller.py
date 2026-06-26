@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.response import ErrorResponse, ResponseSchema, SuccessResponse
 from app.config.setting import settings
 from app.core import cache_util
+from app.core.auth_features import require_oauth_provider_enabled, require_tenant_register_enabled
 from app.core.base_schema import (
     AuthSchema,
     JWTOutSchema,
@@ -230,6 +231,7 @@ async def oauth_login_redirect_controller(
             url=oauth_service_error_redirect(fe, "缺少 redirect_uri 参数"),
             status_code=302,
         )
+    oauth_provider = require_oauth_provider_enabled(provider)
     try:
         fe = oauth_service_validate_frontend_redirect(redirect_uri)
         state = secrets.token_urlsafe(32)
@@ -239,8 +241,8 @@ async def oauth_login_redirect_controller(
             provider=provider,
             frontend_redirect=fe,
         )
-        cb = _callback_url(request, provider)
-        url = build_authorize_url(provider=provider, callback_url=cb, state=state)
+        cb = _callback_url(request, oauth_provider)
+        url = build_authorize_url(provider=oauth_provider, callback_url=cb, state=state)
         return RedirectResponse(url=url, status_code=302)
     except CustomException as e:
         return RedirectResponse(
@@ -262,9 +264,7 @@ async def oauth_callback_controller(
     code: Annotated[str | None, Query()] = None,
     state: Annotated[str | None, Query()] = None,
 ) -> RedirectResponse:
-    if not settings.OAUTH_ENABLE:
-        raise HTTPException(status_code=404, detail="OAuth 登录未启用")
-
+    oauth_provider = require_oauth_provider_enabled(provider)
     fe_fallback = settings.OAUTH_FRONTEND_FALLBACK
 
     async def resolve_frontend() -> str:
@@ -295,7 +295,7 @@ async def oauth_callback_controller(
             request=request,
             redis=redis,
             db=db,
-            provider=provider,
+            provider=oauth_provider,
             code=code,
             state=state,
         )
@@ -315,6 +315,7 @@ async def tenant_register_controller(
     data: TenantRegisterSchema,
     db: Annotated[AsyncSession, Depends(db_getter)],
 ) -> JSONResponse:
+    require_tenant_register_enabled()
     result = await TenantRegisterService.register(
         db=db,
         username=data.username,

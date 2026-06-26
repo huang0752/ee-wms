@@ -58,6 +58,14 @@
                           :is-dark="isDark"
                           :drag-verify-text-color="dragVerifyTextColor"
                           :loading="loading"
+                          :show-remember="showRememberMe"
+                          :show-forget="showForgotPassword"
+                          :show-mobile-login="showMobileLogin"
+                          :show-qr-login="showQrLogin"
+                          :show-register="showRegister"
+                          :show-demo-accounts="showDemoAccounts"
+                          :oauth-enabled="oauthEnabled"
+                          :oauth-providers="oauthProviders"
                           @submit="handleSubmit"
                           @setup-account="setupAccount"
                           @get-captcha="getCaptcha"
@@ -65,24 +73,27 @@
                           @open-qr="openQrLogin"
                           @forget="setAuthPanel('forget')"
                           @register="setAuthPanel('register')"
+                          @oauth="startOAuthLogin"
                         />
                       </template>
 
                       <FaLoginMobilePanel
                         v-else-if="loginFlowMode === 'mobile'"
+                        :show-register="showRegister"
                         @back="backToAccountLogin"
                         @register="setAuthPanel('register')"
                       />
 
                       <FaLoginQrPanel
                         v-else-if="loginFlowMode === 'qr'"
+                        :show-register="showRegister"
                         @back="backToAccountLogin"
                         @register="setAuthPanel('register')"
                       />
                     </template>
 
                     <FaLoginRegisterPanel
-                      v-else-if="authPanel === 'register'"
+                      v-else-if="authPanel === 'register' && showRegister"
                       ref="registerPanelRef"
                       v-model:register-agreement-read="registerAgreementRead"
                       v-model:register-form="registerForm"
@@ -96,7 +107,7 @@
                     />
 
                     <FaLoginForgetPanel
-                      v-else
+                      v-else-if="authPanel === 'forget' && showForgotPassword"
                       ref="forgetPanelRef"
                       v-model:forget-form="forgetForm"
                       :forget-rules="forgetRules"
@@ -179,7 +190,11 @@
 
 <script setup lang="ts">
 import type { LocationQuery, RouteLocationRaw } from "vue-router";
-import AuthAPI, { type CaptchaInfo, type LoginFormData } from "@/api/module_system/auth";
+import AuthAPI, {
+  type CaptchaInfo,
+  type LoginFormData,
+  type OAuthProvider,
+} from "@/api/module_system/auth";
 import type { TenantRegisterForm } from "@/api/module_system/auth";
 import UserAPI, { type ForgetPasswordForm, type RegisterForm } from "@/api/module_system/user";
 import {
@@ -199,6 +214,7 @@ import FaLoginQrPanel from "@/components/views/fa-login/panels/FaLoginQrPanel.vu
 import FaLoginRegisterPanel from "@/components/views/fa-login/panels/FaLoginRegisterPanel.vue";
 import FaAuthTopBar from "@/components/views/fa-login/widgets/FaAuthTopBar.vue";
 import { useLoginPanelAlign } from "@/components/views/fa-login/composables/useLoginPanelAlign";
+import { startOAuthLogin as startOAuthLoginRedirect } from "@/utils/oauth";
 
 defineOptions({ name: "Login" });
 
@@ -219,6 +235,19 @@ const { panelAlign } = useLoginPanelAlign();
 const authPanel = ref<AuthPanel>("login");
 const loginFlowMode = ref<LoginFlowMode>("account");
 const allowDemoContent = computed(() => assemblyStore.isFeatureEnabled("demoContent", true));
+const authFeatures = computed(() => assemblyStore.authFeatures);
+const showRegister = computed(() => authFeatures.value.register);
+const showForgotPassword = computed(
+  () => authFeatures.value.forgotPassword && authFeatures.value.passwordResetMode === "email_code"
+);
+const showMobileLogin = computed(() => authFeatures.value.mobileLogin);
+const showQrLogin = computed(() => authFeatures.value.qrLogin);
+const showRememberMe = computed(() => authFeatures.value.rememberMe);
+const showDemoAccounts = computed(() => authFeatures.value.demoAccounts);
+const oauthProviders = computed<OAuthProvider[]>(() => authFeatures.value.oauthProviders);
+const oauthEnabled = computed(
+  () => authFeatures.value.oauth && authFeatures.value.oauthProviders.length > 0
+);
 
 const panelTitle = computed(() => {
   if (authPanel.value === "register") return t("login.reg");
@@ -247,8 +276,13 @@ const panelSubTitle = computed(() => {
 const userAgreementHref = computed(() => configStore.configData?.clause?.config_value || "#");
 
 function setAuthPanel(panel: AuthPanel) {
-  authPanel.value = panel;
-  if (panel !== "login") {
+  const nextPanel =
+    (panel === "register" && !showRegister.value) ||
+    (panel === "forget" && !showForgotPassword.value)
+      ? "login"
+      : panel;
+  authPanel.value = nextPanel;
+  if (nextPanel !== "login") {
     loginFlowMode.value = "account";
   }
   nextTick(() => {
@@ -259,10 +293,12 @@ function setAuthPanel(panel: AuthPanel) {
 }
 
 function openMobileLogin() {
+  if (!showMobileLogin.value) return;
   loginFlowMode.value = "mobile";
 }
 
 function openQrLogin() {
+  if (!showQrLogin.value) return;
   loginFlowMode.value = "qr";
 }
 
@@ -296,29 +332,33 @@ watch(authPanel, (panel) => {
   isClickPass.value = false;
 });
 
-const accounts = computed<Account[]>(() => [
-  {
-    key: "super",
-    label: t("login.roles.super"),
-    username: "super",
-    password: "123456",
-    roles: ["R_SUPER"],
-  },
-  {
-    key: "admin",
-    label: t("login.roles.admin"),
-    username: "admin",
-    password: "123456",
-    roles: ["R_ADMIN"],
-  },
-  {
-    key: "user",
-    label: t("login.roles.user"),
-    username: "user",
-    password: "123456",
-    roles: ["R_USER"],
-  },
-]);
+const accounts = computed<Account[]>(() =>
+  showDemoAccounts.value
+    ? [
+        {
+          key: "super",
+          label: t("login.roles.super"),
+          username: "super",
+          password: "123456",
+          roles: ["R_SUPER"],
+        },
+        {
+          key: "admin",
+          label: t("login.roles.admin"),
+          username: "admin",
+          password: "123456",
+          roles: ["R_ADMIN"],
+        },
+        {
+          key: "user",
+          label: t("login.roles.user"),
+          username: "user",
+          password: "123456",
+          roles: ["R_USER"],
+        },
+      ]
+    : []
+);
 
 const demoAccountKey = ref<AccountKey>("super");
 const userStore = useUserStore();
@@ -448,6 +488,28 @@ const captchaState = reactive<CaptchaInfo>({
   img_base: "",
 });
 
+watch(
+  authFeatures,
+  () => {
+    if (authPanel.value === "register" && !showRegister.value) {
+      setAuthPanel("login");
+    }
+    if (authPanel.value === "forget" && !showForgotPassword.value) {
+      setAuthPanel("login");
+    }
+    if (loginFlowMode.value === "mobile" && !showMobileLogin.value) {
+      backToAccountLogin();
+    }
+    if (loginFlowMode.value === "qr" && !showQrLogin.value) {
+      backToAccountLogin();
+    }
+    if (!showRememberMe.value) {
+      loginForm.remember = false;
+    }
+  },
+  { deep: true, immediate: true }
+);
+
 const rules = computed<FormRules>(() => {
   const base: FormRules = {
     username: [
@@ -483,10 +545,16 @@ const rules = computed<FormRules>(() => {
 });
 
 function setupAccount(key: AccountKey) {
+  if (!showDemoAccounts.value) return;
   const selected = accounts.value.find((a: Account) => a.key === key);
   demoAccountKey.value = key;
   loginForm.username = selected?.username ?? "";
   loginForm.password = selected?.password ?? "";
+}
+
+function startOAuthLogin(provider: OAuthProvider) {
+  if (!oauthEnabled.value || !oauthProviders.value.includes(provider)) return;
+  startOAuthLoginRedirect(provider);
 }
 
 async function getCaptcha() {
@@ -542,7 +610,13 @@ const showVoteNotification = () => {
 let voteTimer: ReturnType<typeof setTimeout> | null = null;
 
 onMounted(async () => {
-  setupAccount("super");
+  await assemblyStore.loadPublicConfig();
+  if (showDemoAccounts.value) {
+    setupAccount("super");
+  }
+  if (!showRememberMe.value) {
+    loginForm.remember = false;
+  }
   await configStore.getConfig(true);
   if (userStore.isLogin) {
     await router.replace(resolveRedirectTarget(route.query));
@@ -613,6 +687,10 @@ const handleSubmit = async () => {
 };
 
 async function submitRegister() {
+  if (!showRegister.value) {
+    setAuthPanel("login");
+    return;
+  }
   if (!registerAgreementRead.value) {
     ElMessage.warning(t("login.message.agree.required"));
     return;
@@ -644,6 +722,10 @@ async function submitRegister() {
 }
 
 async function submitForget() {
+  if (!showForgotPassword.value) {
+    setAuthPanel("login");
+    return;
+  }
   if (!forgetPanelRef.value) return;
   try {
     await forgetPanelRef.value.validate?.();
@@ -665,6 +747,7 @@ async function submitForget() {
 }
 
 async function sendForgetEmailCode() {
+  if (!showForgotPassword.value) return;
   if (!forgetPanelRef.value) return;
   try {
     await forgetPanelRef.value.validateField?.(["username", "email"]);

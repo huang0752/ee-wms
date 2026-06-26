@@ -26,6 +26,7 @@
     </div>
 
     <FaLoginAuthLinkRow
+      v-if="showRegister"
       :hint="$t('login.noAccount')"
       :link-text="$t('login.register')"
       @link="$emit('register')"
@@ -38,6 +39,10 @@ import QrcodeVue from "qrcode.vue";
 import type { Level, RenderAs } from "qrcode.vue";
 
 defineOptions({ name: "FaLoginQrPanel" });
+
+defineProps<{
+  showRegister: boolean;
+}>();
 
 interface Emits {
   back: [];

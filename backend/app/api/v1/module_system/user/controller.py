@@ -7,6 +7,7 @@ from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.response import ResponseSchema, StreamResponse, SuccessResponse
+from app.core.auth_features import require_password_reset_mode
 from app.core.base_params import PaginationQueryParam
 from app.core.base_schema import AuthSchema, BatchSetAvailable, PageResultSchema
 from app.core.dependencies import AuthPermission, db_getter, get_current_user, redis_getter
@@ -103,6 +104,7 @@ async def forget_password_email_code_controller(
     db: Annotated[AsyncSession, Depends(db_getter)],
     redis: Annotated[Redis, Depends(redis_getter)],
 ) -> JSONResponse:
+    require_password_reset_mode("email_code")
     auth = AuthSchema(db=db, check_data_scope=False)
     result = await UserService(auth).send_forget_password_email_code(redis=redis, data=data)
     return SuccessResponse(data=result, msg="如账号邮箱匹配，验证码已发送")
@@ -118,6 +120,7 @@ async def forget_password_email_reset_controller(
     db: Annotated[AsyncSession, Depends(db_getter)],
     redis: Annotated[Redis, Depends(redis_getter)],
 ) -> JSONResponse:
+    require_password_reset_mode("email_code")
     auth = AuthSchema(db=db, check_data_scope=False)
     user_forget_password_result = await UserService(auth).forget_password_by_email_code(redis=redis, data=data)
     logger.info(f"{data.username} 通过邮箱验证码重置密码成功")
@@ -133,6 +136,7 @@ async def forget_password_controller(
     data: UserForgetPasswordSchema,
     db: Annotated[AsyncSession, Depends(db_getter)],
 ) -> JSONResponse:
+    require_password_reset_mode("legacy_mobile")
     auth = AuthSchema(db=db, check_data_scope=False)
     user_forget_password_result = await UserService(auth).forget_password(data=data)
     logger.info(f"{data.username} 重置密码成功: {user_forget_password_result}")
