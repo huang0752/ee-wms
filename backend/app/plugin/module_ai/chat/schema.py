@@ -94,7 +94,7 @@ class AiModelConfigBaseSchema(BaseModel):
     base_url: str = Field(..., min_length=1, max_length=500, description="API Base URL，如 https://api.openai.com/v1")
     model_id: str = Field(..., min_length=1, max_length=128, description="模型 ID")
     temperature: float = Field(0.7, ge=0.0, le=2.0, description="温度参数")
-    max_tokens: int | None = Field(None, ge=1, le=200000, description="最大输出 token")
+    max_tokens: int | None = Field(20000, ge=1, le=1000000, description="最大输出 token")
     timeout_seconds: int = Field(60, ge=5, le=300, description="超时时间（秒）")
     enabled: bool = Field(True, description="是否启用")
     is_default: bool = Field(False, description="是否默认模型")

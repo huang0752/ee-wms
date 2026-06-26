@@ -35,7 +35,7 @@
           </div>
           <div class="empty-title">添加平台默认 AI 模型</div>
           <div class="empty-desc">
-            支持 OpenAI、DeepSeek、Ollama 等任何 OpenAI 兼容服务<br />
+            支持 OpenAI 兼容服务，DeepSeek 默认使用 deepseek-v4-flash<br />
             平台配置后，租户用户统一使用默认模型
           </div>
           <ElButton type="primary" size="large" :icon="Plus" @click="openCreate">
@@ -231,7 +231,7 @@
         <ElFormItem label="模型 ID" prop="model_id">
           <ElInput
             v-model="form.model_id"
-            placeholder="如：gpt-4o-mini / deepseek-chat"
+            placeholder="如：deepseek-v4-flash / gpt-4o-mini"
             clearable
           />
         </ElFormItem>
@@ -250,7 +250,7 @@
           <ElInputNumber
             v-model="form.max_tokens"
             :min="1"
-            :max="200000"
+            :max="1000000"
             :controls="false"
             placeholder="不填表示不限"
             class="w-full"
@@ -330,7 +330,7 @@ const form = reactive<AiModelConfigForm>({
   api_key: "",
   model_id: "",
   temperature: 0.7,
-  max_tokens: null,
+  max_tokens: 20000,
   timeout_seconds: 60,
   enabled: true,
   is_default: false,
@@ -353,7 +353,7 @@ const providerLabel = (value: AiModelConfigInput["provider_type"]) => {
 // 常用 Base URL 预设 - 提升用户输入效率
 const baseUrlPresets = [
   { label: "OpenAI 官方", url: "https://api.openai.com/v1" },
-  { label: "DeepSeek", url: "https://api.deepseek.com/v1" },
+  { label: "DeepSeek", url: "https://api.deepseek.com" },
   { label: "通义千问", url: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
   { label: "月之暗面 Moonshot", url: "https://api.moonshot.cn/v1" },
   { label: "智谱 GLM", url: "https://open.bigmodel.cn/api/paas/v4" },
@@ -424,7 +424,7 @@ const resetForm = () => {
   form.api_key = "";
   form.model_id = "";
   form.temperature = 0.7;
-  form.max_tokens = null;
+  form.max_tokens = 20000;
   form.timeout_seconds = 60;
   form.enabled = true;
   form.is_default = items.value.length === 0;

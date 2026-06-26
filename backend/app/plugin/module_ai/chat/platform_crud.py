@@ -70,7 +70,7 @@ class DatabaseAiConfigRepository:
         return [self._to_dict(item) for item in rows if self._to_dict(item) is not None]
 
     async def get(self, config_id: int) -> dict[str, Any] | None:
-        item = await self.crud.detail(id=config_id)
+        item = await self.crud.get(id=config_id)
         return self._to_dict(item)
 
     async def create(self, data: dict[str, Any]) -> dict[str, Any]:
@@ -83,7 +83,7 @@ class DatabaseAiConfigRepository:
         return result
 
     async def update(self, config_id: int, data: dict[str, Any]) -> dict[str, Any] | None:
-        item = await self.crud.detail(id=config_id)
+        item = await self.crud.get(id=config_id)
         if item is None:
             return None
         for key, value in data.items():
@@ -93,7 +93,7 @@ class DatabaseAiConfigRepository:
         return self._to_dict(item)
 
     async def delete(self, config_id: int) -> bool:
-        if await self.crud.detail(id=config_id) is None:
+        if await self.crud.get(id=config_id) is None:
             return False
         await self.crud.delete(ids=[config_id])
         return True
