@@ -126,6 +126,7 @@ def test_wms_assembly_cuts_demo_and_marketing_entries() -> None:
     assert assembly.is_plugin_enabled("module_ai")
     assert assembly.is_plugin_enabled("module_task")
     assert assembly.is_plugin_enabled("module_generator")
+    assert not assembly.is_route_group_enabled("module-generator")
     assert not assembly.is_route_group_enabled("pricing")
     assert not assembly.is_route_group_enabled("article")
     assert not assembly.is_route_group_enabled("tutorial")
@@ -195,14 +196,25 @@ def test_wms_assembly_filters_runtime_menu_tree() -> None:
                 }
             ],
         },
-        {"title": "代码管理", "route_path": "/generator", "children": []},
+        {
+            "title": "代码管理",
+            "route_path": "/generator",
+            "children": [
+                {
+                    "title": "代码生成",
+                    "route_path": "gencode",
+                    "component_path": "module_generator/gencode/index",
+                    "permission": "module_generator:gencode:query",
+                }
+            ],
+        },
     ]
 
     filtered = assembly.filter_menu_tree(menu_tree)
     titles = {item["title"] for item in filtered}
 
     assert "系统管理" in titles
-    assert "代码管理" in titles
+    assert "代码管理" not in titles
     assert "任务管理" in titles
     assert "监控管理" not in titles
     assert "接口管理" not in titles

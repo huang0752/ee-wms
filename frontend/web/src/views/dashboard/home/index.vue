@@ -5,8 +5,8 @@
         <p class="wms-kicker">EE WMS</p>
         <h1>电工装备智慧仓储系统</h1>
         <p class="wms-subtitle">
-          当前处于产品减法与基础模块建设阶段。系统已保留平台、系统、任务、AI
-          和代码生成底座，示例与营销入口按 WMS 装配裁剪。
+          当前处于产品减法与基础模块建设阶段。系统已保留平台、系统、任务与 AI
+          能力，代码生成、示例与营销入口按 WMS 装配从前台隐藏。
         </p>
       </div>
       <div class="wms-assembly">

@@ -1,7 +1,7 @@
 [assembly]
 name = "wms"
 title = "EE WMS 装配"
-description = "EE WMS 产品运行态装配：保留后台基础、任务、AI、代码生成与行业样例能力，裁剪演示和营销入口。"
+description = "EE WMS 产品运行态装配：保留后台基础、任务、AI 与行业样例能力，前台隐藏代码生成、演示和营销入口。"
 
 [core]
 required = ["auth", "tenant", "user", "role", "permission", "menu", "settings", "audit"]
@@ -18,7 +18,6 @@ enabled_route_groups = [
   "system",
   "platform",
   "module-task",
-  "module-generator",
   "ai-chat",
   "module-wms",
   "user-profile",
@@ -27,7 +26,7 @@ enabled_route_groups = [
   "outside",
   "exception"
 ]
-disabled_route_groups = ["pricing", "article", "tutorial", "changelog"]
+disabled_route_groups = ["module-generator", "pricing", "article", "tutorial", "changelog"]
 
 [seed]
 packs = ["wms"]
