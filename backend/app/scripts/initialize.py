@@ -33,6 +33,7 @@ from app.api.v1.module_system.user.model import UserModel, UserRolesModel
 from app.api.v1.module_wms.arrival.model import WmsArrivalLineModel, WmsArrivalOrderModel
 from app.api.v1.module_wms.inbound.model import WmsInboundLineModel, WmsInboundOrderModel
 from app.api.v1.module_wms.inspection.model import WmsInspectionLineModel, WmsInspectionTaskModel
+from app.api.v1.module_wms.issue.model import WmsIssueLineModel, WmsIssueOrderModel
 from app.api.v1.module_wms.master.model import (
     WmsBarcodeRuleModel,
     WmsCustomerModel,
@@ -42,6 +43,7 @@ from app.api.v1.module_wms.master.model import (
     WmsWarehouseModel,
     WmsZoneModel,
 )
+from app.api.v1.module_wms.outbound.model import WmsOutboundLineModel, WmsOutboundOrderModel
 from app.api.v1.module_wms.stock.model import (
     WmsStockBalanceModel,
     WmsStockBatchModel,
@@ -127,6 +129,10 @@ class InitializeData:
         WmsInspectionLineModel,
         WmsInboundOrderModel,
         WmsInboundLineModel,
+        WmsOutboundOrderModel,
+        WmsOutboundLineModel,
+        WmsIssueOrderModel,
+        WmsIssueLineModel,
     ]
 
     # 树形模型：JSON 含嵌套 children，需递归创建对象

@@ -284,12 +284,12 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - Create `backend/tests/test_wms_outbound_flow.py`.
 - Create matching frontend API and views.
 
-- [ ] Test FIFO batch recommendation.
-- [ ] Test production issue lock and confirmation.
-- [ ] Test sales outbound pick/review/confirm.
-- [ ] Test cancel releases locks.
-- [ ] Add outbound and issue pages.
-- [ ] Support manual and imported production demand first; MES work order fields are optional external references in V1.
+- [x] Test FIFO batch recommendation.
+- [x] Test production issue lock and confirmation.
+- [x] Test sales outbound pick/review/confirm.
+- [x] Test cancel releases locks.
+- [x] Add outbound and issue pages.
+- [x] Support manual and imported production demand first; MES work order fields are optional external references in V1.
 - [ ] Commit: `feat: 增加WMS出库与生产领料闭环`.
 
 ### Phase 5: Transfer, Stock Check, And Warning
