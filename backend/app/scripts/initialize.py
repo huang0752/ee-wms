@@ -31,6 +31,7 @@ from app.api.v1.module_system.role.model import RoleModel
 from app.api.v1.module_system.ticket.model import TicketModel
 from app.api.v1.module_system.user.model import UserModel, UserRolesModel
 from app.api.v1.module_wms.arrival.model import WmsArrivalLineModel, WmsArrivalOrderModel
+from app.api.v1.module_wms.check.model import WmsStockCheckLineModel, WmsStockCheckOrderModel
 from app.api.v1.module_wms.inbound.model import WmsInboundLineModel, WmsInboundOrderModel
 from app.api.v1.module_wms.inspection.model import WmsInspectionLineModel, WmsInspectionTaskModel
 from app.api.v1.module_wms.issue.model import WmsIssueLineModel, WmsIssueOrderModel
@@ -51,6 +52,8 @@ from app.api.v1.module_wms.stock.model import (
     WmsStockLockModel,
     WmsTraceLinkModel,
 )
+from app.api.v1.module_wms.transfer.model import WmsTransferLineModel, WmsTransferOrderModel
+from app.api.v1.module_wms.warning.model import WmsStockWarningModel
 from app.config.path_conf import SCRIPT_DIR
 from app.core.assembly import get_assembly, known_plugin_module_codes, plugin_code_candidates
 from app.core.database import async_db_session, create_tables
@@ -133,6 +136,11 @@ class InitializeData:
         WmsOutboundLineModel,
         WmsIssueOrderModel,
         WmsIssueLineModel,
+        WmsTransferOrderModel,
+        WmsTransferLineModel,
+        WmsStockCheckOrderModel,
+        WmsStockCheckLineModel,
+        WmsStockWarningModel,
     ]
 
     # 树形模型：JSON 含嵌套 children，需递归创建对象

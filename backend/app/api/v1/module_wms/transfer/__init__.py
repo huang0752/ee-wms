@@ -1,0 +1,2 @@
+"""WMS stock transfer module."""
+

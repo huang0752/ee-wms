@@ -303,12 +303,12 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - Create `backend/tests/test_wms_check_warning.py`.
 - Create matching frontend API and views.
 
-- [ ] Test transfer writes out/in flow pair.
-- [ ] Test stock check draft does not affect balance.
-- [ ] Test stock check audit writes adjustment flow.
-- [ ] Test safety stock, shortage, idle, overstock warnings.
-- [ ] Add warning list with handle/close actions.
-- [ ] Implement audit as permission-protected status transition; do not call workflow engine in V1.
+- [x] Test transfer writes out/in flow pair.
+- [x] Test stock check draft does not affect balance.
+- [x] Test stock check audit writes adjustment flow.
+- [x] Test safety stock, shortage, idle, overstock warnings.
+- [x] Add warning list with handle/close actions.
+- [x] Implement audit as permission-protected status transition; do not call workflow engine in V1.
 - [ ] Commit: `feat: 增加WMS盘点调拨与库存预警`.
 
 ### Phase 6: Traceability And Dashboard

@@ -174,6 +174,30 @@ class WmsStockLedgerService:
         await self.db.flush()
         return WmsStockBalanceOutSchema.model_validate(balance)
 
+    async def transfer_out(self, data: WmsStockMutationSchema) -> WmsStockBalanceOutSchema:
+        qty = self._qty(data.quantity)
+        balance = await self._get_required_balance(data)
+        self._ensure_enough(balance.available_qty, qty, "可用库存不足，无法调出")
+        flow = await self._write_flow(data=data, flow_type="transfer_out", direction="out", before="available", after="transferred")
+        flow.balance_id = balance.id
+        balance.available_qty -= qty
+        balance.quantity -= qty
+        self._touch(balance)
+        await self.db.flush()
+        return WmsStockBalanceOutSchema.model_validate(balance)
+
+    async def transfer_in(self, data: WmsStockMutationSchema) -> WmsStockBalanceOutSchema:
+        qty = self._qty(data.quantity)
+        await self._ensure_batch(data, "available")
+        flow = await self._write_flow(data=data, flow_type="transfer_in", direction="in", before="transferred", after="available")
+        balance = await self._get_or_create_balance(data)
+        flow.balance_id = balance.id
+        balance.quantity += qty
+        balance.available_qty += qty
+        self._touch(balance)
+        await self.db.flush()
+        return WmsStockBalanceOutSchema.model_validate(balance)
+
     async def adjust_after_check(self, data: WmsStockAdjustSchema) -> WmsStockBalanceOutSchema:
         qty = self._qty(data.quantity)
         balance = await self._get_or_create_balance(data)
@@ -190,6 +214,27 @@ class WmsStockLedgerService:
         else:
             raise CustomException(msg="不支持的库存调整桶", status_code=400)
         balance.quantity += qty
+        self._touch(balance)
+        await self.db.flush()
+        return WmsStockBalanceOutSchema.model_validate(balance)
+
+    async def adjust_after_check_delta(self, data: WmsStockMutationSchema, delta_qty: Decimal) -> WmsStockBalanceOutSchema:
+        delta = Decimal(str(delta_qty))
+        if delta == ZERO:
+            return WmsStockBalanceOutSchema.model_validate(await self._get_or_create_balance(data))
+        qty = abs(delta)
+        mutation = data.model_copy(update={"quantity": qty})
+        balance = await self._get_or_create_balance(mutation)
+        flow = await self._write_flow(data=mutation, flow_type="adjust_after_check", direction="adjust", before="available", after="available")
+        flow.balance_id = balance.id
+        if delta > ZERO:
+            balance.quantity += qty
+            balance.available_qty += qty
+        else:
+            self._ensure_enough(balance.available_qty, qty, "可用库存不足，无法盘亏")
+            self._ensure_enough(balance.quantity, qty, "实物库存不足，无法盘亏")
+            balance.quantity -= qty
+            balance.available_qty -= qty
         self._touch(balance)
         await self.db.flush()
         return WmsStockBalanceOutSchema.model_validate(balance)
