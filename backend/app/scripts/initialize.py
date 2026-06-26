@@ -59,6 +59,7 @@ from app.config.path_conf import SCRIPT_DIR
 from app.core.assembly import get_assembly, known_plugin_module_codes, plugin_code_candidates
 from app.core.database import async_db_session, create_tables
 from app.core.logger import logger
+from app.plugin.module_ai.chat.model import AiModelConfigModel
 from app.plugin.module_example.demo.model import DemoModel
 from app.plugin.module_task.business.task.model import BusinessTaskModel
 from app.plugin.module_task.cronjob.node.model import NodeModel
@@ -113,6 +114,7 @@ class InitializeData:
         NodeModel,
         BusinessTaskModel,
         WorkflowNodeTypeModel,
+        AiModelConfigModel,
         DemoModel,
         # ── WMS 产品表 ──
         WmsWarehouseModel,

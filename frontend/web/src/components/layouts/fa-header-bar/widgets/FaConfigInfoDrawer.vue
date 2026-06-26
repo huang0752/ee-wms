@@ -8,7 +8,7 @@
     @close="onDrawerClosed"
   >
     <ElTabs v-model="activeTabRef" type="border-card">
-      <ElTabPane label="AI 模型" name="aiModel">
+      <ElTabPane v-if="isSuperAdmin" label="AI 模型" name="aiModel">
         <FaAiModelConfigPanel />
       </ElTabPane>
       <ElTabPane label="接口白名单" name="apiWhitelist">
@@ -213,7 +213,7 @@
 <script lang="ts" setup>
 import { ref, reactive, onMounted, computed } from "vue";
 import ParamsAPI, { type ConfigTable } from "@/api/module_system/params";
-import { useAppStore, useConfigStore } from "@stores";
+import { useAppStore, useConfigStore, useUserStore } from "@stores";
 import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { DeviceEnum } from "@/enums/settings/device.enum";
@@ -246,7 +246,9 @@ const isValidApiPath = (path: string): boolean => {
 };
 
 const appStore = useAppStore();
+const userStore = useUserStore();
 const drawerSize = computed(() => (appStore.device === DeviceEnum.DESKTOP ? "60%" : "60%"));
+const isSuperAdmin = computed(() => Boolean((userStore.info as Record<string, any>)?.is_superuser));
 
 const t = useI18n().t;
 const configStore = useConfigStore();

@@ -22,6 +22,8 @@ dependencies = [
     "greenlet==3.5.2",                          # 协程核心依赖（SQLAlchemy 异步）
     "httpx==0.28.1",                            # HTTP 客户端
     "jinja2==3.1.6",                            # 模板引擎
+    "langchain-core>=1.1.0,<2.0.0",             # LLM 运行时核心抽象
+    "langchain-openai>=1.1.0,<2.0.0",           # OpenAI 兼容模型适配
     "loguru==0.7.3",                            # 日志
     "openai==2.28.0",                           # OpenAI API 客户端
     "openpyxl==3.1.5",                          # Excel

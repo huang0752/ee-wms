@@ -134,7 +134,7 @@ async def ai_chat_controller(
 
 @ChatRouter.get(
     "/model",
-    summary="获取当前用户的 AI 模型配置列表（含当前激活 ID）",
+    summary="获取平台 AI 模型配置列表（含默认 ID）",
     response_model=ResponseSchema[AiModelConfigListResponse],
 )
 async def list_model_config_controller(
@@ -148,7 +148,7 @@ async def list_model_config_controller(
 
 @ChatRouter.post(
     "/model",
-    summary="新增一个 AI 模型配置",
+    summary="新增平台 AI 模型配置",
     response_model=ResponseSchema[dict[str, Any]],
 )
 async def create_model_config_controller(
@@ -163,11 +163,11 @@ async def create_model_config_controller(
 
 @ChatRouter.put(
     "/model/{config_id}",
-    summary="更新指定 ID 的 AI 模型配置",
+    summary="更新平台 AI 模型配置",
     response_model=ResponseSchema[dict[str, Any]],
 )
 async def update_model_config_controller(
-    config_id: Annotated[str, Path(description="配置项 ID")],
+    config_id: Annotated[int, Path(description="配置项 ID")],
     data: AiModelConfigUpdateSchema,
     redis: Annotated[Redis, Depends(redis_getter)],
     auth: Annotated[AuthSchema, Depends(AuthPermission(["module_ai:chat:update"]))],
@@ -179,11 +179,11 @@ async def update_model_config_controller(
 
 @ChatRouter.delete(
     "/model/{config_id}",
-    summary="删除指定 ID 的 AI 模型配置",
+    summary="删除平台 AI 模型配置",
     response_model=ResponseSchema[None],
 )
 async def delete_model_config_controller(
-    config_id: Annotated[str, Path(description="配置项 ID")],
+    config_id: Annotated[int, Path(description="配置项 ID")],
     redis: Annotated[Redis, Depends(redis_getter)],
     auth: Annotated[AuthSchema, Depends(AuthPermission(["module_ai:chat:update"]))],
 ) -> JSONResponse:
@@ -194,14 +194,29 @@ async def delete_model_config_controller(
 
 @ChatRouter.post(
     "/model/{config_id}/activate",
-    summary="切换当前激活的 AI 模型配置（空 ID 表示使用系统默认）",
+    summary="兼容旧接口：设置平台默认 AI 模型",
     response_model=ResponseSchema[None],
 )
 async def activate_model_config_controller(
-    config_id: Annotated[str, Path(description="配置项 ID；传 __default__ 使用系统默认")],
+    config_id: Annotated[int, Path(description="配置项 ID")],
     redis: Annotated[Redis, Depends(redis_getter)],
     auth: Annotated[AuthSchema, Depends(AuthPermission(["module_ai:chat:update"]))],
 ) -> JSONResponse:
     service = AiModelConfigService(auth, redis)
     await service.set_active(config_id)
-    return SuccessResponse(data=None, msg="已切换模型")
+    return SuccessResponse(data=None, msg="已设置默认模型")
+
+
+@ChatRouter.post(
+    "/model/{config_id}/set-default",
+    summary="设置平台默认 AI 模型",
+    response_model=ResponseSchema[None],
+)
+async def set_default_model_config_controller(
+    config_id: Annotated[int, Path(description="配置项 ID")],
+    redis: Annotated[Redis, Depends(redis_getter)],
+    auth: Annotated[AuthSchema, Depends(AuthPermission(["module_ai:chat:update"]))],
+) -> JSONResponse:
+    service = AiModelConfigService(auth, redis)
+    await service.set_default(config_id)
+    return SuccessResponse(data=None, msg="已设置默认模型")

@@ -8,22 +8,12 @@
       <!-- 顶部状态栏 -->
       <div class="status-bar">
         <div class="status-info">
-          <span class="status-title">当前使用</span>
-          <ElTag :type="activeId ? 'primary' : 'info'" effect="dark" size="small">
+          <span class="status-title">平台默认</span>
+          <ElTag :type="activeId ? 'primary' : 'warning'" effect="dark" size="small">
             <ElIcon class="tag-icon"><CircleCheck v-if="activeId" /><Cpu v-else /></ElIcon>
             <span>{{ activeModelName }}</span>
           </ElTag>
         </div>
-        <ElButton
-          v-if="items.length > 0"
-          :disabled="!activeId"
-          size="small"
-          plain
-          @click="handleUseDefault"
-        >
-          <ElIcon><RefreshLeft /></ElIcon>
-          <span>恢复系统默认</span>
-        </ElButton>
       </div>
 
       <!-- 配置列表 -->
@@ -43,10 +33,10 @@
             <ElIcon class="empty-icon" :size="56"><Cpu /></ElIcon>
             <ElIcon class="empty-icon-bg" :size="100"><ChatLineSquare /></ElIcon>
           </div>
-          <div class="empty-title">添加你的第一个 AI 模型</div>
+          <div class="empty-title">添加平台默认 AI 模型</div>
           <div class="empty-desc">
             支持 OpenAI、DeepSeek、Ollama 等任何 OpenAI 兼容服务<br />
-            配置后即可在 AI 助手页一键切换
+            平台配置后，租户用户统一使用默认模型
           </div>
           <ElButton type="primary" size="large" :icon="Plus" @click="openCreate">
             立即添加
@@ -78,7 +68,10 @@
                   <div class="item-row1">
                     <span class="item-name">{{ item.name }}</span>
                     <ElTag v-if="item.id === activeId" type="success" size="small" effect="light">
-                      使用中
+                      默认
+                    </ElTag>
+                    <ElTag v-if="!item.enabled" type="info" size="small" effect="plain">
+                      停用
                     </ElTag>
                   </div>
                   <div class="item-model">{{ item.model_id }}</div>
@@ -94,13 +87,35 @@
                   <ElTooltip content="编辑" placement="top" :show-after="200">
                     <ElButton text circle size="small" :icon="Edit" @click="openEdit(item)" />
                   </ElTooltip>
+                  <ElTooltip content="设为默认" placement="top" :show-after="200">
+                    <ElButton
+                      text
+                      circle
+                      size="small"
+                      :disabled="item.id === activeId || !item.enabled"
+                      @click="handleSetDefault(item)"
+                    >
+                      <ElIcon><CircleCheck /></ElIcon>
+                    </ElButton>
+                  </ElTooltip>
                   <ElTooltip content="删除" placement="top" :show-after="200">
-                    <ElButton text circle size="small" :icon="Delete" @click="handleDelete(item)" />
+                    <ElButton
+                      text
+                      circle
+                      size="small"
+                      :disabled="item.id === activeId"
+                      :icon="Delete"
+                      @click="handleDelete(item)"
+                    />
                   </ElTooltip>
                 </div>
               </div>
               <!-- 展开详情 -->
               <div v-show="expandedId === item.id" class="item-detail">
+                <div class="detail-row">
+                  <span class="detail-label">供应商</span>
+                  <span class="detail-value">{{ providerLabel(item.provider_type) }}</span>
+                </div>
                 <div class="detail-row">
                   <span class="detail-label">Base URL</span>
                   <span class="detail-value">{{ item.base_url }}</span>
@@ -116,6 +131,14 @@
                 <div class="detail-row">
                   <span class="detail-label">Temperature</span>
                   <span class="detail-value">{{ item.temperature.toFixed(1) }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Max Tokens</span>
+                  <span class="detail-value">{{ item.max_tokens || "不限" }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Timeout</span>
+                  <span class="detail-value">{{ item.timeout_seconds }} 秒</span>
                 </div>
                 <div v-if="item.created_time" class="detail-row">
                   <span class="detail-label">添加于</span>
@@ -159,6 +182,16 @@
             clearable
             autofocus
           />
+        </ElFormItem>
+        <ElFormItem label="供应商" prop="provider_type">
+          <ElSelect v-model="form.provider_type" class="w-full" placeholder="选择供应商">
+            <ElOption
+              v-for="provider in providerOptions"
+              :key="provider.value"
+              :label="provider.label"
+              :value="provider.value"
+            />
+          </ElSelect>
         </ElFormItem>
         <ElFormItem label="Base URL" prop="base_url">
           <ElInput v-model="form.base_url" placeholder="https://api.openai.com/v1" clearable>
@@ -213,12 +246,40 @@
           />
           <div class="form-tip">越高越有创造性，0 更确定</div>
         </ElFormItem>
+        <ElFormItem label="Max Tokens" prop="max_tokens">
+          <ElInputNumber
+            v-model="form.max_tokens"
+            :min="1"
+            :max="200000"
+            :controls="false"
+            placeholder="不填表示不限"
+            class="w-full"
+          />
+        </ElFormItem>
+        <ElFormItem label="超时秒数" prop="timeout_seconds">
+          <ElInputNumber
+            v-model="form.timeout_seconds"
+            :min="5"
+            :max="300"
+            :controls="false"
+            class="w-full"
+          />
+        </ElFormItem>
+        <ElFormItem label="状态">
+          <ElSwitch v-model="form.enabled" active-text="启用" inactive-text="停用" inline-prompt />
+        </ElFormItem>
+        <ElFormItem label="默认模型">
+          <ElSwitch v-model="form.is_default" active-text="是" inactive-text="否" inline-prompt />
+        </ElFormItem>
+        <ElFormItem label="备注">
+          <ElInput v-model="form.description" type="textarea" :rows="2" maxlength="1000" />
+        </ElFormItem>
       </ElForm>
       <template #footer>
         <ElButton @click="dialogVisible = false">取消</ElButton>
         <ElButton type="primary" :loading="saving" @click="handleSave">
           <ElIcon><Check /></ElIcon>
-          <span>{{ form.id ? "保存" : "新增并使用" }}</span>
+          <span>{{ form.id ? "保存" : "新增" }}</span>
         </ElButton>
       </template>
     </FaDialog>
@@ -236,7 +297,6 @@ import {
   ChatLineSquare,
   CircleCheck,
   ArrowDown,
-  RefreshLeft,
   Loading,
   Check,
 } from "@element-plus/icons-vue";
@@ -251,26 +311,44 @@ const emit = defineEmits<{ changed: [] }>();
 const loading = ref(false);
 const saving = ref(false);
 const items = ref<AiModelConfigItem[]>([]);
-const activeId = ref<string | null>(null);
-const expandedId = ref<string | null>(null);
-const flashId = ref<string | null>(null);
+const activeId = ref<number | null>(null);
+const expandedId = ref<number | null>(null);
+const flashId = ref<number | null>(null);
 const dialogVisible = ref(false);
 
 type AiModelConfigForm = AiModelConfigInput & {
-  id: string;
+  id: number | null;
   created_time: string | null;
 };
 
 const formRef = ref<FormInstance>();
 const form = reactive<AiModelConfigForm>({
-  id: "",
+  id: null,
+  provider_type: "openai_compatible",
   name: "",
   base_url: "",
   api_key: "",
   model_id: "",
   temperature: 0.7,
+  max_tokens: null,
+  timeout_seconds: 60,
+  enabled: true,
+  is_default: false,
+  description: "",
   created_time: null,
 });
+
+const providerOptions: Array<{ label: string; value: AiModelConfigInput["provider_type"] }> = [
+  { label: "OpenAI 兼容", value: "openai_compatible" },
+  { label: "DeepSeek", value: "deepseek" },
+  { label: "通义千问", value: "qwen" },
+  { label: "智谱 GLM", value: "zhipu" },
+  { label: "Ollama", value: "ollama" },
+];
+
+const providerLabel = (value: AiModelConfigInput["provider_type"]) => {
+  return providerOptions.find((item) => item.value === value)?.label || value;
+};
 
 // 常用 Base URL 预设 - 提升用户输入效率
 const baseUrlPresets = [
@@ -283,6 +361,7 @@ const baseUrlPresets = [
 ];
 
 const rules: FormRules<AiModelConfigInput> = {
+  provider_type: [{ required: true, message: "请选择供应商", trigger: "change" }],
   name: [{ required: true, message: "请输入配置名称", trigger: "blur" }],
   base_url: [
     { required: true, message: "请输入 Base URL", trigger: "blur" },
@@ -312,12 +391,13 @@ const rules: FormRules<AiModelConfigInput> = {
   ],
   model_id: [{ required: true, message: "请输入模型 ID", trigger: "blur" }],
   temperature: [{ required: true, message: "请设置温度", trigger: "change" }],
+  timeout_seconds: [{ required: true, message: "请设置超时时间", trigger: "change" }],
 };
 
 const activeModelName = computed(() => {
-  if (!activeId.value) return "系统默认";
+  if (!activeId.value) return "未配置";
   const item = items.value.find((i) => i.id === activeId.value);
-  return item?.name || "系统默认";
+  return item?.name || "未配置";
 });
 
 const loadList = async () => {
@@ -327,7 +407,7 @@ const loadList = async () => {
     if (res.data?.code === 0 && res.data.data) {
       const data: AiModelConfigList = res.data.data;
       items.value = data.items || [];
-      activeId.value = data.active_id;
+      activeId.value = data.default_id ?? data.active_id;
     }
   } catch {
     ElMessage.error("加载模型配置失败");
@@ -337,12 +417,18 @@ const loadList = async () => {
 };
 
 const resetForm = () => {
-  form.id = "";
+  form.id = null;
+  form.provider_type = "openai_compatible";
   form.name = "";
   form.base_url = "";
   form.api_key = "";
   form.model_id = "";
   form.temperature = 0.7;
+  form.max_tokens = null;
+  form.timeout_seconds = 60;
+  form.enabled = true;
+  form.is_default = items.value.length === 0;
+  form.description = "";
   form.created_time = null;
   formRef.value?.clearValidate();
 };
@@ -354,11 +440,17 @@ const openCreate = () => {
 
 const openEdit = (item: AiModelConfigItem) => {
   form.id = item.id;
+  form.provider_type = item.provider_type;
   form.name = item.name;
   form.base_url = item.base_url;
   form.api_key = "";
   form.model_id = item.model_id;
   form.temperature = item.temperature;
+  form.max_tokens = item.max_tokens;
+  form.timeout_seconds = item.timeout_seconds;
+  form.enabled = item.enabled;
+  form.is_default = item.is_default;
+  form.description = item.description || "";
   form.created_time = item.created_time;
   formRef.value?.clearValidate();
   dialogVisible.value = true;
@@ -374,11 +466,17 @@ const handleSave = async () => {
   saving.value = true;
   try {
     const payload: AiModelConfigInput = {
+      provider_type: form.provider_type,
       name: form.name,
       base_url: form.base_url,
       api_key: form.api_key || null,
       model_id: form.model_id,
       temperature: form.temperature,
+      max_tokens: form.max_tokens || null,
+      timeout_seconds: form.timeout_seconds,
+      enabled: form.enabled,
+      is_default: form.is_default,
+      description: form.description || null,
     };
     let res;
     if (form.id) {
@@ -389,14 +487,11 @@ const handleSave = async () => {
     if (res.data?.code === 0) {
       const newId = form.id || res.data.data?.id;
       dialogVisible.value = false;
-      if (!form.id && newId) {
-        await AiChatAPI.activateModelConfig(newId);
-      }
       resetForm();
       emit("changed");
       await loadList();
       if (newId) flashHighlight(newId);
-      ElMessage.success(form.id ? "已保存" : "已添加并启用");
+      ElMessage.success(form.id ? "已保存" : "已添加");
     } else {
       ElMessage.error(res.data?.msg || "保存失败");
     }
@@ -407,7 +502,7 @@ const handleSave = async () => {
   }
 };
 
-const flashHighlight = (id: string) => {
+const flashHighlight = (id: number) => {
   flashId.value = id;
   setTimeout(() => {
     flashId.value = null;
@@ -419,30 +514,22 @@ const handleItemClick = async (item: AiModelConfigItem) => {
     toggleExpand(item.id);
     return;
   }
-  try {
-    const res = await AiChatAPI.activateModelConfig(item.id);
-    if (res.data?.code === 0) {
-      activeId.value = item.id;
-      emit("changed");
-    } else {
-      ElMessage.error(res.data?.msg || "切换失败");
-    }
-  } catch {
-    ElMessage.error("切换失败");
-  }
+  toggleExpand(item.id);
 };
 
-const handleUseDefault = async () => {
+const handleSetDefault = async (item: AiModelConfigItem) => {
   try {
-    const res = await AiChatAPI.activateModelConfig("");
+    const res = await AiChatAPI.setDefaultModelConfig(item.id);
     if (res.data?.code === 0) {
-      activeId.value = null;
+      activeId.value = item.id;
+      items.value = items.value.map((model) => ({ ...model, is_default: model.id === item.id }));
       emit("changed");
+      ElMessage.success("已设置为平台默认模型");
     } else {
-      ElMessage.error(res.data?.msg || "操作失败");
+      ElMessage.error(res.data?.msg || "设置失败");
     }
   } catch {
-    ElMessage.error("操作失败");
+    ElMessage.error("设置失败");
   }
 };
 
@@ -470,7 +557,7 @@ const handleDelete = async (item: AiModelConfigItem) => {
   }
 };
 
-const toggleExpand = (id: string) => {
+const toggleExpand = (id: number) => {
   expandedId.value = expandedId.value === id ? null : id;
 };
 

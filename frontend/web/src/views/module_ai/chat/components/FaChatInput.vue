@@ -24,54 +24,12 @@
         </ElForm>
         <div class="input-footer">
           <div class="input-footer-left">
-            <ElDropdown
-              trigger="click"
-              placement="top-start"
-              @command="handleSelectModel"
-              @visible-change="handleDropdownVisible"
-            >
-              <div class="model-switcher" :class="{ 'is-active': dropdownVisible }">
-                <ElIcon class="model-icon"><Cpu /></ElIcon>
-                <span class="model-name" :title="activeModelName">
-                  {{ activeModelName }}
-                </span>
-                <ElIcon class="model-arrow" :class="{ expanded: dropdownVisible }">
-                  <ArrowDown />
-                </ElIcon>
-              </div>
-              <template #dropdown>
-                <ElDropdownMenu>
-                  <ElDropdownItem command="__default__" :class="{ 'is-active': !activeId }">
-                    <ElIcon class="dropdown-icon"><MagicStick /></ElIcon>
-                    <span class="dropdown-label">系统默认</span>
-                    <ElTag v-if="!activeId" type="success" size="small" effect="plain">
-                      使用中
-                    </ElTag>
-                  </ElDropdownItem>
-                  <template v-if="items.length > 0">
-                    <ElDropdownItem
-                      v-for="item in items"
-                      :key="item.id"
-                      :command="item.id"
-                      :class="{ 'is-active': item.id === activeId }"
-                      :disabled="switching"
-                    >
-                      <ElIcon class="dropdown-icon"><ChatLineSquare /></ElIcon>
-                      <div class="dropdown-content">
-                        <div class="dropdown-label">{{ item.name }}</div>
-                        <div class="dropdown-meta">{{ item.model_id }}</div>
-                      </div>
-                      <ElTag v-if="item.id === activeId" type="success" size="small" effect="plain">
-                        使用中
-                      </ElTag>
-                    </ElDropdownItem>
-                  </template>
-                  <ElDropdownItem v-if="items.length === 0" disabled>
-                    <span class="dropdown-empty">暂未配置模型，请到"设置 → 配置中心"添加</span>
-                  </ElDropdownItem>
-                </ElDropdownMenu>
-              </template>
-            </ElDropdown>
+            <div class="model-switcher model-switcher--readonly">
+              <ElIcon class="model-icon"><Cpu /></ElIcon>
+              <span class="model-name" :title="activeModelName">
+                {{ activeModelName }}
+              </span>
+            </div>
           </div>
           <div class="input-actions">
             <ElUpload
@@ -116,7 +74,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { ElMessage } from "element-plus";
 import {
   Promotion,
   Paperclip,
@@ -124,9 +81,6 @@ import {
   Close,
   VideoPause,
   Cpu,
-  ArrowDown,
-  ChatLineSquare,
-  MagicStick,
 } from "@element-plus/icons-vue";
 import type { UploadFile } from "element-plus";
 import type { UploadedFile } from "../types";
@@ -141,7 +95,6 @@ interface Props {
 interface Emits {
   (e: "send", message: string, files?: UploadedFile[]): void;
   (e: "stop"): void;
-  (e: "model-changed"): void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -153,15 +106,12 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>();
 
 // ============ 模型选择器 ============ //
-const dropdownVisible = ref(false);
 const items = ref<AiModelConfigItem[]>([]);
-const activeId = ref<string | null>(null);
-const switching = ref(false);
+const defaultId = ref<number | null>(null);
 
 const activeModelName = computed(() => {
-  if (!activeId.value) return "系统默认";
-  const item = items.value.find((i) => i.id === activeId.value);
-  return item?.name || "系统默认";
+  const item = items.value.find((i) => i.id === defaultId.value);
+  return item ? `${item.name} · ${item.model_id}` : "平台默认模型";
 });
 
 const loadModels = async () => {
@@ -170,37 +120,10 @@ const loadModels = async () => {
     if (res.data?.code === 0 && res.data.data) {
       const data: AiModelConfigList = res.data.data;
       items.value = data.items || [];
-      activeId.value = data.active_id;
+      defaultId.value = data.default_id ?? data.active_id;
     }
   } catch {
     /* 静默失败 */
-  }
-};
-
-const handleDropdownVisible = (visible: boolean) => {
-  dropdownVisible.value = visible;
-  if (visible) loadModels();
-};
-
-const handleSelectModel = async (command: string) => {
-  dropdownVisible.value = false;
-  if (command === activeId.value) return;
-  switching.value = true;
-  try {
-    const res = await AiChatAPI.activateModelConfig(command === "__default__" ? "" : command);
-    if (res.data?.code === 0) {
-      activeId.value = command === "__default__" ? null : command;
-      const newName =
-        command === "__default__" ? "系统默认" : items.value.find((i) => i.id === command)?.name;
-      ElMessage.success(`已切换到：${newName}`);
-      emit("model-changed");
-    } else {
-      ElMessage.error(res.data?.msg || "切换失败");
-    }
-  } catch {
-    ElMessage.error("切换模型失败");
-  } finally {
-    switching.value = false;
   }
 };
 

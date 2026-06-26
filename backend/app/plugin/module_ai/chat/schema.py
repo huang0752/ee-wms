@@ -89,10 +89,25 @@ class AiChatResponseSchema(BaseModel):
 class AiModelConfigBaseSchema(BaseModel):
     """AI 模型配置公共字段"""
 
-    name: str = Field(..., min_length=1, max_length=50, description="配置名称（用户可读）")
+    provider_type: str = Field("openai_compatible", max_length=64, description="供应商类型")
+    name: str = Field(..., min_length=1, max_length=100, description="配置名称（用户可读）")
     base_url: str = Field(..., min_length=1, max_length=500, description="API Base URL，如 https://api.openai.com/v1")
-    model_id: str = Field(..., min_length=1, max_length=100, description="模型 ID")
+    model_id: str = Field(..., min_length=1, max_length=128, description="模型 ID")
     temperature: float = Field(0.7, ge=0.0, le=2.0, description="温度参数")
+    max_tokens: int | None = Field(None, ge=1, le=200000, description="最大输出 token")
+    timeout_seconds: int = Field(60, ge=5, le=300, description="超时时间（秒）")
+    enabled: bool = Field(True, description="是否启用")
+    is_default: bool = Field(False, description="是否默认模型")
+    description: str | None = Field(None, max_length=1000, description="备注")
+
+    @field_validator("provider_type")
+    @classmethod
+    def validate_provider_type(cls, v: str) -> str:
+        v = v.strip() or "openai_compatible"
+        allowed = {"openai_compatible", "deepseek", "qwen", "zhipu", "ollama"}
+        if v not in allowed:
+            raise ValueError("供应商类型不支持")
+        return v
 
     @field_validator("base_url")
     @classmethod
@@ -142,7 +157,7 @@ class AiModelConfigUpdateSchema(AiModelConfigBaseSchema):
 class AiModelConfigItemSchema(AiModelConfigBaseSchema):
     """带 ID 的模型配置返回项；不包含明文 API Key。"""
 
-    id: str = Field(..., min_length=1, max_length=64, description="配置项唯一 ID")
+    id: int = Field(..., description="配置项唯一 ID")
     created_time: str | None = Field(None, description="创建时间（ISO 字符串）")
     has_api_key: bool = Field(False, description="是否已配置 API Key")
     api_key_masked: str | None = Field(None, description="脱敏后的 API Key")
@@ -152,4 +167,5 @@ class AiModelConfigListResponse(BaseModel):
     """模型配置列表响应"""
 
     items: list[AiModelConfigItemSchema] = Field(default_factory=list, description="配置项列表")
-    active_id: str | None = Field(None, description="当前激活的配置项 ID；为空表示使用系统默认")
+    active_id: int | None = Field(None, description="兼容字段：当前默认配置项 ID")
+    default_id: int | None = Field(None, description="平台默认配置项 ID")

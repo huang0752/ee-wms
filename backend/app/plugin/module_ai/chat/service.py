@@ -1,26 +1,27 @@
 
 import asyncio
+import hashlib
 import json
 from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import Any
 
-from agno.run.team import TeamRunOutput
 from agno.session.team import TeamSession
 from agno.team.team import Team
 from redis.asyncio import Redis
 
 from app.api.v1.module_system.dept.service import DeptService
-from app.common.enums import RedisInitKeyConfig
 from app.common.request import PaginationService
 from app.config.setting import settings
 from app.core.base_schema import AuthSchema
+from app.core.dependencies import require_superadmin
 from app.core.exceptions import CustomException
 from app.core.logger import logger
-from app.core.redis_crud import RedisCURD
+from app.utils.hash_bcrpy_util import AESCipher
 
 from .audit import AiCallAuditRecord, record_ai_call_audit
 from .crud import ChatSessionCRUD
+from .platform_crud import DatabaseAiConfigRepository
 from .schema import (
     AiModelConfigSchema,
     AiModelConfigUpdateSchema,
@@ -228,26 +229,36 @@ class ChatService:
                     raise CustomException(msg="创建会话失败")
                 session_id = session.session_id
 
-            agno_factory = AgnoFactory()
-            dept_id = str(self.auth.user.dept_id) if self.auth and self.auth.user and hasattr(self.auth.user, "dept_id") and self.auth.user.dept_id else "default"
-            effective_model_config = model_config
-            if effective_model_config is None and redis is not None:
+            response_content = ""
+            if model_config is None:
+                runtime = AiRuntimeService(self.auth, audit_enabled=False)
                 effective_model_config = await resolve_effective_model_config(redis, self.auth)
-            agent: Team = agno_factory.create_agent(
-                user_id=self.auth.user.username if self.auth and self.auth.user else "user",
-                dept_id=dept_id,
-                session_id=session_id,
-                db=crud.db,
-                model_config=effective_model_config,
-            )
-
-            response: TeamRunOutput = await agent.arun(input=message)
+                response_content = await runtime.chat(
+                    message,
+                    source_module="module_ai",
+                    source_feature="chat_non_stream",
+                    system_prompt="你是企业管理系统中的中文 AI 助手，请用简洁、可执行的方式回答。",
+                )
+            else:
+                agno_factory = AgnoFactory()
+                dept_id = str(self.auth.user.dept_id) if self.auth and self.auth.user and hasattr(self.auth.user, "dept_id") and self.auth.user.dept_id else "default"
+                effective_model_config = model_config
+                agent: Team = agno_factory.create_agent(
+                    user_id=self.auth.user.username if self.auth and self.auth.user else "user",
+                    dept_id=dept_id,
+                    session_id=session_id,
+                    db=crud.db,
+                    model_config=effective_model_config,
+                )
+                response = await agent.arun(input=message)
+                if response and response.content:
+                    response_content = response.content
 
             response_text = ""
             action = None
 
-            if response and response.content:
-                response_text = response.content
+            if response_content:
+                response_text = response_content
                 try:
                     if response_text.strip().startswith("{") and response_text.strip().endswith("}"):
                         action = json.loads(response_text)
@@ -388,22 +399,8 @@ class ChatService:
 
 
 # ================================================= #
-# ******************* AI 模型配置 ****************** #
+# ************* 平台级 AI / LLM 模型配置 ************ #
 # ================================================= #
-
-
-def _ai_model_items_key(user_id: int) -> str:
-    return f"{RedisInitKeyConfig.AI_MODEL_CONFIG.key}:items:{user_id}"
-
-
-def _ai_model_active_key(user_id: int) -> str:
-    return f"{RedisInitKeyConfig.AI_MODEL_CONFIG.key}:active:{user_id}"
-
-
-def _decode_redis_value(value: Any) -> Any:
-    if isinstance(value, bytes):
-        return value.decode("utf-8")
-    return value
 
 
 def _mask_api_key(api_key: str | None) -> str | None:
@@ -414,201 +411,290 @@ def _mask_api_key(api_key: str | None) -> str | None:
     return f"****{api_key[-4:]}"
 
 
-def _public_model_config(item: dict[str, Any]) -> dict[str, Any]:
-    return {
+def _ai_cipher() -> AESCipher:
+    return AESCipher(hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).hexdigest())
+
+
+def encrypt_api_key(api_key: str) -> str:
+    return _ai_cipher().encrypt(api_key).hex()
+
+
+def decrypt_api_key(api_key_cipher: str) -> str:
+    return _ai_cipher().decrypt(api_key_cipher)
+
+
+def _public_model_config(item: dict[str, Any], *, include_sensitive: bool = False) -> dict[str, Any]:
+    api_key = None
+    api_key_cipher = item.get("api_key_cipher")
+    if api_key_cipher:
+        try:
+            api_key = decrypt_api_key(api_key_cipher)
+        except Exception:
+            logger.warning("AI 模型配置 API Key 解密失败: id={}", item.get("id"))
+    result = {
         "id": item.get("id"),
+        "provider_type": item.get("provider_type") or "openai_compatible",
         "name": item.get("name"),
         "base_url": item.get("base_url"),
         "model_id": item.get("model_id"),
         "temperature": item.get("temperature"),
+        "max_tokens": item.get("max_tokens"),
+        "timeout_seconds": item.get("timeout_seconds") or 60,
+        "enabled": bool(item.get("enabled", True)),
+        "is_default": bool(item.get("is_default", False)),
+        "description": item.get("description"),
         "created_time": item.get("created_time"),
-        "has_api_key": bool(item.get("api_key")),
-        "api_key_masked": _mask_api_key(item.get("api_key")),
+        "has_api_key": bool(api_key),
+        "api_key_masked": _mask_api_key(api_key),
     }
+    if include_sensitive:
+        result["api_key"] = api_key
+    return result
 
 
-def _runtime_model_config(item: dict[str, Any], *, auth: AuthSchema | None = None, source: str = "user_active") -> dict[str, Any]:
+def _runtime_model_config(item: dict[str, Any], *, auth: AuthSchema | None = None, source: str = "platform_default") -> dict[str, Any]:
+    public = _public_model_config(item, include_sensitive=True)
     return {
-        "base_url": item.get("base_url"),
-        "api_key": item.get("api_key"),
-        "model_id": item.get("model_id"),
-        "temperature": item.get("temperature"),
-        "config_id": item.get("id"),
+        "base_url": public.get("base_url"),
+        "api_key": public.get("api_key"),
+        "model_id": public.get("model_id"),
+        "temperature": public.get("temperature"),
+        "max_tokens": public.get("max_tokens"),
+        "timeout_seconds": public.get("timeout_seconds") or 60,
+        "config_id": public.get("id"),
+        "provider_type": public.get("provider_type"),
         "source": source,
         "tenant_id": auth.tenant_id if auth else None,
         "user_id": getattr(auth.user, "id", None) if auth and auth.user else None,
     }
 
 
-async def get_user_model_config(redis: Redis, user_id: int) -> dict[str, Any] | None:
-    """读取当前激活的 AI 模型配置；不存在或未激活返回 None。"""
-    active_id = _decode_redis_value(await RedisCURD(redis).get(_ai_model_active_key(user_id)))
-    if not active_id:
-        return None
-    items = await list_user_model_configs(redis, user_id)
-    for item in items:
-        if item.get("id") == active_id:
-            return item
-    return None
+class PlatformAiModelConfigService:
+    """平台级 AI 模型配置业务服务。"""
 
+    decrypt_api_key = staticmethod(decrypt_api_key)
 
-async def list_user_model_configs(redis: Redis, user_id: int) -> list[dict[str, Any]]:
-    """列出用户的所有模型配置项。"""
-    raw = _decode_redis_value(await RedisCURD(redis).get(_ai_model_items_key(user_id)))
-    if not raw:
-        return []
-    try:
-        data = json.loads(raw)
-        if isinstance(data, list):
-            return data
-        return []
-    except (json.JSONDecodeError, TypeError):
-        logger.warning("AI 模型配置列表 JSON 解析失败: user_id={}", user_id)
-        return []
-
-
-async def get_active_model_id(redis: Redis, user_id: int) -> str | None:
-    """读取当前激活的模型配置 ID；为空表示使用系统默认。"""
-    return _decode_redis_value(await RedisCURD(redis).get(_ai_model_active_key(user_id)))
-
-
-async def resolve_effective_model_config(redis: Redis, auth: AuthSchema) -> dict[str, Any]:
-    """解析当前请求最终生效的模型配置。"""
-    user_id = getattr(auth.user, "id", None) if auth and auth.user else None
-    if user_id is not None:
-        active_config = await get_user_model_config(redis, user_id)
-        if active_config:
-            return _runtime_model_config(active_config, auth=auth, source="user_active")
-    return {
-        "base_url": settings.OPENAI_BASE_URL,
-        "api_key": settings.OPENAI_API_KEY,
-        "model_id": settings.OPENAI_MODEL,
-        "temperature": AgnoFactory.AGENT_TEMPERATURE,
-        "config_id": None,
-        "source": "system_default",
-        "tenant_id": auth.tenant_id if auth else None,
-        "user_id": user_id,
-    }
-
-
-async def create_user_model_config(
-    redis: Redis,
-    user_id: int,
-    config: AiModelConfigSchema,
-) -> dict[str, Any]:
-    """新增一个模型配置项。"""
-    import uuid
-    from datetime import datetime
-
-    items = await list_user_model_configs(redis, user_id)
-    item = {
-        **config.model_dump(),
-        "id": uuid.uuid4().hex,
-        "created_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
-    items.append(item)
-    await RedisCURD(redis).set(
-        _ai_model_items_key(user_id),
-        json.dumps(items, ensure_ascii=False),
-    )
-
-    # 若用户尚未激活任何配置，自动激活新增的
-    if not await get_active_model_id(redis, user_id):
-        await RedisCURD(redis).set(_ai_model_active_key(user_id), item["id"])
-
-    logger.info("已新增 AI 模型配置: user_id={} name={} id={}", user_id, config.name, item["id"])
-    return item
-
-
-async def update_user_model_config(
-    redis: Redis,
-    user_id: int,
-    config_id: str,
-    config: AiModelConfigUpdateSchema,
-) -> dict[str, Any] | None:
-    """更新指定 ID 的模型配置项；不存在返回 None。"""
-    items = await list_user_model_configs(redis, user_id)
-    target = next((it for it in items if it.get("id") == config_id), None)
-    if not target:
-        return None
-    data = config.model_dump(exclude_none=True)
-    target.update(data)
-    await RedisCURD(redis).set(
-        _ai_model_items_key(user_id),
-        json.dumps(items, ensure_ascii=False),
-    )
-    logger.info("已更新 AI 模型配置: user_id={} id={}", user_id, config_id)
-    return target
-
-
-async def delete_user_model_config(redis: Redis, user_id: int, config_id: str) -> bool:
-    """删除指定 ID 的模型配置项；若该 ID 是当前激活则清空激活。"""
-    items = await list_user_model_configs(redis, user_id)
-    new_items = [it for it in items if it.get("id") != config_id]
-    if len(new_items) == len(items):
-        return False
-    await RedisCURD(redis).set(
-        _ai_model_items_key(user_id),
-        json.dumps(new_items, ensure_ascii=False),
-    )
-    active_id = await get_active_model_id(redis, user_id)
-    if active_id == config_id:
-        await RedisCURD(redis).delete(_ai_model_active_key(user_id))
-    logger.info("已删除 AI 模型配置: user_id={} id={}", user_id, config_id)
-    return True
-
-
-async def set_active_model_config(redis: Redis, user_id: int, config_id: str) -> bool:
-    """设置当前激活的模型配置项；id 为空字符串或 "__default__" 表示使用系统默认。"""
-    if config_id in ("", "__default__"):
-        await RedisCURD(redis).delete(_ai_model_active_key(user_id))
-        logger.info("已切换到系统默认模型: user_id={}", user_id)
-        return True
-    items = await list_user_model_configs(redis, user_id)
-    if not any(it.get("id") == config_id for it in items):
-        return False
-    await RedisCURD(redis).set(_ai_model_active_key(user_id), config_id)
-    logger.info("已切换 AI 模型: user_id={} id={}", user_id, config_id)
-    return True
-
-
-class AiModelConfigService:
-    """AI 模型配置业务服务（多配置 + 激活切换）"""
-
-    def __init__(self, auth: AuthSchema, redis: Redis) -> None:
+    def __init__(self, auth: AuthSchema, redis: Redis | None = None, *, repository: Any | None = None) -> None:
         self.auth = auth
         self.redis = redis
+        self.repository = repository or DatabaseAiConfigRepository(auth)
 
-    @property
-    def _user_id(self) -> int:
-        if not self.auth or not self.auth.user:
-            raise CustomException(msg="未登录", code=10401, status_code=401)
-        return self.auth.user.id
-
+    @require_superadmin
     async def list(self) -> dict[str, Any]:
-        """获取配置列表 + 当前激活 ID。"""
-        items = await list_user_model_configs(self.redis, self._user_id)
-        active_id = await get_active_model_id(self.redis, self._user_id)
-        return {"items": [_public_model_config(item) for item in items], "active_id": active_id}
+        items = [_public_model_config(item) for item in await self.repository.list()]
+        default = next((item for item in items if item.get("is_default")), None)
+        default_id = default.get("id") if default else None
+        return {"items": items, "active_id": default_id, "default_id": default_id}
 
     async def get_active(self) -> dict[str, Any] | None:
-        return await get_user_model_config(self.redis, self._user_id)
+        return await self.repository.get_default()
 
+    @require_superadmin
     async def create(self, config: AiModelConfigSchema) -> dict[str, Any]:
-        return _public_model_config(await create_user_model_config(self.redis, self._user_id, config))
+        data = config.model_dump()
+        api_key = data.pop("api_key")
+        data["api_key_cipher"] = encrypt_api_key(api_key)
+        if not await self.repository.list():
+            data["is_default"] = True
+        if data.get("is_default"):
+            await self.repository.clear_default()
+        item = await self.repository.create(data)
+        logger.info("已新增平台 AI 模型配置: name={} id={}", config.name, item.get("id"))
+        return _public_model_config(item)
 
-    async def update(self, config_id: str, config: AiModelConfigUpdateSchema) -> dict[str, Any] | None:
-        result = await update_user_model_config(self.redis, self._user_id, config_id, config)
+    @require_superadmin
+    async def update(self, config_id: int | str, config: AiModelConfigUpdateSchema) -> dict[str, Any] | None:
+        target_id = self._normalize_id(config_id)
+        existing = await self.repository.get(target_id)
+        if existing is None:
+            raise CustomException(msg="模型配置不存在", code=10404, status_code=404)
+        data = config.model_dump(exclude_none=True)
+        api_key = data.pop("api_key", None)
+        if api_key:
+            data["api_key_cipher"] = encrypt_api_key(api_key)
+        if existing.get("is_default") and data.get("enabled") is False:
+            raise CustomException(msg="默认模型不能停用，请先切换默认模型", code=10422, status_code=422)
+        if existing.get("is_default") and data.get("is_default") is False:
+            data.pop("is_default", None)
+        if data.get("is_default"):
+            await self.repository.clear_default()
+        result = await self.repository.update(target_id, data)
         if result is None:
             raise CustomException(msg="模型配置不存在", code=10404, status_code=404)
         return _public_model_config(result)
 
-    async def delete(self, config_id: str) -> None:
-        ok = await delete_user_model_config(self.redis, self._user_id, config_id)
+    @require_superadmin
+    async def delete(self, config_id: int | str) -> None:
+        target_id = self._normalize_id(config_id)
+        existing = await self.repository.get(target_id)
+        if existing is None:
+            raise CustomException(msg="模型配置不存在", code=10404, status_code=404)
+        if existing.get("is_default"):
+            raise CustomException(msg="默认模型不能删除，请先切换默认模型", code=10422, status_code=422)
+        ok = await self.repository.delete(target_id)
         if not ok:
             raise CustomException(msg="模型配置不存在", code=10404, status_code=404)
 
-    async def set_active(self, config_id: str) -> None:
-        ok = await set_active_model_config(self.redis, self._user_id, config_id)
-        if not ok:
+    @require_superadmin
+    async def set_default(self, config_id: int | str) -> None:
+        target_id = self._normalize_id(config_id)
+        existing = await self.repository.get(target_id)
+        if existing is None:
             raise CustomException(msg="模型配置不存在", code=10404, status_code=404)
+        if not existing.get("enabled"):
+            raise CustomException(msg="停用的模型不能设为默认", code=10422, status_code=422)
+        await self.repository.clear_default()
+        await self.repository.update(target_id, {"is_default": True})
+
+    async def set_active(self, config_id: int | str) -> None:
+        """兼容旧接口：现在切换的是平台默认模型，不再按用户激活。"""
+        await self.set_default(config_id)
+
+    @staticmethod
+    def _normalize_id(config_id: int | str) -> int:
+        try:
+            return int(config_id)
+        except (TypeError, ValueError):
+            raise CustomException(msg="模型配置 ID 无效", code=10422, status_code=422)
+
+
+AiModelConfigService = PlatformAiModelConfigService
+
+
+async def resolve_default_model_config(auth: AuthSchema, *, repository: Any | None = None) -> dict[str, Any]:
+    repo = repository or DatabaseAiConfigRepository(auth)
+    default = await repo.get_default()
+    if default:
+        return _runtime_model_config(default, auth=auth, source="platform_default")
+    if settings.OPENAI_BASE_URL and settings.OPENAI_API_KEY and settings.OPENAI_MODEL:
+        return {
+            "base_url": settings.OPENAI_BASE_URL,
+            "api_key": settings.OPENAI_API_KEY,
+            "model_id": settings.OPENAI_MODEL,
+            "temperature": AgnoFactory.AGENT_TEMPERATURE,
+            "max_tokens": None,
+            "timeout_seconds": 60,
+            "config_id": None,
+            "provider_type": "openai_compatible",
+            "source": "env_default",
+            "tenant_id": auth.tenant_id if auth else None,
+            "user_id": getattr(auth.user, "id", None) if auth and auth.user else None,
+        }
+    raise CustomException(msg="未配置平台默认 AI 模型", code=10422, status_code=422)
+
+
+async def resolve_effective_model_config(redis: Redis | None, auth: AuthSchema) -> dict[str, Any]:
+    """兼容旧调用名：所有用户统一使用平台默认模型。"""
+    return await resolve_default_model_config(auth)
+
+
+async def _langchain_chat_runner(
+    *,
+    model_config: dict[str, Any],
+    message: str,
+    system_prompt: str | None = None,
+    response_format: Any | None = None,
+) -> str:
+    from langchain_core.messages import HumanMessage, SystemMessage
+    from langchain_openai import ChatOpenAI
+
+    kwargs: dict[str, Any] = {
+        "model": model_config["model_id"],
+        "api_key": model_config["api_key"],
+        "base_url": model_config["base_url"],
+        "temperature": model_config.get("temperature", 0.7),
+        "timeout": model_config.get("timeout_seconds", 60),
+    }
+    if model_config.get("max_tokens"):
+        kwargs["max_tokens"] = model_config["max_tokens"]
+
+    llm = ChatOpenAI(**kwargs)
+    runnable = llm.with_structured_output(response_format) if response_format is not None else llm
+    messages: list[Any] = []
+    if system_prompt:
+        messages.append(SystemMessage(content=system_prompt))
+    messages.append(HumanMessage(content=message))
+    result = await runnable.ainvoke(messages)
+    if isinstance(result, str):
+        return result
+    content = getattr(result, "content", None)
+    if isinstance(content, str):
+        return content
+    return json.dumps(result, ensure_ascii=False)
+
+
+class AiRuntimeService:
+    """基于平台默认模型的 LangChain 运行时。"""
+
+    def __init__(
+        self,
+        auth: AuthSchema,
+        *,
+        repository: Any | None = None,
+        chat_runner: Any | None = None,
+        redis: Redis | None = None,
+        audit_enabled: bool = True,
+    ) -> None:
+        self.auth = auth
+        self.repository = repository
+        self.chat_runner = chat_runner or _langchain_chat_runner
+        self.redis = redis
+        self.audit_enabled = audit_enabled
+
+    async def chat(
+        self,
+        message: str,
+        *,
+        source_module: str,
+        source_feature: str,
+        system_prompt: str | None = None,
+    ) -> str:
+        model_config: dict[str, Any] | None = None
+        try:
+            model_config = await resolve_default_model_config(self.auth, repository=self.repository)
+            response = await self.chat_runner(model_config=model_config, message=message, system_prompt=system_prompt)
+            if self.audit_enabled:
+                await record_ai_call_audit(
+                    self.redis,
+                    AiCallAuditRecord(
+                        user_id=getattr(self.auth.user, "id", None) if self.auth and self.auth.user else None,
+                        tenant_id=self.auth.tenant_id if self.auth else None,
+                        message=message,
+                        model_config=model_config,
+                        source_module=source_module,
+                        source_feature=source_feature,
+                        status="success",
+                    ),
+                )
+            return response
+        except Exception as exc:
+            if self.audit_enabled:
+                await record_ai_call_audit(
+                    self.redis,
+                    AiCallAuditRecord(
+                        user_id=getattr(self.auth.user, "id", None) if self.auth and self.auth.user else None,
+                        tenant_id=self.auth.tenant_id if self.auth else None,
+                        message=message,
+                        model_config=model_config,
+                        source_module=source_module,
+                        source_feature=source_feature,
+                        status="error",
+                        error=str(exc),
+                    ),
+                )
+            raise
+
+    async def json_generate(
+        self,
+        prompt: str,
+        *,
+        response_format: Any,
+        source_module: str,
+        source_feature: str,
+    ) -> str:
+        model_config = await resolve_default_model_config(self.auth, repository=self.repository)
+        return await self.chat_runner(
+            model_config=model_config,
+            message=prompt,
+            response_format=response_format,
+        )

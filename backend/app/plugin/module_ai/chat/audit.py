@@ -28,6 +28,8 @@ class AiCallAuditRecord:
     session_id: str | None = None
     message: str | None = None
     model_config: dict[str, Any] | None = None
+    source_module: str | None = None
+    source_feature: str | None = None
     status: str = "unknown"
     error: str | None = None
     created_time: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -40,6 +42,8 @@ class AiCallAuditRecord:
             "session_id": self.session_id,
             "message": self.message,
             "model_config": _redact_model_config(self.model_config),
+            "source_module": self.source_module,
+            "source_feature": self.source_feature,
             "status": self.status,
             "error": self.error,
             "created_time": self.created_time,

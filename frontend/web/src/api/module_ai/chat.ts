@@ -73,7 +73,7 @@ export const AiChatAPI = {
     });
   },
 
-  updateModelConfig(id: string, body: AiModelConfigInput) {
+  updateModelConfig(id: number, body: AiModelConfigInput) {
     return request<ApiResponse<AiModelConfigItem>>({
       url: `${API_PATH}/model/${id}`,
       method: "put",
@@ -81,35 +81,54 @@ export const AiChatAPI = {
     });
   },
 
-  deleteModelConfig(id: string) {
+  deleteModelConfig(id: number) {
     return request<ApiResponse<null>>({
       url: `${API_PATH}/model/${id}`,
       method: "delete",
     });
   },
 
-  activateModelConfig(id: string) {
+  setDefaultModelConfig(id: number) {
     return request<ApiResponse<null>>({
-      url: `${API_PATH}/model/${id || "__default__"}/activate`,
+      url: `${API_PATH}/model/${id}/set-default`,
+      method: "post",
+    });
+  },
+
+  activateModelConfig(id: number) {
+    return request<ApiResponse<null>>({
+      url: `${API_PATH}/model/${id}/activate`,
       method: "post",
     });
   },
 };
 
 export interface AiModelConfigInput {
+  provider_type: "openai_compatible" | "deepseek" | "qwen" | "zhipu" | "ollama";
   name: string;
   base_url: string;
   api_key?: string | null;
   model_id: string;
   temperature: number;
+  max_tokens?: number | null;
+  timeout_seconds: number;
+  enabled: boolean;
+  is_default: boolean;
+  description?: string | null;
 }
 
 export interface AiModelConfigItem {
-  id: string;
+  id: number;
+  provider_type: AiModelConfigInput["provider_type"];
   name: string;
   base_url: string;
   model_id: string;
   temperature: number;
+  max_tokens: number | null;
+  timeout_seconds: number;
+  enabled: boolean;
+  is_default: boolean;
+  description: string | null;
   created_time: string | null;
   has_api_key: boolean;
   api_key_masked: string | null;
@@ -117,7 +136,8 @@ export interface AiModelConfigItem {
 
 export interface AiModelConfigList {
   items: AiModelConfigItem[];
-  active_id: string | null;
+  active_id: number | null;
+  default_id: number | null;
 }
 
 export default AiChatAPI;
