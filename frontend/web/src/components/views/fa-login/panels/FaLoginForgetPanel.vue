@@ -22,6 +22,43 @@
           </template>
         </ElInput>
       </ElFormItem>
+      <ElFormItem prop="email">
+        <ElInput
+          v-model.trim="forgetForm.email"
+          class="custom-height"
+          clearable
+          :placeholder="$t('forgetPassword.placeholder.email')"
+          @keyup.enter="$emit('submit')"
+        >
+          <template #prefix>
+            <ElIcon><Message /></ElIcon>
+          </template>
+        </ElInput>
+      </ElFormItem>
+      <ElFormItem prop="code">
+        <div class="flex w-full items-center gap-2.5">
+          <ElInput
+            v-model.trim="forgetForm.code"
+            class="custom-height min-w-0 flex-1"
+            clearable
+            maxlength="6"
+            :placeholder="$t('forgetPassword.placeholder.code')"
+            @keyup.enter="$emit('submit')"
+          >
+            <template #prefix>
+              <ElIcon><Lock /></ElIcon>
+            </template>
+          </ElInput>
+          <ElButton
+            class="h-10 shrink-0"
+            :loading="codeSending"
+            :disabled="codeCountdown > 0"
+            @click="$emit('sendCode')"
+          >
+            {{ codeCountdown > 0 ? `${codeCountdown}s` : $t("forgetPassword.sendCode") }}
+          </ElButton>
+        </div>
+      </ElFormItem>
       <ElTooltip :visible="isCapsLock" :content="$t('login.capsLock')" placement="right">
         <ElFormItem prop="new_password">
           <ElInput
@@ -80,7 +117,8 @@
 </template>
 
 <script setup lang="ts">
-import { Lock, User } from "@element-plus/icons-vue";
+import { ref } from "vue";
+import { Lock, Message, User } from "@element-plus/icons-vue";
 import type { ForgetPasswordForm } from "@/api/module_system/user";
 import type { FormRules } from "element-plus";
 
@@ -92,12 +130,15 @@ interface Props {
   forgetRules: FormRules<ForgetPasswordForm>;
   formKey: number | string;
   forgetLoading: boolean;
+  codeSending: boolean;
+  codeCountdown: number;
 }
 
 withDefaults(defineProps<Props>(), {});
 
 interface Emits {
   submit: [];
+  sendCode: [];
   toLogin: [];
 }
 
@@ -117,6 +158,7 @@ function checkCapsLock(event: KeyboardEvent) {
 
 defineExpose({
   validate: () => formRef.value?.validate?.(),
+  validateField: (props: string | string[]) => formRef.value?.validateField?.(props),
   clearValidate: () => formRef.value?.clearValidate?.(),
 });
 </script>

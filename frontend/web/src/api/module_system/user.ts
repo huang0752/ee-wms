@@ -60,6 +60,22 @@ export const UserAPI = {
     });
   },
 
+  sendForgetPasswordEmailCode(body: ForgetPasswordEmailCodeForm) {
+    return request<ApiResponse>({
+      url: `${API_PATH}/password/forget/email-code`,
+      method: "post",
+      data: body,
+    });
+  },
+
+  resetForgetPasswordByEmail(body: ForgetPasswordForm) {
+    return request<ApiResponse>({
+      url: `${API_PATH}/password/forget/email-reset`,
+      method: "post",
+      data: body,
+    });
+  },
+
   listUser(query: UserPageQuery) {
     return request<ApiResponse<PageResult<UserInfo>>>({
       url: `${API_PATH}/list`,
@@ -140,9 +156,15 @@ export default UserAPI;
 
 export interface ForgetPasswordForm {
   username: string;
+  email: string;
+  code: string;
   new_password: string;
-  mobile?: string;
   confirmPassword: string;
+}
+
+export interface ForgetPasswordEmailCodeForm {
+  username: string;
+  email: string;
 }
 
 export interface RegisterForm {

@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 
+from app.core.auth_features import AuthFeatures
+
 
 class AssemblySummaryOut(BaseModel):
     """前端可见的能力装配摘要。"""
@@ -15,3 +17,4 @@ class PublicConfigInfoOut(BaseModel):
     """公开配置摘要。"""
 
     assembly: AssemblySummaryOut = Field(..., description="能力装配摘要")
+    authFeatures: AuthFeatures = Field(..., description="登录认证能力配置")

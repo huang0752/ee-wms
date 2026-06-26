@@ -10,7 +10,7 @@
       :validate-on-rule-change="false"
       @keyup.enter="$emit('submit')"
     >
-      <ElFormItem>
+      <ElFormItem v-if="showDemoAccounts && accounts.length > 0">
         <ElSelect
           :model-value="demoAccountKey"
           class="w-full"
@@ -124,10 +124,12 @@
         </div>
 
         <div class="login-options-row flex items-center justify-between text-sm">
-          <ElCheckbox v-model="loginForm.remember" class="login-remember">
+          <ElCheckbox v-if="showRemember" v-model="loginForm.remember" class="login-remember">
             {{ $t("login.rememberPwd") }}
           </ElCheckbox>
+          <span v-else />
           <ElLink
+            v-if="showForget"
             type="primary"
             underline="never"
             class="inline-flex items-center text-sm leading-[inherit]!"
@@ -149,20 +151,34 @@
           </ElButton>
         </div>
 
-        <div class="login-secondary-actions grid grid-cols-2 gap-2">
-          <ElButton class="login-secondary-btn" plain @click="$emit('openMobile')">
+        <div
+          v-if="showMobileLogin || showQrLogin"
+          class="login-secondary-actions grid gap-2"
+          :class="showMobileLogin && showQrLogin ? 'grid-cols-2' : 'grid-cols-1'"
+        >
+          <ElButton
+            v-if="showMobileLogin"
+            class="login-secondary-btn"
+            plain
+            @click="$emit('openMobile')"
+          >
             {{ $t("login.mobileLogin") }}
           </ElButton>
-          <ElButton class="login-secondary-btn" plain @click="$emit('openQr')">
+          <ElButton v-if="showQrLogin" class="login-secondary-btn" plain @click="$emit('openQr')">
             {{ $t("login.qrLogin") }}
           </ElButton>
         </div>
       </div>
     </ElForm>
 
-    <FaLoginThirdPartySection @oauth="$emit('oauth', $event)" />
+    <FaLoginThirdPartySection
+      v-if="oauthEnabled && oauthProviders.length > 0"
+      :providers="oauthProviders"
+      @oauth="$emit('oauth', $event)"
+    />
 
     <FaLoginAuthLinkRow
+      v-if="showRegister"
       :hint="$t('login.noAccount')"
       :link-text="$t('login.register')"
       @link="$emit('register')"
@@ -171,10 +187,12 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue";
 import { Loading, Lock, User } from "@element-plus/icons-vue";
-import type { CaptchaInfo, LoginFormData } from "@/api/module_system/auth";
+import type { CaptchaInfo, LoginFormData, OAuthProvider } from "@/api/module_system/auth";
 import type { FormRules } from "element-plus";
 import type { Account, AccountKey } from "@views/module_system/auth/login/types";
+import FaLoginThirdPartySection from "@/components/views/fa-login/widgets/FaLoginThirdPartySection.vue";
 
 const loginForm = defineModel<LoginFormData>("loginForm", { required: true });
 
@@ -190,6 +208,14 @@ interface Props {
   isDark: boolean;
   dragVerifyTextColor: string;
   loading: boolean;
+  showRemember: boolean;
+  showForget: boolean;
+  showMobileLogin: boolean;
+  showQrLogin: boolean;
+  showRegister: boolean;
+  showDemoAccounts: boolean;
+  oauthEnabled: boolean;
+  oauthProviders: OAuthProvider[];
 }
 
 withDefaults(defineProps<Props>(), {});
@@ -205,7 +231,7 @@ interface Emits {
   openQr: [];
   forget: [];
   register: [];
-  oauth: [provider: "wechat" | "qq" | "github" | "gitee"];
+  oauth: [provider: OAuthProvider];
 }
 
 const emit = defineEmits<Emits>();

@@ -1,10 +1,14 @@
 import io
+import json
+import secrets
 from typing import Any
 
 import pandas as pd
-from fastapi import UploadFile
+from fastapi import UploadFile, status
+from redis.asyncio.client import Redis
 from sqlalchemy import select
 
+from app.api.v1.module_platform.email.service import EmailSendService
 from app.api.v1.module_platform.menu.crud import MenuCRUD
 from app.api.v1.module_platform.menu.schema import MenuOutSchema
 from app.api.v1.module_platform.package.service import PackageService
@@ -17,6 +21,7 @@ from app.core.assembly import filter_menu_tree_by_assembly
 from app.core.base_schema import AuthSchema, BatchSetAvailable
 from app.core.exceptions import CustomException
 from app.core.logger import logger
+from app.core.redis_crud import RedisCURD
 from app.utils.common_util import traversal_to_tree
 from app.utils.excel_util import ExcelUtil
 from app.utils.hash_bcrpy_util import PwdUtil
@@ -27,12 +32,19 @@ from .schema import (
     ResetPasswordSchema,
     UserChangePasswordSchema,
     UserCreateSchema,
+    UserForgetPasswordEmailCodeSchema,
+    UserForgetPasswordEmailResetSchema,
     UserForgetPasswordSchema,
     UserOutSchema,
     UserQueryParam,
     UserRegisterSchema,
     UserUpdateSchema,
 )
+
+PASSWORD_RESET_CODE_TTL_SECONDS = 5 * 60
+PASSWORD_RESET_SEND_INTERVAL_SECONDS = 60
+PASSWORD_RESET_HOURLY_LIMIT = 5
+PASSWORD_RESET_TEMPLATE_CODE = "reset_password_code"
 
 
 class UserService:
@@ -322,6 +334,115 @@ class UserService:
 
         new_password_hash = PwdUtil.hash_password(password=data.new_password)
         new_user = await UserCRUD(self.auth).forget_password(id=user.id, password_hash=new_password_hash)
+        return UserOutSchema.model_validate(new_user)
+
+    @staticmethod
+    def _password_reset_key(username: str, email: str) -> str:
+        return f"password_reset:email_code:{username.lower()}:{email.lower()}"
+
+    @staticmethod
+    def _password_reset_interval_key(username: str, email: str) -> str:
+        return f"password_reset:send_interval:{username.lower()}:{email.lower()}"
+
+    @staticmethod
+    def _password_reset_hourly_key(username: str, email: str) -> str:
+        return f"password_reset:send_hourly:{username.lower()}:{email.lower()}"
+
+    @staticmethod
+    def _generate_email_code() -> str:
+        return f"{secrets.randbelow(1_000_000):06d}"
+
+    async def send_forget_password_email_code(
+        self,
+        redis: Redis,
+        data: UserForgetPasswordEmailCodeSchema,
+    ) -> dict[str, bool]:
+        redis_curd = RedisCURD(redis)
+        username = data.username.strip()
+        email = str(data.email).strip().lower()
+        interval_key = self._password_reset_interval_key(username, email)
+        hourly_key = self._password_reset_hourly_key(username, email)
+
+        if await redis_curd.exists(interval_key):
+            raise CustomException(msg="验证码发送过于频繁，请 60 秒后再试", status_code=status.HTTP_400_BAD_REQUEST)
+
+        hourly_raw = await redis_curd.get(hourly_key)
+        hourly_count = int(hourly_raw.decode("utf-8") if isinstance(hourly_raw, bytes) else hourly_raw or 0)
+        if hourly_count >= PASSWORD_RESET_HOURLY_LIMIT:
+            raise CustomException(msg="验证码请求次数过多，请稍后再试", status_code=status.HTTP_400_BAD_REQUEST)
+
+        user = await UserCRUD(self.auth).get(username=username)
+        should_send = (
+            user is not None
+            and user.status != 1
+            and not user.is_superuser
+            and bool(user.email)
+            and str(user.email).strip().lower() == email
+        )
+
+        await redis_curd.set(interval_key, "1", expire=PASSWORD_RESET_SEND_INTERVAL_SECONDS)
+        await redis_curd.set(hourly_key, hourly_count + 1, expire=60 * 60)
+
+        if should_send:
+            code = self._generate_email_code()
+            reset_key = self._password_reset_key(username, email)
+            await redis_curd.set(
+                reset_key,
+                {
+                    "user_id": user.id,
+                    "username": username,
+                    "email": email,
+                    "code": code,
+                },
+                expire=PASSWORD_RESET_CODE_TTL_SECONDS,
+            )
+            await EmailSendService(self.auth).send_by_template(
+                to_email=email,
+                to_name=user.name or user.username,
+                template_code=PASSWORD_RESET_TEMPLATE_CODE,
+                variables={"username": user.username, "code": code},
+                biz_type="reset_password",
+                tenant_id=user.tenant_id,
+            )
+
+        return {"sent": True}
+
+    async def forget_password_by_email_code(
+        self,
+        redis: Redis,
+        data: UserForgetPasswordEmailResetSchema,
+    ) -> UserOutSchema:
+        username = data.username.strip()
+        email = str(data.email).strip().lower()
+        reset_key = self._password_reset_key(username, email)
+        redis_curd = RedisCURD(redis)
+        raw = await redis_curd.get(reset_key)
+        if not raw:
+            raise CustomException(msg="验证码已过期或不存在", status_code=status.HTTP_400_BAD_REQUEST)
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            await redis_curd.delete(reset_key)
+            raise CustomException(msg="验证码已过期或不存在", status_code=status.HTTP_400_BAD_REQUEST) from exc
+
+        if str(payload.get("code")) != data.code:
+            raise CustomException(msg="验证码错误", status_code=status.HTTP_400_BAD_REQUEST)
+
+        user = await UserCRUD(self.auth).get(username=username)
+        if not user or user.id != payload.get("user_id") or str(user.email or "").strip().lower() != email:
+            await redis_curd.delete(reset_key)
+            raise CustomException(msg="验证码已过期或不存在", status_code=status.HTTP_400_BAD_REQUEST)
+        if user.status == 1:
+            raise CustomException(msg="用户已停用", status_code=status.HTTP_400_BAD_REQUEST)
+        if user.is_superuser:
+            raise CustomException(msg="超级管理员密码不能重置", status_code=status.HTTP_400_BAD_REQUEST)
+
+        new_password_hash = PwdUtil.hash_password(password=data.new_password)
+        new_user = await UserCRUD(self.auth).forget_password(id=user.id, password_hash=new_password_hash)
+        await redis_curd.delete(reset_key)
+        await self.auth.db.commit()
         return UserOutSchema.model_validate(new_user)
 
     async def batch_import(self, file: UploadFile, update_support: bool = False) -> str:

@@ -3,12 +3,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Path, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
+from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.response import ResponseSchema, StreamResponse, SuccessResponse
+from app.core.auth_features import require_password_reset_mode
 from app.core.base_params import PaginationQueryParam
 from app.core.base_schema import AuthSchema, BatchSetAvailable, PageResultSchema
-from app.core.dependencies import AuthPermission, db_getter, get_current_user
+from app.core.dependencies import AuthPermission, db_getter, get_current_user, redis_getter
 from app.core.logger import logger
 from app.core.router_class import OperationLogRoute
 from app.utils.common_util import bytes2file_response
@@ -18,6 +20,8 @@ from .schema import (
     ResetPasswordSchema,
     UserChangePasswordSchema,
     UserCreateSchema,
+    UserForgetPasswordEmailCodeSchema,
+    UserForgetPasswordEmailResetSchema,
     UserForgetPasswordSchema,
     UserOutSchema,
     UserQueryParam,
@@ -91,6 +95,39 @@ async def register_user_controller(
     return SuccessResponse(data=user_register_result, msg="注册用户成功")
 
 @UserRouter.post(
+    "/password/forget/email-code",
+    summary="发送忘记密码邮箱验证码",
+    response_model=ResponseSchema[dict],
+)
+async def forget_password_email_code_controller(
+    data: UserForgetPasswordEmailCodeSchema,
+    db: Annotated[AsyncSession, Depends(db_getter)],
+    redis: Annotated[Redis, Depends(redis_getter)],
+) -> JSONResponse:
+    require_password_reset_mode("email_code")
+    auth = AuthSchema(db=db, check_data_scope=False)
+    result = await UserService(auth).send_forget_password_email_code(redis=redis, data=data)
+    return SuccessResponse(data=result, msg="如账号邮箱匹配，验证码已发送")
+
+
+@UserRouter.post(
+    "/password/forget/email-reset",
+    summary="邮箱验证码重置密码",
+    response_model=ResponseSchema[UserOutSchema],
+)
+async def forget_password_email_reset_controller(
+    data: UserForgetPasswordEmailResetSchema,
+    db: Annotated[AsyncSession, Depends(db_getter)],
+    redis: Annotated[Redis, Depends(redis_getter)],
+) -> JSONResponse:
+    require_password_reset_mode("email_code")
+    auth = AuthSchema(db=db, check_data_scope=False)
+    user_forget_password_result = await UserService(auth).forget_password_by_email_code(redis=redis, data=data)
+    logger.info(f"{data.username} 通过邮箱验证码重置密码成功")
+    return SuccessResponse(data=user_forget_password_result, msg="重置密码成功")
+
+
+@UserRouter.post(
     "/password/forget",
     summary="忘记密码",
     response_model=ResponseSchema[UserOutSchema],
@@ -99,6 +136,7 @@ async def forget_password_controller(
     data: UserForgetPasswordSchema,
     db: Annotated[AsyncSession, Depends(db_getter)],
 ) -> JSONResponse:
+    require_password_reset_mode("legacy_mobile")
     auth = AuthSchema(db=db, check_data_scope=False)
     user_forget_password_result = await UserService(auth).forget_password(data=data)
     logger.info(f"{data.username} 重置密码成功: {user_forget_password_result}")

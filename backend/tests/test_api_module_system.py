@@ -6,6 +6,8 @@
 from conftest import assert_route  # noqa: F401
 from fastapi.testclient import TestClient
 
+from app.config.setting import settings
+
 
 class TestAuth:
     """认证授权接口（无需认证）。"""
@@ -58,12 +60,17 @@ class TestAuth:
         )
 
     def test_auth_tenant_register(self, test_client: TestClient) -> None:
-        assert_route(
-            test_client,
-            "POST",
-            "/system/auth/tenant/register",
-            json={"name": "测试租户", "username": "admin", "password": "admin123"},
-        )
+        old_register = settings.AUTH_LOGIN_REGISTER_ENABLE
+        settings.AUTH_LOGIN_REGISTER_ENABLE = True
+        try:
+            assert_route(
+                test_client,
+                "POST",
+                "/system/auth/tenant/register",
+                json={"name": "测试租户", "username": "admin", "password": "admin123"},
+            )
+        finally:
+            settings.AUTH_LOGIN_REGISTER_ENABLE = old_register
 
     def test_auth_auto_login_users(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(test_client, "GET", "/system/auth/auto-login/users", auth=auth_headers)
@@ -130,10 +137,20 @@ class TestUser:
         )
 
     def test_user_password_forget(self, test_client: TestClient) -> None:
-        assert_route(
-            test_client, "POST", "/system/user/password/forget",
-            json={"username": "admin", "new_password": "newpass123"},
-        )
+        old_enabled = settings.AUTH_LOGIN_FORGOT_PASSWORD_ENABLE
+        old_mode = settings.AUTH_PASSWORD_RESET_MODE
+        settings.AUTH_LOGIN_FORGOT_PASSWORD_ENABLE = True
+        settings.AUTH_PASSWORD_RESET_MODE = "legacy_mobile"
+        try:
+            assert_route(
+                test_client,
+                "POST",
+                "/system/user/password/forget",
+                json={"username": "admin", "mobile": "13800000000", "new_password": "newpass123"},
+            )
+        finally:
+            settings.AUTH_LOGIN_FORGOT_PASSWORD_ENABLE = old_enabled
+            settings.AUTH_PASSWORD_RESET_MODE = old_mode
 
     def test_user_password_reset(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(
@@ -412,39 +429,44 @@ class TestNotice:
         assert all(item["id"] != notification["id"] for item in panel_after.json()["data"]["pendings"])
 
     def test_business_notification_is_tenant_isolated(self, test_client: TestClient) -> None:
-        register_a_resp = test_client.post(
-            "/system/auth/tenant/register",
-            json={
-                "username": "notice_tenant_a",
-                "password": "admin123",
-                "email": "notice_tenant_a@example.com",
-                "tenant_name": "通知隔离租户A",
-            },
-        )
-        assert register_a_resp.status_code == 200, register_a_resp.text
-        tenant_a = test_client.post(
-            "/system/auth/login",
-            data={"username": "notice_tenant_a", "password": "admin123", "login_type": "PC端"},
-        )
-        assert tenant_a.status_code == 200, tenant_a.text
-        tenant_a_headers = {"Authorization": f"Bearer {tenant_a.json()['data']['access_token']}"}
+        old_register = settings.AUTH_LOGIN_REGISTER_ENABLE
+        settings.AUTH_LOGIN_REGISTER_ENABLE = True
+        try:
+            register_a_resp = test_client.post(
+                "/system/auth/tenant/register",
+                json={
+                    "username": "notice_tenant_a",
+                    "password": "admin123",
+                    "email": "notice_tenant_a@example.com",
+                    "tenant_name": "通知隔离租户A",
+                },
+            )
+            assert register_a_resp.status_code == 200, register_a_resp.text
+            tenant_a = test_client.post(
+                "/system/auth/login",
+                data={"username": "notice_tenant_a", "password": "admin123", "login_type": "PC端"},
+            )
+            assert tenant_a.status_code == 200, tenant_a.text
+            tenant_a_headers = {"Authorization": f"Bearer {tenant_a.json()['data']['access_token']}"}
 
-        register_resp = test_client.post(
-            "/system/auth/tenant/register",
-            json={
-                "username": "notice_tenant_b",
-                "password": "admin123",
-                "email": "notice_tenant_b@example.com",
-                "tenant_name": "通知隔离租户",
-            },
-        )
-        assert register_resp.status_code == 200, register_resp.text
-        tenant_b = test_client.post(
-            "/system/auth/login",
-            data={"username": "notice_tenant_b", "password": "admin123", "login_type": "PC端"},
-        )
-        assert tenant_b.status_code == 200, tenant_b.text
-        tenant_b_headers = {"Authorization": f"Bearer {tenant_b.json()['data']['access_token']}"}
+            register_resp = test_client.post(
+                "/system/auth/tenant/register",
+                json={
+                    "username": "notice_tenant_b",
+                    "password": "admin123",
+                    "email": "notice_tenant_b@example.com",
+                    "tenant_name": "通知隔离租户",
+                },
+            )
+            assert register_resp.status_code == 200, register_resp.text
+            tenant_b = test_client.post(
+                "/system/auth/login",
+                data={"username": "notice_tenant_b", "password": "admin123", "login_type": "PC端"},
+            )
+            assert tenant_b.status_code == 200, tenant_b.text
+            tenant_b_headers = {"Authorization": f"Bearer {tenant_b.json()['data']['access_token']}"}
+        finally:
+            settings.AUTH_LOGIN_REGISTER_ENABLE = old_register
 
         create_resp = test_client.post(
             "/system/notice/business/create",

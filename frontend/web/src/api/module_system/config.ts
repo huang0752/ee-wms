@@ -1,10 +1,11 @@
 import { request, NO_AUTH_FLAG } from "@utils";
-import type { AssemblySummary } from "@/config/assembly/default";
+import type { AssemblySummary, AuthFeatures } from "@/config/assembly/default";
 
 const API_PATH = "/system/config";
 
 export interface PublicConfigInfo {
   assembly: AssemblySummary;
+  authFeatures: AuthFeatures;
 }
 
 const SystemConfigAPI = {

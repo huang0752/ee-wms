@@ -58,6 +58,14 @@
                           :is-dark="isDark"
                           :drag-verify-text-color="dragVerifyTextColor"
                           :loading="loading"
+                          :show-remember="showRememberMe"
+                          :show-forget="showForgotPassword"
+                          :show-mobile-login="showMobileLogin"
+                          :show-qr-login="showQrLogin"
+                          :show-register="showRegister"
+                          :show-demo-accounts="showDemoAccounts"
+                          :oauth-enabled="oauthEnabled"
+                          :oauth-providers="oauthProviders"
                           @submit="handleSubmit"
                           @setup-account="setupAccount"
                           @get-captcha="getCaptcha"
@@ -65,25 +73,27 @@
                           @open-qr="openQrLogin"
                           @forget="setAuthPanel('forget')"
                           @register="setAuthPanel('register')"
-                          @oauth="handleOAuthLogin"
+                          @oauth="startOAuthLogin"
                         />
                       </template>
 
                       <FaLoginMobilePanel
                         v-else-if="loginFlowMode === 'mobile'"
+                        :show-register="showRegister"
                         @back="backToAccountLogin"
                         @register="setAuthPanel('register')"
                       />
 
                       <FaLoginQrPanel
                         v-else-if="loginFlowMode === 'qr'"
+                        :show-register="showRegister"
                         @back="backToAccountLogin"
                         @register="setAuthPanel('register')"
                       />
                     </template>
 
                     <FaLoginRegisterPanel
-                      v-else-if="authPanel === 'register'"
+                      v-else-if="authPanel === 'register' && showRegister"
                       ref="registerPanelRef"
                       v-model:register-agreement-read="registerAgreementRead"
                       v-model:register-form="registerForm"
@@ -97,13 +107,16 @@
                     />
 
                     <FaLoginForgetPanel
-                      v-else
+                      v-else-if="authPanel === 'forget' && showForgotPassword"
                       ref="forgetPanelRef"
                       v-model:forget-form="forgetForm"
                       :forget-rules="forgetRules"
                       :form-key="formKey"
                       :forget-loading="forgetLoading"
+                      :code-sending="forgetCodeSending"
+                      :code-countdown="forgetCodeCountdown"
                       @submit="submitForget"
+                      @send-code="sendForgetEmailCode"
                       @to-login="setAuthPanel('login')"
                     />
                   </div>
@@ -191,7 +204,7 @@ import {
   useSettingsStore,
   useUserStore,
 } from "@stores";
-import { Auth, HttpError, startOAuthLogin } from "@utils";
+import { HttpError } from "@utils";
 import { ElMessage, ElNotification, type FormRules } from "element-plus";
 import type { Account, AccountKey } from "./types";
 import FaLoginAccountForm from "@/components/views/fa-login/forms/FaLoginAccountForm.vue";
@@ -201,6 +214,7 @@ import FaLoginQrPanel from "@/components/views/fa-login/panels/FaLoginQrPanel.vu
 import FaLoginRegisterPanel from "@/components/views/fa-login/panels/FaLoginRegisterPanel.vue";
 import FaAuthTopBar from "@/components/views/fa-login/widgets/FaAuthTopBar.vue";
 import { useLoginPanelAlign } from "@/components/views/fa-login/composables/useLoginPanelAlign";
+import { startOAuthLogin as startOAuthLoginRedirect } from "@/utils/oauth";
 
 defineOptions({ name: "Login" });
 
@@ -221,6 +235,19 @@ const { panelAlign } = useLoginPanelAlign();
 const authPanel = ref<AuthPanel>("login");
 const loginFlowMode = ref<LoginFlowMode>("account");
 const allowDemoContent = computed(() => assemblyStore.isFeatureEnabled("demoContent", true));
+const authFeatures = computed(() => assemblyStore.authFeatures);
+const showRegister = computed(() => authFeatures.value.register);
+const showForgotPassword = computed(
+  () => authFeatures.value.forgotPassword && authFeatures.value.passwordResetMode === "email_code"
+);
+const showMobileLogin = computed(() => authFeatures.value.mobileLogin);
+const showQrLogin = computed(() => authFeatures.value.qrLogin);
+const showRememberMe = computed(() => authFeatures.value.rememberMe);
+const showDemoAccounts = computed(() => authFeatures.value.demoAccounts);
+const oauthProviders = computed<OAuthProvider[]>(() => authFeatures.value.oauthProviders);
+const oauthEnabled = computed(
+  () => authFeatures.value.oauth && authFeatures.value.oauthProviders.length > 0
+);
 
 const panelTitle = computed(() => {
   if (authPanel.value === "register") return t("login.reg");
@@ -249,8 +276,13 @@ const panelSubTitle = computed(() => {
 const userAgreementHref = computed(() => configStore.configData?.clause?.config_value || "#");
 
 function setAuthPanel(panel: AuthPanel) {
-  authPanel.value = panel;
-  if (panel !== "login") {
+  const nextPanel =
+    (panel === "register" && !showRegister.value) ||
+    (panel === "forget" && !showForgotPassword.value)
+      ? "login"
+      : panel;
+  authPanel.value = nextPanel;
+  if (nextPanel !== "login") {
     loginFlowMode.value = "account";
   }
   nextTick(() => {
@@ -261,10 +293,12 @@ function setAuthPanel(panel: AuthPanel) {
 }
 
 function openMobileLogin() {
+  if (!showMobileLogin.value) return;
   loginFlowMode.value = "mobile";
 }
 
 function openQrLogin() {
+  if (!showQrLogin.value) return;
   loginFlowMode.value = "qr";
 }
 
@@ -277,52 +311,6 @@ function backToAccountLogin() {
     isPassing.value = false;
     isClickPass.value = false;
   });
-}
-
-function handleOAuthLogin(provider: OAuthProvider) {
-  startOAuthLogin(provider);
-}
-
-async function tryConsumeOAuthCallback() {
-  const q = route.query;
-  const oauthError = q.oauth_error as string | undefined;
-  const access = q.access_token as string | undefined;
-  const refresh = q.refresh_token as string | undefined;
-
-  if (!oauthError && !(access && refresh)) return;
-
-  const rest: Record<string, unknown> = { ...q };
-  delete rest.oauth_error;
-  delete rest.access_token;
-  delete rest.refresh_token;
-  delete rest.token_type;
-
-  if (oauthError) {
-    ElMessage.error(decodeURIComponent(oauthError));
-    await router.replace({ path: route.path, query: rest as LocationQuery });
-    return;
-  }
-
-  if (access && refresh) {
-    try {
-      Auth.setTokens(access, refresh, true);
-      userStore.setToken(access, refresh);
-      userStore.setLoginStatus(true);
-      ElNotification({
-        title: t("login.oauthNoticeTitle"),
-        message: t("login.oauthLoginSuccess"),
-        type: "success",
-      });
-      await router.replace(resolveRedirectTarget(rest as LocationQuery));
-      if (settingStore.showGuide && allowDemoContent.value) {
-        appStore.showGuide(true);
-      }
-    } catch (error) {
-      console.error("[Login] OAuth callback:", error);
-      ElMessage.error(t("login.oauthLoginFailed"));
-      await router.replace({ path: route.path, query: rest as LocationQuery });
-    }
-  }
 }
 
 const dragVerifyTextColor = computed(() =>
@@ -344,29 +332,33 @@ watch(authPanel, (panel) => {
   isClickPass.value = false;
 });
 
-const accounts = computed<Account[]>(() => [
-  {
-    key: "super",
-    label: t("login.roles.super"),
-    username: "super",
-    password: "123456",
-    roles: ["R_SUPER"],
-  },
-  {
-    key: "admin",
-    label: t("login.roles.admin"),
-    username: "admin",
-    password: "123456",
-    roles: ["R_ADMIN"],
-  },
-  {
-    key: "user",
-    label: t("login.roles.user"),
-    username: "user",
-    password: "123456",
-    roles: ["R_USER"],
-  },
-]);
+const accounts = computed<Account[]>(() =>
+  showDemoAccounts.value
+    ? [
+        {
+          key: "super",
+          label: t("login.roles.super"),
+          username: "super",
+          password: "123456",
+          roles: ["R_SUPER"],
+        },
+        {
+          key: "admin",
+          label: t("login.roles.admin"),
+          username: "admin",
+          password: "123456",
+          roles: ["R_ADMIN"],
+        },
+        {
+          key: "user",
+          label: t("login.roles.user"),
+          username: "user",
+          password: "123456",
+          roles: ["R_USER"],
+        },
+      ]
+    : []
+);
 
 const demoAccountKey = ref<AccountKey>("super");
 const userStore = useUserStore();
@@ -382,6 +374,9 @@ const forgetPanelRef = ref<InstanceType<typeof FaLoginForgetPanel> | null>(null)
 const loading = ref(false);
 const registerLoading = ref(false);
 const forgetLoading = ref(false);
+const forgetCodeSending = ref(false);
+const forgetCodeCountdown = ref(0);
+let forgetCodeTimer: ReturnType<typeof setInterval> | null = null;
 const codeLoading = ref(false);
 
 const registerAgreementRead = ref(false);
@@ -395,6 +390,8 @@ const registerForm = reactive<RegisterForm & { email: string }>({
 
 const forgetForm = reactive<ForgetPasswordForm>({
   username: "",
+  email: "",
+  code: "",
   new_password: "",
   confirmPassword: "",
 });
@@ -457,6 +454,14 @@ const validateForgetConfirm = (_rule: unknown, value: string, callback: (e?: Err
 
 const forgetRules = computed<FormRules<ForgetPasswordForm>>(() => ({
   username: [{ required: true, message: t("login.message.username.required"), trigger: "blur" }],
+  email: [
+    { required: true, message: t("login.email.required"), trigger: "blur" },
+    { type: "email", message: t("login.email.invalid"), trigger: "blur" },
+  ],
+  code: [
+    { required: true, message: t("forgetPassword.codeRequired"), trigger: "blur" },
+    { min: 6, max: 6, message: t("forgetPassword.codeInvalid"), trigger: "blur" },
+  ],
   new_password: [
     { required: true, message: t("login.message.password.required"), trigger: "blur" },
     { min: 6, message: t("login.message.password.min"), trigger: "blur" },
@@ -482,6 +487,28 @@ const captchaState = reactive<CaptchaInfo>({
   key: "",
   img_base: "",
 });
+
+watch(
+  authFeatures,
+  () => {
+    if (authPanel.value === "register" && !showRegister.value) {
+      setAuthPanel("login");
+    }
+    if (authPanel.value === "forget" && !showForgotPassword.value) {
+      setAuthPanel("login");
+    }
+    if (loginFlowMode.value === "mobile" && !showMobileLogin.value) {
+      backToAccountLogin();
+    }
+    if (loginFlowMode.value === "qr" && !showQrLogin.value) {
+      backToAccountLogin();
+    }
+    if (!showRememberMe.value) {
+      loginForm.remember = false;
+    }
+  },
+  { deep: true, immediate: true }
+);
 
 const rules = computed<FormRules>(() => {
   const base: FormRules = {
@@ -518,10 +545,16 @@ const rules = computed<FormRules>(() => {
 });
 
 function setupAccount(key: AccountKey) {
+  if (!showDemoAccounts.value) return;
   const selected = accounts.value.find((a: Account) => a.key === key);
   demoAccountKey.value = key;
   loginForm.username = selected?.username ?? "";
   loginForm.password = selected?.password ?? "";
+}
+
+function startOAuthLogin(provider: OAuthProvider) {
+  if (!oauthEnabled.value || !oauthProviders.value.includes(provider)) return;
+  startOAuthLoginRedirect(provider);
 }
 
 async function getCaptcha() {
@@ -577,9 +610,14 @@ const showVoteNotification = () => {
 let voteTimer: ReturnType<typeof setTimeout> | null = null;
 
 onMounted(async () => {
-  setupAccount("super");
+  await assemblyStore.loadPublicConfig();
+  if (showDemoAccounts.value) {
+    setupAccount("super");
+  }
+  if (!showRememberMe.value) {
+    loginForm.remember = false;
+  }
   await configStore.getConfig(true);
-  await tryConsumeOAuthCallback();
   if (userStore.isLogin) {
     await router.replace(resolveRedirectTarget(route.query));
     return;
@@ -598,6 +636,7 @@ onActivated(() => {
 
 onBeforeUnmount(() => {
   if (voteTimer !== null) clearTimeout(voteTimer);
+  if (forgetCodeTimer !== null) clearInterval(forgetCodeTimer);
   notificationInstance?.close();
   notificationInstance = null;
 });
@@ -648,6 +687,10 @@ const handleSubmit = async () => {
 };
 
 async function submitRegister() {
+  if (!showRegister.value) {
+    setAuthPanel("login");
+    return;
+  }
   if (!registerAgreementRead.value) {
     ElMessage.warning(t("login.message.agree.required"));
     return;
@@ -679,14 +722,20 @@ async function submitRegister() {
 }
 
 async function submitForget() {
+  if (!showForgotPassword.value) {
+    setAuthPanel("login");
+    return;
+  }
   if (!forgetPanelRef.value) return;
   try {
     await forgetPanelRef.value.validate?.();
     forgetLoading.value = true;
-    await UserAPI.forgetPassword(forgetForm);
+    await UserAPI.resetForgetPasswordByEmail(forgetForm);
     loginForm.username = forgetForm.username;
-    loginForm.password = forgetForm.new_password;
+    loginForm.password = "";
     forgetForm.username = "";
+    forgetForm.email = "";
+    forgetForm.code = "";
     forgetForm.new_password = "";
     forgetForm.confirmPassword = "";
     setAuthPanel("login");
@@ -694,6 +743,33 @@ async function submitForget() {
     console.error("[Login] forget password:", error);
   } finally {
     forgetLoading.value = false;
+  }
+}
+
+async function sendForgetEmailCode() {
+  if (!showForgotPassword.value) return;
+  if (!forgetPanelRef.value) return;
+  try {
+    await forgetPanelRef.value.validateField?.(["username", "email"]);
+    forgetCodeSending.value = true;
+    await UserAPI.sendForgetPasswordEmailCode({
+      username: forgetForm.username,
+      email: forgetForm.email,
+    });
+    ElMessage.success(t("forgetPassword.codeSent"));
+    forgetCodeCountdown.value = 60;
+    if (forgetCodeTimer !== null) clearInterval(forgetCodeTimer);
+    forgetCodeTimer = setInterval(() => {
+      forgetCodeCountdown.value -= 1;
+      if (forgetCodeCountdown.value <= 0 && forgetCodeTimer !== null) {
+        clearInterval(forgetCodeTimer);
+        forgetCodeTimer = null;
+      }
+    }, 1000);
+  } catch (error) {
+    console.error("[Login] send forget password email code:", error);
+  } finally {
+    forgetCodeSending.value = false;
   }
 }
 </script>

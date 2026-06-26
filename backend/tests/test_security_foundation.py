@@ -130,10 +130,18 @@ def test_forget_password_requires_matching_mobile(test_client: TestClient, auth_
     username = _unique("forgot")
     _create_user(test_client, auth_headers, username=username, password="oldpass123", mobile="13800000000")
 
-    resp = test_client.post(
-        "/system/user/password/forget",
-        json={"username": username, "new_password": "newpass123"},
-    )
+    old_enabled = settings.AUTH_LOGIN_FORGOT_PASSWORD_ENABLE
+    old_mode = settings.AUTH_PASSWORD_RESET_MODE
+    settings.AUTH_LOGIN_FORGOT_PASSWORD_ENABLE = True
+    settings.AUTH_PASSWORD_RESET_MODE = "legacy_mobile"
+    try:
+        resp = test_client.post(
+            "/system/user/password/forget",
+            json={"username": username, "new_password": "newpass123"},
+        )
+    finally:
+        settings.AUTH_LOGIN_FORGOT_PASSWORD_ENABLE = old_enabled
+        settings.AUTH_PASSWORD_RESET_MODE = old_mode
 
     assert resp.status_code in (400, 422)
 
@@ -267,11 +275,16 @@ def test_tenant_register_creates_membership_and_allows_login(test_client: TestCl
     password = "tenant123"
     email = f"{username}@example.com"
 
-    register_resp = test_client.post(
-        "/system/auth/tenant/register",
-        json={"username": username, "password": password, "email": email},
-    )
-    assert register_resp.status_code == 200, register_resp.text
+    old_register = settings.AUTH_LOGIN_REGISTER_ENABLE
+    settings.AUTH_LOGIN_REGISTER_ENABLE = True
+    try:
+        register_resp = test_client.post(
+            "/system/auth/tenant/register",
+            json={"username": username, "password": password, "email": email},
+        )
+        assert register_resp.status_code == 200, register_resp.text
+    finally:
+        settings.AUTH_LOGIN_REGISTER_ENABLE = old_register
 
     login_data = _login(test_client, username=username, password=password)
     info_resp = test_client.get(
@@ -308,11 +321,16 @@ def test_platform_tenant_create_adds_initial_admin_membership(
 
 
 def test_oauth_unsupported_provider_does_not_redirect_to_untrusted_uri(test_client: TestClient) -> None:
-    resp = test_client.get(
-        "/system/auth/oauth/notreal/login",
-        params={"redirect_uri": "https://evil.example/callback"},
-        follow_redirects=False,
-    )
+    old = settings.OAUTH_ENABLE
+    settings.OAUTH_ENABLE = True
+    try:
+        resp = test_client.get(
+            "/system/auth/oauth/notreal/login",
+            params={"redirect_uri": "https://evil.example/callback"},
+            follow_redirects=False,
+        )
+    finally:
+        settings.OAUTH_ENABLE = old
 
     assert resp.status_code == 302
     assert resp.headers["location"].startswith(settings.OAUTH_FRONTEND_FALLBACK)

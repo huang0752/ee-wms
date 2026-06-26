@@ -37,9 +37,13 @@ interface Emits {
 
 defineEmits<Emits>();
 
+const props = defineProps<{
+  providers: OAuthProvider[];
+}>();
+
 const { t } = useI18n();
 
-const oauthItems = computed(() => [
+const allOauthItems = computed(() => [
   {
     provider: "wechat" as const,
     tip: t("login.oauthTooltip.wechat"),
@@ -65,6 +69,10 @@ const oauthItems = computed(() => [
     iconClass: "size-[22px] text-[#c71d23]",
   },
 ]);
+
+const oauthItems = computed(() =>
+  allOauthItems.value.filter((item) => props.providers.includes(item.provider))
+);
 </script>
 
 <style scoped lang="scss">
