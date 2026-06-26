@@ -153,7 +153,7 @@ Current `backend/app/assemblies/wms.toml` is already created and uses the curren
 [assembly]
 name = "wms"
 title = "EE WMS 装配"
-description = "EE WMS 产品运行态装配：保留后台基础、任务、AI、代码生成与行业样例能力，裁剪演示和营销入口。"
+description = "EE WMS 产品运行态装配：保留后台基础与行业样例能力，前台隐藏 AI、任务、代码生成、演示和营销入口。"
 
 [core]
 required = ["auth", "tenant", "user", "role", "permission", "menu", "settings", "audit"]
@@ -169,9 +169,6 @@ enabled_route_groups = [
   "dashboard",
   "system",
   "platform",
-  "module-task",
-  "module-generator",
-  "ai-chat",
   "module-wms",
   "user-profile",
   "payment",
@@ -179,14 +176,20 @@ enabled_route_groups = [
   "outside",
   "exception"
 ]
-disabled_route_groups = ["pricing", "article", "tutorial", "changelog"]
+disabled_route_groups = ["ai-chat", "module-task", "module-generator", "pricing", "article", "tutorial", "changelog"]
 
 [seed]
 packs = ["wms"]
 
 [features]
-flags = { ai_assistant = true, plugin_market = false, tenant_package = true, demo_content = false, fast_enter = true, wms_demo_data = true }
+flags = { ai_assistant = false, plugin_market = false, tenant_package = true, demo_content = false, fast_enter = true, wms_demo_data = true }
 ```
+
+Placement decision for V1:
+
+- Keep backend plugins `module_ai`, `module_task`, and `module_generator` enabled so framework capabilities remain maintainable and reusable.
+- Hide framework management entrances from the WMS frontend: `AI管理`, `任务管理`, and `代码管理/代码生成`.
+- Build WMS-facing AI or task workflows later under `module_wms` business pages, reusing framework services behind the scenes instead of exposing framework admin screens directly.
 
 Local development already uses the WMS assembly. The WMS seed pack depends on `business-admin` and appends product-specific seed files after framework seed packs; do not copy WMS menus into framework seed JSON.
 
