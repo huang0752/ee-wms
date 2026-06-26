@@ -2,7 +2,7 @@ import json
 import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Path, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -215,6 +215,9 @@ async def oauth_login_redirect_controller(
         Query(description="OAuth 完成后浏览器回到的前端登录页完整 URL"),
     ] = None,
 ) -> RedirectResponse:
+    if not settings.OAUTH_ENABLE:
+        raise HTTPException(status_code=404, detail="OAuth 登录未启用")
+
     allowed = {"wechat", "qq", "github", "gitee"}
     fe = redirect_uri or settings.OAUTH_FRONTEND_FALLBACK
     if provider not in allowed:
@@ -259,6 +262,9 @@ async def oauth_callback_controller(
     code: Annotated[str | None, Query()] = None,
     state: Annotated[str | None, Query()] = None,
 ) -> RedirectResponse:
+    if not settings.OAUTH_ENABLE:
+        raise HTTPException(status_code=404, detail="OAuth 登录未启用")
+
     fe_fallback = settings.OAUTH_FRONTEND_FALLBACK
 
     async def resolve_frontend() -> str:

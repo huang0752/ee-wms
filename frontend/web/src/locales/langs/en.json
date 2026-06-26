@@ -455,8 +455,15 @@
   },
   "forgetPassword": {
     "title": "Forgot password?",
-    "subTitle": "Enter your username and set a new password",
-    "placeholder": "Please enter your email",
+    "subTitle": "Reset password with email verification",
+    "placeholder": {
+      "email": "Please enter email",
+      "code": "Enter email code"
+    },
+    "sendCode": "Send code",
+    "codeSent": "Verification code sent",
+    "codeRequired": "Please enter email code",
+    "codeInvalid": "Enter the 6-digit code",
     "submitBtnText": "Submit",
     "backBtnText": "Back"
   },

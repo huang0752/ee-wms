@@ -158,6 +158,54 @@ class UserForgetPasswordSchema(BaseModel):
         return mobile_validator(value)
 
 
+class UserForgetPasswordEmailCodeSchema(BaseModel):
+    """忘记密码：发送邮箱验证码"""
+
+    username: str = Field(..., min_length=3, max_length=32, description="用户名")
+    email: EmailStr = Field(..., description="邮箱")
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str):
+        v = value.strip()
+        if not v:
+            raise ValueError("账号不能为空")
+        import re
+
+        if not re.match(r"^[A-Za-z][A-Za-z0-9_.-]{2,31}$", v):
+            raise ValueError("账号需以字母开头，3-32 位，仅允许字母、数字、_ . -")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str):
+        return email_validator(value)
+
+
+class UserForgetPasswordEmailResetSchema(UserForgetPasswordEmailCodeSchema):
+    """忘记密码：邮箱验证码重置"""
+
+    code: str = Field(..., min_length=6, max_length=6, description="邮箱验证码")
+    new_password: str = Field(..., min_length=6, max_length=128, description="新密码")
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value: str):
+        v = value.strip()
+        if not v.isdigit() or len(v) != 6:
+            raise ValueError("验证码必须为 6 位数字")
+        return v
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str):
+        if len(value) < 6:
+            raise ValueError("密码长度不能少于 6 位")
+        if len(value) > 128:
+            raise ValueError("密码长度不能超过 128 位")
+        return value
+
+
 class UserChangePasswordSchema(BaseModel):
     """修改密码"""
 
@@ -245,6 +293,7 @@ class UserUpdateSchema(CurrentUserUpdateSchema):
     model_config = ConfigDict(from_attributes=True)
 
     username: str | None = Field(default=None, max_length=32, description="用户名")
+    password: str | None = Field(default=None, min_length=6, max_length=128, description="密码")
     status: int | None = Field(default=None, ge=0, le=1, description="状态(0:启动 1:停用)")
     description: str | None = Field(default=None, max_length=255, description="备注")
     dept_id: int | None = Field(default=None, description="部门ID")
@@ -271,6 +320,16 @@ class UserUpdateSchema(CurrentUserUpdateSchema):
         if not re.match(r"^[A-Za-z][A-Za-z0-9_.-]{1,31}$", v):
             raise ValueError("账号需以字母开头，2-32 位，仅允许字母、数字、_ . -")
         return v
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str | None):
+        """校验密码：6-128 位"""
+        if value and len(value) < 6:
+            raise ValueError("密码长度不能少于 6 位")
+        if value and len(value) > 128:
+            raise ValueError("密码长度不能超过 128 位")
+        return value
 
 
 class UserOutSchema(UserUpdateSchema, BaseSchema, UserBySchema, TenantBySchema):

@@ -308,11 +308,16 @@ def test_platform_tenant_create_adds_initial_admin_membership(
 
 
 def test_oauth_unsupported_provider_does_not_redirect_to_untrusted_uri(test_client: TestClient) -> None:
-    resp = test_client.get(
-        "/system/auth/oauth/notreal/login",
-        params={"redirect_uri": "https://evil.example/callback"},
-        follow_redirects=False,
-    )
+    old = settings.OAUTH_ENABLE
+    settings.OAUTH_ENABLE = True
+    try:
+        resp = test_client.get(
+            "/system/auth/oauth/notreal/login",
+            params={"redirect_uri": "https://evil.example/callback"},
+            follow_redirects=False,
+        )
+    finally:
+        settings.OAUTH_ENABLE = old
 
     assert resp.status_code == 302
     assert resp.headers["location"].startswith(settings.OAUTH_FRONTEND_FALLBACK)

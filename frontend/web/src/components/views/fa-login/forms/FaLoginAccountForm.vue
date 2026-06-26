@@ -160,8 +160,6 @@
       </div>
     </ElForm>
 
-    <FaLoginThirdPartySection @oauth="$emit('oauth', $event)" />
-
     <FaLoginAuthLinkRow
       :hint="$t('login.noAccount')"
       :link-text="$t('login.register')"
@@ -171,6 +169,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue";
 import { Loading, Lock, User } from "@element-plus/icons-vue";
 import type { CaptchaInfo, LoginFormData } from "@/api/module_system/auth";
 import type { FormRules } from "element-plus";
@@ -205,7 +204,6 @@ interface Emits {
   openQr: [];
   forget: [];
   register: [];
-  oauth: [provider: "wechat" | "qq" | "github" | "gitee"];
 }
 
 const emit = defineEmits<Emits>();

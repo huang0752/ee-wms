@@ -65,7 +65,6 @@
                           @open-qr="openQrLogin"
                           @forget="setAuthPanel('forget')"
                           @register="setAuthPanel('register')"
-                          @oauth="handleOAuthLogin"
                         />
                       </template>
 
@@ -103,7 +102,10 @@
                       :forget-rules="forgetRules"
                       :form-key="formKey"
                       :forget-loading="forgetLoading"
+                      :code-sending="forgetCodeSending"
+                      :code-countdown="forgetCodeCountdown"
                       @submit="submitForget"
+                      @send-code="sendForgetEmailCode"
                       @to-login="setAuthPanel('login')"
                     />
                   </div>
@@ -177,11 +179,7 @@
 
 <script setup lang="ts">
 import type { LocationQuery, RouteLocationRaw } from "vue-router";
-import AuthAPI, {
-  type CaptchaInfo,
-  type LoginFormData,
-  type OAuthProvider,
-} from "@/api/module_system/auth";
+import AuthAPI, { type CaptchaInfo, type LoginFormData } from "@/api/module_system/auth";
 import type { TenantRegisterForm } from "@/api/module_system/auth";
 import UserAPI, { type ForgetPasswordForm, type RegisterForm } from "@/api/module_system/user";
 import {
@@ -191,7 +189,7 @@ import {
   useSettingsStore,
   useUserStore,
 } from "@stores";
-import { Auth, HttpError, startOAuthLogin } from "@utils";
+import { HttpError } from "@utils";
 import { ElMessage, ElNotification, type FormRules } from "element-plus";
 import type { Account, AccountKey } from "./types";
 import FaLoginAccountForm from "@/components/views/fa-login/forms/FaLoginAccountForm.vue";
@@ -279,52 +277,6 @@ function backToAccountLogin() {
   });
 }
 
-function handleOAuthLogin(provider: OAuthProvider) {
-  startOAuthLogin(provider);
-}
-
-async function tryConsumeOAuthCallback() {
-  const q = route.query;
-  const oauthError = q.oauth_error as string | undefined;
-  const access = q.access_token as string | undefined;
-  const refresh = q.refresh_token as string | undefined;
-
-  if (!oauthError && !(access && refresh)) return;
-
-  const rest: Record<string, unknown> = { ...q };
-  delete rest.oauth_error;
-  delete rest.access_token;
-  delete rest.refresh_token;
-  delete rest.token_type;
-
-  if (oauthError) {
-    ElMessage.error(decodeURIComponent(oauthError));
-    await router.replace({ path: route.path, query: rest as LocationQuery });
-    return;
-  }
-
-  if (access && refresh) {
-    try {
-      Auth.setTokens(access, refresh, true);
-      userStore.setToken(access, refresh);
-      userStore.setLoginStatus(true);
-      ElNotification({
-        title: t("login.oauthNoticeTitle"),
-        message: t("login.oauthLoginSuccess"),
-        type: "success",
-      });
-      await router.replace(resolveRedirectTarget(rest as LocationQuery));
-      if (settingStore.showGuide && allowDemoContent.value) {
-        appStore.showGuide(true);
-      }
-    } catch (error) {
-      console.error("[Login] OAuth callback:", error);
-      ElMessage.error(t("login.oauthLoginFailed"));
-      await router.replace({ path: route.path, query: rest as LocationQuery });
-    }
-  }
-}
-
 const dragVerifyTextColor = computed(() =>
   isDark.value ? "rgba(255, 255, 255, 0.45)" : "var(--fa-gray-700)"
 );
@@ -382,6 +334,9 @@ const forgetPanelRef = ref<InstanceType<typeof FaLoginForgetPanel> | null>(null)
 const loading = ref(false);
 const registerLoading = ref(false);
 const forgetLoading = ref(false);
+const forgetCodeSending = ref(false);
+const forgetCodeCountdown = ref(0);
+let forgetCodeTimer: ReturnType<typeof setInterval> | null = null;
 const codeLoading = ref(false);
 
 const registerAgreementRead = ref(false);
@@ -395,6 +350,8 @@ const registerForm = reactive<RegisterForm & { email: string }>({
 
 const forgetForm = reactive<ForgetPasswordForm>({
   username: "",
+  email: "",
+  code: "",
   new_password: "",
   confirmPassword: "",
 });
@@ -457,6 +414,14 @@ const validateForgetConfirm = (_rule: unknown, value: string, callback: (e?: Err
 
 const forgetRules = computed<FormRules<ForgetPasswordForm>>(() => ({
   username: [{ required: true, message: t("login.message.username.required"), trigger: "blur" }],
+  email: [
+    { required: true, message: t("login.email.required"), trigger: "blur" },
+    { type: "email", message: t("login.email.invalid"), trigger: "blur" },
+  ],
+  code: [
+    { required: true, message: t("forgetPassword.codeRequired"), trigger: "blur" },
+    { min: 6, max: 6, message: t("forgetPassword.codeInvalid"), trigger: "blur" },
+  ],
   new_password: [
     { required: true, message: t("login.message.password.required"), trigger: "blur" },
     { min: 6, message: t("login.message.password.min"), trigger: "blur" },
@@ -579,7 +544,6 @@ let voteTimer: ReturnType<typeof setTimeout> | null = null;
 onMounted(async () => {
   setupAccount("super");
   await configStore.getConfig(true);
-  await tryConsumeOAuthCallback();
   if (userStore.isLogin) {
     await router.replace(resolveRedirectTarget(route.query));
     return;
@@ -598,6 +562,7 @@ onActivated(() => {
 
 onBeforeUnmount(() => {
   if (voteTimer !== null) clearTimeout(voteTimer);
+  if (forgetCodeTimer !== null) clearInterval(forgetCodeTimer);
   notificationInstance?.close();
   notificationInstance = null;
 });
@@ -683,10 +648,12 @@ async function submitForget() {
   try {
     await forgetPanelRef.value.validate?.();
     forgetLoading.value = true;
-    await UserAPI.forgetPassword(forgetForm);
+    await UserAPI.resetForgetPasswordByEmail(forgetForm);
     loginForm.username = forgetForm.username;
-    loginForm.password = forgetForm.new_password;
+    loginForm.password = "";
     forgetForm.username = "";
+    forgetForm.email = "";
+    forgetForm.code = "";
     forgetForm.new_password = "";
     forgetForm.confirmPassword = "";
     setAuthPanel("login");
@@ -694,6 +661,32 @@ async function submitForget() {
     console.error("[Login] forget password:", error);
   } finally {
     forgetLoading.value = false;
+  }
+}
+
+async function sendForgetEmailCode() {
+  if (!forgetPanelRef.value) return;
+  try {
+    await forgetPanelRef.value.validateField?.(["username", "email"]);
+    forgetCodeSending.value = true;
+    await UserAPI.sendForgetPasswordEmailCode({
+      username: forgetForm.username,
+      email: forgetForm.email,
+    });
+    ElMessage.success(t("forgetPassword.codeSent"));
+    forgetCodeCountdown.value = 60;
+    if (forgetCodeTimer !== null) clearInterval(forgetCodeTimer);
+    forgetCodeTimer = setInterval(() => {
+      forgetCodeCountdown.value -= 1;
+      if (forgetCodeCountdown.value <= 0 && forgetCodeTimer !== null) {
+        clearInterval(forgetCodeTimer);
+        forgetCodeTimer = null;
+      }
+    }, 1000);
+  } catch (error) {
+    console.error("[Login] send forget password email code:", error);
+  } finally {
+    forgetCodeSending.value = false;
   }
 }
 </script>
