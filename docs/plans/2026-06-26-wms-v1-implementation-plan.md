@@ -26,6 +26,18 @@ WMS must use these namespaces consistently:
 
 Do not add WMS business logic to `module_system`, `module_platform`, or framework plugin modules unless the capability is reusable by MES/CRM/other products.
 
+## 1.1 V1 Simplification Decisions
+
+V1 must stay simple while preserving extension points:
+
+| Decision | V1 Implementation | Extension Point |
+|---|---|---|
+| SN management | Batch-first inventory. `sn_code` is nullable and not part of required workflows. | Enable SN-specific pages and unique stock records later. |
+| PDA | H5/responsive scan pages and keyboard scanner input. No native app. | Reuse the same API contracts from UniApp/App later. |
+| IQC | Lightweight WMS inspection task and result judgment. | Sync to MES quality module through external reference fields later. |
+| ERP/MES | Manual entry, Excel import, and stable API contracts. No live automatic integration in V1. | Add idempotent REST/message sync later. |
+| Approval | Status machine + button permission + operation log. No workflow engine in V1. | Keep `workflow_instance_id` for later workflow integration. |
+
 ## 2. Domain Model Layers
 
 ### 2.1 Master Data
@@ -35,7 +47,7 @@ Master data is editable, tenant-scoped, and mostly CRUD:
 - `WmsWarehouse`: warehouse code, name, type, manager, `dept_id`, status.
 - `WmsZone`: warehouse area/zone, usage, status.
 - `WmsLocation`: physical location, capacity, category constraints, mix rules, status.
-- `WmsMaterial`: material code, name, spec, unit, category, batch flag, SN flag, safety stock.
+- `WmsMaterial`: material code, name, spec, unit, category, batch flag, nullable SN flag, safety stock.
 - `WmsSupplier`: supplier code, name, contact, status.
 - `WmsCustomer`: customer code, name, contact, status.
 - `WmsBarcodeRule`: rule object type, prefix, segment strategy, enabled status.
@@ -44,7 +56,7 @@ Master data is editable, tenant-scoped, and mostly CRUD:
 
 Inventory data must be append-first:
 
-- `WmsStockBatch`: batch/SN inventory unit with status and source.
+- `WmsStockBatch`: batch-first inventory unit with nullable `sn_code`, status, and source.
 - `WmsStockBalance`: summarized quantity by material, warehouse, location, batch, status.
 - `WmsStockFlow`: immutable stock movement record.
 - `WmsStockLock`: reserved quantity for outbound or production issue.
@@ -64,6 +76,14 @@ Documents coordinate workflow and reference the ledger:
 - Transfer: `WmsTransferOrder`, `WmsTransferLine`.
 - Stock check: `WmsStockCheckOrder`, `WmsStockCheckLine`.
 - Warning: `WmsStockWarning`.
+
+All business documents should include optional integration fields from V1:
+
+- `external_source`: `manual`, `excel`, `erp`, `mes`, `pda`, or future source code.
+- `external_id`: external system primary key.
+- `external_no`: external business number.
+- `sync_status`: `not_required`, `pending`, `synced`, `failed`.
+- `workflow_instance_id`: nullable future workflow reference.
 
 ## 3. Status And Quantity Rules
 
@@ -202,6 +222,7 @@ Add `APP_ASSEMBLY = "wms"` to local development env only after the WMS seed pack
 - [ ] Implement services with code uniqueness per tenant.
 - [ ] Add menu seed for master data pages and buttons.
 - [ ] Build frontend pages with `FaTable`, `FaSearchBar`, `FaDialog`, `FaForm`, and status tags.
+- [ ] Keep SN fields nullable and hidden behind simple form switches; do not build SN-only workflows in this phase.
 - [ ] Run `cd backend && uv run pytest tests/test_wms_master.py -q`.
 - [ ] Run `cd frontend/web && corepack pnpm run type-check`.
 - [ ] Commit: `feat: 增加WMS仓储基础资料`.
@@ -224,6 +245,7 @@ Add `APP_ASSEMBLY = "wms"` to local development env only after the WMS seed pack
 - [ ] Write tests for flow-before-balance transaction behavior.
 - [ ] Implement ledger service methods: `receive_pending`, `approve_to_available`, `lock_stock`, `release_lock`, `ship_locked`, `freeze`, `unfreeze`, `adjust_after_check`.
 - [ ] Implement realtime stock query page.
+- [ ] Treat `sn_code` as optional metadata in ledger tests; batch number remains the required trace key.
 - [ ] Commit: `feat: 增加WMS库存账核心`.
 
 ### Phase 3: Arrival, Inspection, And Inbound
@@ -242,6 +264,7 @@ Add `APP_ASSEMBLY = "wms"` to local development env only after the WMS seed pack
 - [ ] Test inbound confirmation writes `WmsStockFlow` and updates `WmsStockBalance`.
 - [ ] Implement location recommendation using material category and available capacity.
 - [ ] Add pages for arrival list/detail, inspection task, inbound confirmation.
+- [ ] Keep IQC local to WMS: store result, inspector, inspected time, attachment references, and optional `external_quality_id`.
 - [ ] Commit: `feat: 打通WMS采购到货入库闭环`.
 
 ### Phase 4: Production Issue And Outbound
@@ -259,6 +282,7 @@ Add `APP_ASSEMBLY = "wms"` to local development env only after the WMS seed pack
 - [ ] Test sales outbound pick/review/confirm.
 - [ ] Test cancel releases locks.
 - [ ] Add outbound and issue pages.
+- [ ] Support manual and imported production demand first; MES work order fields are optional external references in V1.
 - [ ] Commit: `feat: 增加WMS出库与生产领料闭环`.
 
 ### Phase 5: Transfer, Stock Check, And Warning
@@ -277,6 +301,7 @@ Add `APP_ASSEMBLY = "wms"` to local development env only after the WMS seed pack
 - [ ] Test stock check audit writes adjustment flow.
 - [ ] Test safety stock, shortage, idle, overstock warnings.
 - [ ] Add warning list with handle/close actions.
+- [ ] Implement audit as permission-protected status transition; do not call workflow engine in V1.
 - [ ] Commit: `feat: 增加WMS盘点调拨与库存预警`.
 
 ### Phase 6: Traceability And Dashboard
@@ -330,9 +355,10 @@ Add `APP_ASSEMBLY = "wms"` to local development env only after the WMS seed pack
 - [ ] Define outbound contracts for available stock, shortage result, issue result, inbound result, trace result.
 - [ ] Add idempotency keys for external requests.
 - [ ] Store external reference fields on business documents.
+- [ ] Keep V1 endpoints usable by manual tests and future sync clients; do not implement scheduled ERP/MES polling.
 - [ ] Commit: `feat: 增加WMS外部系统对接契约`.
 
-## 7. Verification Policy
+## 8. Verification Policy
 
 Run these checks before each phase commit:
 
@@ -353,7 +379,7 @@ cd backend && uv run pytest tests -q
 cd frontend/web && corepack pnpm run build
 ```
 
-## 8. Commit Strategy
+## 9. Commit Strategy
 
 Use one commit per phase or one commit per independently usable slice:
 
@@ -366,7 +392,7 @@ Use one commit per phase or one commit per independently usable slice:
 - `feat: 增加WMS追溯与仓储驾驶舱`
 - `feat: 增加WMS试用数据初始化`
 
-## 9. Scope Guardrails
+## 10. Scope Guardrails
 
 Do not implement in V1:
 
@@ -374,8 +400,10 @@ Do not implement in V1:
 - PLC/automatic warehouse control.
 - Financial inventory costing.
 - Offline PDA sync.
+- Native PDA/App delivery.
 - Full ERP connector.
 - Full MES connector.
 - Complex workflow engine approval.
+- Required SN single-piece workflows.
 
 V1 must leave extension points for those features through external reference fields, integration contracts, task handlers, and stock flow types.
