@@ -1,332 +1,328 @@
 <template>
-  <div class="flex flex-col relative last:mb-0">
-    <!-- 左列：主内容区 | 右列：侧边栏 -->
-    <ElRow :gutter="20">
-      <ElCol :xs="24" :md="18">
-        <Banner class="mb-5" />
+  <div class="wms-home">
+    <section class="wms-hero">
+      <div>
+        <p class="wms-kicker">EE WMS</p>
+        <h1>电工装备智慧仓储系统</h1>
+        <p class="wms-subtitle">
+          当前处于产品减法与基础模块建设阶段。系统已保留平台、系统、任务、AI
+          和代码生成底座，示例与营销入口按 WMS 装配裁剪。
+        </p>
+      </div>
+      <div class="wms-assembly">
+        <span>运行装配</span>
+        <strong>{{ assemblyTitle }}</strong>
+      </div>
+    </section>
 
-        <ElRow :gutter="20">
-          <ElCol :xs="24" :md="16">
-            <ElRow :gutter="20">
-              <ElCol :xs="24" :sm="24" :md="24" class="mb-5">
-                <CardList />
-              </ElCol>
-            </ElRow>
-            <ElRow :gutter="20">
-              <ElCol :xs="24" :sm="8" :md="8" class="mb-5">
-                <FaStatsCard
-                  :icon="'ri:money-cny-box-line'"
-                  :iconStyle="'bg-theme'"
-                  :boxStyle="'bg-theme/10!'"
-                  :title="'总收入'"
-                  :description="'月收入超过¥350,000+'"
-                  :count="35000"
-                  :textColor="'var(--theme-color)'"
-                  :decimals="0"
-                  :showArrow="false"
-                  separator=","
-                  customIconStyle="'text-theme! text-3xl!''"
-                />
-              </ElCol>
-              <ElCol :xs="24" :sm="8" :md="8" class="mb-5">
-                <FaProgressCard
-                  :percentage="65"
-                  :title="'任务进度'"
-                  :color="'var(--theme-color)'"
-                />
-              </ElCol>
-              <ElCol :xs="24" :sm="8" :md="8" class="mb-5">
-                <FaProgressCard
-                  :percentage="80"
-                  :title="'任务进度'"
-                  :color="'var(--theme-color)'"
-                  :icon="'ri:twitch-line'"
-                  :iconStyle="'bg-theme/12 text-theme'"
-                />
-              </ElCol>
-            </ElRow>
-            <ElRow :gutter="20">
-              <ElCol :xs="24" :sm="8" :md="8" class="mb-5">
-                <FaBarChartCard
-                  :isMiniChart="true"
-                  :value="15480"
-                  label="浏览量"
-                  date="过去14天"
-                  :percentage="-4.15"
-                  :height="9.5"
-                  barWidth="45%"
-                  :chartData="[120, 100, 150, 140, 90, 120, 130]"
-                />
-              </ElCol>
-              <ElCol :xs="24" :sm="8" :md="8" class="mb-5">
-                <FaLineChartCard
-                  :isMiniChart="true"
-                  :value="2545"
-                  label="粉丝数"
-                  date="过去30天"
-                  :percentage="1.2"
-                  :height="9.5"
-                  :showAreaColor="true"
-                  :chartData="[150, 180, 160, 200, 180, 220, 240]"
-                />
-              </ElCol>
-              <ElCol :xs="24" :sm="8" :md="8" class="mb-5">
-                <FaDonutChartCard
-                  :value="36358"
-                  title="粉丝量"
-                  :percentage="18"
-                  percentageLabel="较去年"
-                  :data="[50, 40]"
-                  :height="9.5"
-                  currentValue="2022"
-                  previousValue="2021"
-                  :radius="['50%', '70%']"
-                />
-              </ElCol>
-            </ElRow>
-          </ElCol>
-          <ElCol :xs="24" :md="8">
-            <FaTimelineListCard :list="timelineData" title="最近交易" subtitle="2024年12月20日" />
-          </ElCol>
-        </ElRow>
-
-        <ElRow :gutter="20">
-          <ElCol :xs="24" :sm="12" :md="12" class="mb-5">
-            <ElCard
-              shadow="hover"
-              class="overflow-hidden border border-(--el-border-color-lighter) rounded-xl flex flex-col h-full"
-            >
-              <template #header>
-                <div class="flex flex-wrap gap-3 items-start justify-between w-full">
-                  <div>
-                    <span
-                      class="text-base font-semibold tracking-[0.02em]"
-                      style="color: var(--el-text-color-primary)"
-                      >日程日历</span
-                    >
-                    <p
-                      class="mt-0.5 text-xs font-normal leading-[1.45]"
-                      style="color: var(--el-text-color-secondary)"
-                    >
-                      点击日期添加或编辑（本地演示）
-                    </p>
-                  </div>
-                </div>
-              </template>
-              <div>
-                <FaCalendar />
-              </div>
-            </ElCard>
-          </ElCol>
-          <ElCol :xs="24" :sm="12" :md="12" class="mb-5">
-            <NewUser />
-          </ElCol>
-        </ElRow>
-      </ElCol>
-
-      <ElCol :xs="24" :md="6" class="flex flex-col gap-5">
-        <QuickLinks class="mb-5" />
-        <FaDataListCard
-          class="mb-5"
-          :maxCount="4"
-          :list="dataList"
-          title="最近活动"
-          subtitle="近期活动列表"
-          :showMoreButton="true"
-          @more="handleMore"
-        />
-        <TodoList class="mb-5" />
+    <ElRow :gutter="16">
+      <ElCol v-for="item in statusCards" :key="item.title" :xs="24" :sm="12" :lg="6" class="mb-4">
+        <ElCard shadow="never" class="wms-card">
+          <div class="wms-card-head">
+            <FaSvgIcon :icon="item.icon" />
+            <span>{{ item.title }}</span>
+          </div>
+          <strong>{{ item.value }}</strong>
+          <p>{{ item.description }}</p>
+        </ElCard>
       </ElCol>
     </ElRow>
 
-    <ElRow :gutter="20">
-      <ElCol :xs="24" :sm="6" :md="5" class="mb-5">
-        <FaImageCard
-          :imageUrl="imageCards.imageUrl"
-          :title="imageCards.title"
-          :category="imageCards.category"
-          :readTime="imageCards.readTime"
-          :views="imageCards.views"
-          :comments="imageCards.comments"
-          :date="imageCards.date"
-          @click="handleImageCardClick"
-        />
+    <ElRow :gutter="16">
+      <ElCol :xs="24" :lg="15" class="mb-4">
+        <ElCard shadow="never" class="wms-panel">
+          <template #header>
+            <div class="wms-panel-title">
+              <span>建设步骤</span>
+              <ElTag type="info" effect="plain">第一版简单实现</ElTag>
+            </div>
+          </template>
+          <div class="wms-step-list">
+            <div v-for="step in roadmap" :key="step.name" class="wms-step">
+              <div class="wms-step-index">{{ step.index }}</div>
+              <div>
+                <h3>{{ step.name }}</h3>
+                <p>{{ step.description }}</p>
+              </div>
+              <ElTag :type="step.type" effect="light">{{ step.status }}</ElTag>
+            </div>
+          </div>
+        </ElCard>
       </ElCol>
-      <ElCol :xs="24" :sm="6" :md="5" class="mb-5">
-        <FaCardBanner
-          :image="bannerIcon4"
-          title="版本更新提醒"
-          description="FastapiAdmin v3.0.0 已发布，包含优化和新功能。"
-          :button="{
-            show: true,
-            text: '立即更新',
-            color: 'var(--theme-color)',
-            textColor: '#fff',
-          }"
-          :cancelButton="{ show: true, text: '稍后提醒', color: '#eee', textColor: '#333' }"
-          @click="handleBannerDemoConfirm"
-          @cancel="handleBannerDemoCancel"
-        />
-      </ElCol>
-      <ElCol :xs="24" :sm="12" :md="14" class="mb-5">
-        <AboutProject />
+
+      <ElCol :xs="24" :lg="9" class="mb-4">
+        <ElCard shadow="never" class="wms-panel">
+          <template #header>
+            <div class="wms-panel-title">
+              <span>已裁剪内容</span>
+              <ElTag type="success" effect="plain">运行中</ElTag>
+            </div>
+          </template>
+          <ul class="wms-cut-list">
+            <li v-for="item in cutItems" :key="item">
+              <FaSvgIcon icon="ri:check-line" />
+              <span>{{ item }}</span>
+            </li>
+          </ul>
+        </ElCard>
       </ElCol>
     </ElRow>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
+import { useAssemblyStore } from "@stores";
+
 defineOptions({ name: "Home", inheritAttrs: false });
 
-import { ElMessage } from "element-plus";
-import bannerIcon4 from "@imgs/3d/icon4.webp";
-import cover2 from "@imgs/cover/img2.webp";
-import FaCardBanner from "@/components/banners/fa-card-banner/index.vue";
-import FaImageCard from "@/components/cards/fa-image-card/index.vue";
-import FaDataListCard from "@/components/cards/fa-data-list-card/index.vue";
-import FaTimelineListCard from "@/components/cards/fa-timeline-list-card/index.vue";
-import FaStatsCard from "@/components/cards/fa-stats-card/index.vue";
-import FaLineChartCard from "@/components/cards/fa-line-chart-card/index.vue";
-import FaBarChartCard from "@/components/cards/fa-bar-chart-card/index.vue";
-import FaDonutChartCard from "@/components/cards/fa-donut-chart-card/index.vue";
-import FaProgressCard from "@/components/cards/fa-progress-card/index.vue";
-import Banner from "./modules/banner.vue";
-import NewUser from "./modules/new-user.vue";
-import TodoList from "./modules/todo-list.vue";
-import CardList from "./modules/card-list.vue";
-import AboutProject from "./modules/about-project.vue";
-import QuickLinks from "./modules/quick-links.vue";
+const assemblyStore = useAssemblyStore();
 
-function handleBannerDemoConfirm() {
-  // TODO: 接入真实操作
-}
-function handleBannerDemoCancel() {
-  // TODO: 接入真实操作
-}
-// === 卡片演示数据 ← workplace ===
-const imageCards = {
-  id: 1,
-  imageUrl: cover2,
-  title: "大数据分析助力企业决策的实践案例",
-  category: "技术",
-  readTime: "3分钟",
-  views: 7234,
-  comments: 5,
-  date: "12月20日 周二",
-};
+const assemblyTitle = computed(
+  () => assemblyStore.summary.title || assemblyStore.summary.name || "WMS"
+);
 
-const dataList = [
+const statusCards = [
   {
-    title: "新加坡之行",
-    status: "进行中",
-    time: "5分钟",
-    class: "bg-theme/12 text-theme",
-    icon: "ri:camera-4-line",
+    title: "产品装配",
+    value: "WMS",
+    description: "按 WMS 运行态加载功能",
+    icon: "ri:apps-2-line",
   },
   {
-    title: "归档数据",
-    status: "进行中",
-    time: "10分钟",
-    class: "bg-secondary/12 text-secondary",
-    icon: "ri:bar-chart-box-line",
+    title: "业务模块",
+    value: "待建设",
+    description: "下一步创建 module_wms",
+    icon: "ri:archive-stack-line",
   },
   {
-    title: "客户会议",
-    status: "待处理",
-    time: "15分钟",
-    class: "bg-warning/12 text-warning",
-    icon: "ri:user-3-line",
+    title: "接口基座",
+    value: "已保留",
+    description: "系统、平台、任务、AI 可用",
+    icon: "ri:server-line",
   },
   {
-    title: "筛选任务团队",
-    status: "进行中",
-    time: "20分钟",
-    class: "bg-error/12 text-error",
-    icon: "ri:account-circle-line",
-  },
-  {
-    title: "发送信封给小王",
-    status: "已完成",
-    time: "20分钟",
-    class: "bg-success/12 text-success",
-    icon: "ri:message-3-line",
-  },
-  {
-    title: "筛选任务团队",
-    status: "进行中",
-    time: "20分钟",
-    class: "bg-error/12 text-error",
-    icon: "ri:account-circle-line",
-  },
-];
-const timelineData = [
-  {
-    time: "上午 09:30",
-    status: "rgb(73, 190, 255)",
-    content: "收到 John Doe 支付的 385.90 美元",
-  },
-  { time: "上午 10:00", status: "rgb(54, 158, 255)", content: "新销售记录", code: "ML-3467" },
-  { time: "上午 12:00", status: "rgb(103, 232, 207)", content: "向 Michael 支付了 64.95 美元" },
-  { time: "下午 14:30", status: "rgb(255, 193, 7)", content: "系统维护通知", code: "MT-2023" },
-  {
-    time: "下午 15:45",
-    status: "rgb(255, 105, 105)",
-    content: "紧急订单取消提醒",
-    code: "OR-9876",
-  },
-  { time: "下午 17:00", status: "rgb(103, 232, 207)", content: "完成每日销售报表" },
-  {
-    time: "上午 09:30",
-    status: "rgb(73, 190, 255)",
-    content: "收到订单 #38291 支付 ¥385.90",
-  },
-  {
-    time: "上午 10:00",
-    status: "rgb(54, 158, 255)",
-    content: "新商品上架",
-    code: "SKU-3467",
-  },
-  {
-    time: "上午 12:00",
-    status: "rgb(103, 232, 207)",
-    content: "向供应商支付了 ¥6495.00",
-  },
-  {
-    time: "下午 14:30",
-    status: "rgb(255, 193, 7)",
-    content: "促销活动开始",
-    code: "PROMO-2023",
-  },
-  {
-    time: "下午 15:45",
-    status: "rgb(255, 105, 105)",
-    content: "订单取消提醒",
-    code: "ORD-9876",
-  },
-  {
-    time: "下午 17:00",
-    status: "rgb(103, 232, 207)",
-    content: "完成日销售报表",
+    title: "演示内容",
+    value: "已关闭",
+    description: "不展示框架营销与案例入口",
+    icon: "ri:scissors-cut-line",
   },
 ];
 
-function handleMore() {
-  ElMessage.info("查看更多");
-}
-function handleImageCardClick() {
-  // TODO: 接入真实跳转
-}
+const roadmap = [
+  {
+    index: "01",
+    name: "产品运行面裁剪",
+    description: "隐藏框架示例、宣传公告、营销路由和无关菜单，形成 WMS 产品壳。",
+    status: "进行中",
+    type: "warning" as const,
+  },
+  {
+    index: "02",
+    name: "WMS 模块空壳",
+    description: "建立 module_wms 后端命名空间、前端目录、菜单和权限前缀。",
+    status: "下一步",
+    type: "primary" as const,
+  },
+  {
+    index: "03",
+    name: "基础资料",
+    description: "仓库、库区、库位、物料、批次规则和供应商等主数据。",
+    status: "待开始",
+    type: "info" as const,
+  },
+  {
+    index: "04",
+    name: "库存与出入库",
+    description: "先批次库存，预留 SN、PDA、IQC、MES/ERP 对接扩展点。",
+    status: "待开始",
+    type: "info" as const,
+  },
+];
+
+const cutItems = [
+  "module_example 插件接口",
+  "案例管理动态菜单",
+  "定价、文章、教程、更新日志静态路由",
+  "框架发布公告与新版本提示",
+  "登录后新手引导弹窗",
+  "首页交易、粉丝、版本更新等演示卡片",
+];
 </script>
 
 <style scoped lang="scss">
-:deep(.el-card) {
-  --el-card-border-radius: calc(var(--custom-radius) + 2px);
-
-  border: 1px solid var(--fa-card-border);
+.wms-home {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-/* 日程日历 el-calendar 容器 */
-.overflow-hidden:deep(.el-card__header) {
-  border-bottom-color: var(--el-border-color-extra-light);
+.wms-hero {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 176px;
+  padding: 28px;
+  background:
+    linear-gradient(135deg, rgb(21 128 61 / 10%), transparent 42%),
+    linear-gradient(90deg, var(--el-bg-color), var(--el-fill-color-light));
+  border: 1px solid var(--fa-card-border);
+  border-radius: 8px;
+}
+
+.wms-kicker {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--el-color-primary);
+}
+
+.wms-hero h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.25;
+  color: var(--el-text-color-primary);
+}
+
+.wms-subtitle {
+  max-width: 760px;
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--el-text-color-secondary);
+}
+
+.wms-assembly {
+  display: grid;
+  gap: 8px;
+  min-width: 180px;
+  padding: 18px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+}
+
+.wms-assembly span,
+.wms-card p,
+.wms-step p {
+  color: var(--el-text-color-secondary);
+}
+
+.wms-assembly strong {
+  font-size: 18px;
+  color: var(--el-text-color-primary);
+}
+
+.wms-card,
+.wms-panel {
+  border: 1px solid var(--fa-card-border);
+  border-radius: 8px;
+}
+
+.wms-card-head,
+.wms-panel-title,
+.wms-cut-list li,
+.wms-step {
+  display: flex;
+  align-items: center;
+}
+
+.wms-card-head {
+  gap: 8px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.wms-card strong {
+  display: block;
+  margin-top: 14px;
+  font-size: 24px;
+  color: var(--el-text-color-primary);
+}
+
+.wms-card p {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.wms-panel-title {
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.wms-step-list {
+  display: grid;
+  gap: 12px;
+}
+
+.wms-step {
+  gap: 14px;
+  min-height: 76px;
+  padding: 14px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+}
+
+.wms-step-index {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  font-weight: 700;
+  color: var(--el-color-primary);
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+}
+
+.wms-step h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--el-text-color-primary);
+}
+
+.wms-step p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.wms-step > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.wms-cut-list {
+  display: grid;
+  gap: 13px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.wms-cut-list li {
+  gap: 8px;
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+}
+
+.wms-cut-list :deep(.fa-svg-icon) {
+  color: var(--el-color-success);
+}
+
+@media (width <= 768px) {
+  .wms-hero {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px;
+  }
+
+  .wms-hero h1 {
+    font-size: 24px;
+  }
+
+  .wms-step {
+    align-items: flex-start;
+  }
 }
 </style>

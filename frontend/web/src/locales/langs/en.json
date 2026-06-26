@@ -337,11 +337,11 @@
   },
   "login": {
     "leftView": {
-      "title": "A backend system of beauty and efficiency",
-      "subTitle": "Provide secure, efficient, and scalable management solutions to help enterprises digitalize and grow their businesses."
+      "title": "Electrical Equipment Smart WMS",
+      "subTitle": "Warehouse, location, batch, inbound, outbound, and inventory collaboration platform."
     },
     "title": "Welcome back 👋",
-    "subTitle": "Enter your account details to start managing your project",
+    "subTitle": "Enter your account details to open the warehouse console",
     "versionLabel": "Version",
     "quickSelectAccount": "Quick select account",
     "mobileLogin": "Mobile login",

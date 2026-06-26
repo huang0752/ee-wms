@@ -108,6 +108,43 @@ def test_wms_assembly_cuts_demo_and_marketing_entries() -> None:
     assert assembly.frontend_summary()["featureFlags"]["demoContent"] is False
 
 
+def test_wms_assembly_filters_runtime_menu_tree() -> None:
+    assembly = load_assembly_from_file(Path("app/assemblies/wms.toml"))
+    menu_tree = [
+        {"title": "系统管理", "route_path": "/system", "children": []},
+        {"title": "监控管理", "route_path": "/monitor", "children": []},
+        {"title": "接口管理", "route_path": "/swagger", "children": []},
+        {
+            "title": "任务管理",
+            "route_path": "/task",
+            "children": [{"title": "业务任务", "route_path": "business/task"}],
+        },
+        {
+            "title": "案例管理",
+            "route_path": "/example",
+            "children": [
+                {
+                    "title": "demo示例",
+                    "route_path": "demo",
+                    "component_path": "module_example/demo/index",
+                    "permission": "module_example:demo:query",
+                }
+            ],
+        },
+        {"title": "代码管理", "route_path": "/generator", "children": []},
+    ]
+
+    filtered = assembly.filter_menu_tree(menu_tree)
+    titles = {item["title"] for item in filtered}
+
+    assert "系统管理" in titles
+    assert "代码管理" in titles
+    assert "任务管理" in titles
+    assert "监控管理" not in titles
+    assert "接口管理" not in titles
+    assert "案例管理" not in titles
+
+
 @pytest.mark.asyncio
 async def test_seed_data_filters_disabled_plugin_menus_and_relations() -> None:
     old_file = settings.APP_ASSEMBLY_FILE

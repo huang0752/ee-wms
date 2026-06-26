@@ -184,7 +184,13 @@ import AuthAPI, {
 } from "@/api/module_system/auth";
 import type { TenantRegisterForm } from "@/api/module_system/auth";
 import UserAPI, { type ForgetPasswordForm, type RegisterForm } from "@/api/module_system/user";
-import { useConfigStore, useAppStore, useSettingsStore, useUserStore } from "@stores";
+import {
+  useAssemblyStore,
+  useConfigStore,
+  useAppStore,
+  useSettingsStore,
+  useUserStore,
+} from "@stores";
 import { Auth, HttpError, startOAuthLogin } from "@utils";
 import { ElMessage, ElNotification, type FormRules } from "element-plus";
 import type { Account, AccountKey } from "./types";
@@ -206,6 +212,7 @@ type LoginFlowMode = "account" | "mobile" | "qr";
 const configStore = useConfigStore();
 const settingStore = useSettingsStore();
 const appStore = useAppStore();
+const assemblyStore = useAssemblyStore();
 const { isDark } = storeToRefs(settingStore);
 const { t, locale } = useI18n();
 
@@ -306,7 +313,7 @@ async function tryConsumeOAuthCallback() {
         type: "success",
       });
       await router.replace(resolveRedirectTarget(rest as LocationQuery));
-      if (settingStore.showGuide) {
+      if (settingStore.showGuide && assemblyStore.isFeatureEnabled("demoContent", true)) {
         appStore.showGuide(true);
       }
     } catch (error) {
@@ -550,6 +557,8 @@ function resolveRedirectTarget(query: LocationQuery): RouteLocationRaw {
 let notificationInstance: ReturnType<typeof ElNotification> | null = null;
 
 const showVoteNotification = () => {
+  if (!assemblyStore.isFeatureEnabled("demoContent", true)) return;
+
   notificationInstance = ElNotification({
     title: "⭐ FastapiAdmin 完全开源 · 期待您的 Star 支持 🙏",
     message: `项目持续迭代中，若对您有所帮助，欢迎点亮 Star 支持！
@@ -576,7 +585,9 @@ onMounted(async () => {
     return;
   }
   getCaptcha();
-  voteTimer = setTimeout(showVoteNotification, 500);
+  if (assemblyStore.isFeatureEnabled("demoContent", true)) {
+    voteTimer = setTimeout(showVoteNotification, 500);
+  }
 });
 
 onActivated(() => {
@@ -617,7 +628,7 @@ const handleSubmit = async () => {
     await userStore.login(loginForm);
     await router.replace(resolveRedirectTarget(route.query));
 
-    if (settingStore.showGuide) {
+    if (settingStore.showGuide && assemblyStore.isFeatureEnabled("demoContent", true)) {
       appStore.showGuide(true);
     }
   } catch (error) {

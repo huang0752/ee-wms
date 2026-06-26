@@ -34,6 +34,12 @@ PLUGIN_CODE_ALIASES: dict[str, tuple[str, ...]] = {
     "module_example": ("example",),
 }
 
+MENU_ROUTE_GROUP_ALIASES: dict[str, str] = {
+    "ai": "ai-chat",
+    "generator": "module-generator",
+    "task": "module-task",
+}
+
 
 def _string_list(value: Any) -> list[str]:
     if value is None:
@@ -98,6 +104,50 @@ class AssemblyConfig:
             return False
         enabled = set(self.enabled_route_groups)
         return not enabled or group in enabled
+
+    def is_menu_item_enabled(self, item: dict[str, Any]) -> bool:
+        permission = str(item.get("permission") or "")
+        component_path = str(item.get("component_path") or "")
+        route_group = self._menu_route_group(item)
+
+        for plugin_code in self.disabled_plugins:
+            for candidate in plugin_code_candidates(plugin_code):
+                if permission.startswith(f"{candidate}:"):
+                    return False
+                if component_path.startswith(f"{candidate}/"):
+                    return False
+
+        if route_group and not self.is_route_group_enabled(route_group):
+            return False
+        return True
+
+    def _menu_route_group(self, item: dict[str, Any]) -> str | None:
+        raw_path = str(item.get("route_path") or "").strip()
+        if not raw_path or not raw_path.startswith("/"):
+            return None
+        first_segment = raw_path.strip("/").split("/", 1)[0]
+        if not first_segment:
+            return None
+        normalized = first_segment.replace("_", "-")
+        return MENU_ROUTE_GROUP_ALIASES.get(normalized, normalized)
+
+    def filter_menu_tree(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        filtered: list[dict[str, Any]] = []
+        for item in items:
+            if not self.is_menu_item_enabled(item):
+                continue
+
+            next_item = dict(item)
+            children = next_item.get("children") or []
+            if children:
+                next_item["children"] = self.filter_menu_tree(children)
+
+            had_children = bool(children)
+            is_empty_catalog = had_children and not next_item.get("children") and not next_item.get("component_path")
+            if is_empty_catalog:
+                continue
+            filtered.append(next_item)
+        return filtered
 
     def frontend_summary(self) -> dict[str, Any]:
         return {
@@ -183,3 +233,7 @@ def is_plugin_enabled(code: str) -> bool:
 
 def get_frontend_assembly_summary() -> dict[str, Any]:
     return get_assembly().frontend_summary()
+
+
+def filter_menu_tree_by_assembly(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return get_assembly().filter_menu_tree(items)
