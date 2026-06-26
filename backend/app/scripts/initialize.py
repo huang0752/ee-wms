@@ -30,6 +30,15 @@ from app.api.v1.module_system.position.model import PositionModel
 from app.api.v1.module_system.role.model import RoleModel
 from app.api.v1.module_system.ticket.model import TicketModel
 from app.api.v1.module_system.user.model import UserModel, UserRolesModel
+from app.api.v1.module_wms.master.model import (
+    WmsBarcodeRuleModel,
+    WmsCustomerModel,
+    WmsLocationModel,
+    WmsMaterialModel,
+    WmsSupplierModel,
+    WmsWarehouseModel,
+    WmsZoneModel,
+)
 from app.config.path_conf import SCRIPT_DIR
 from app.core.assembly import get_assembly, known_plugin_module_codes, plugin_code_candidates
 from app.core.database import async_db_session, create_tables
@@ -89,6 +98,14 @@ class InitializeData:
         BusinessTaskModel,
         WorkflowNodeTypeModel,
         DemoModel,
+        # ── WMS 产品表 ──
+        WmsWarehouseModel,
+        WmsZoneModel,
+        WmsLocationModel,
+        WmsMaterialModel,
+        WmsSupplierModel,
+        WmsCustomerModel,
+        WmsBarcodeRuleModel,
     ]
 
     # 树形模型：JSON 含嵌套 children，需递归创建对象

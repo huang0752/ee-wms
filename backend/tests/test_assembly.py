@@ -274,6 +274,8 @@ async def test_wms_seed_appends_product_menu_to_base_seed() -> None:
         assert "/system" in top_paths
         assert "/module-wms" in top_paths
         assert "module_wms:dashboard:query" in permissions
+        assert "module_wms:master:query" in permissions
+        assert "module_wms:master:create" in permissions
         assert not any(str(item.get("permission") or "").startswith("module_example:") for item in flat_menus)
     finally:
         settings.APP_ASSEMBLY_FILE = old_file

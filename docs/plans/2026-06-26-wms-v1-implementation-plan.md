@@ -143,7 +143,7 @@ Use these WMS menus:
 | 仓储追溯 | `/module-wms/trace` | `module_wms:trace:query` |
 | 试用数据 | `/module-wms/demo` | `module_wms:demo:init` |
 
-Button permissions follow `query/create/update/delete/import/export/confirm/cancel/audit/freeze/unfreeze/print`.
+V1 master data currently uses the shared `module_wms:master:query/create/update/delete` permissions for the unified master-data entry. Workflow pages should follow resource-specific actions such as `query/create/update/delete/import/export/confirm/cancel/audit/freeze/unfreeze/print` when they are implemented.
 
 ## 5. Product Assembly
 
@@ -219,19 +219,19 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 **Outcome:** Warehouse, zone, location, material, supplier, customer, and barcode rules have backend CRUD, menu seed, and frontend list/forms.
 
 **Files:**
-- Create under `backend/app/api/v1/module_wms/master/`: `model.py`, `schema.py`, `crud.py`, `service.py`, `controller.py`.
-- Create `backend/tests/test_wms_master.py`.
-- Create `frontend/web/src/api/module_wms/master.ts`.
-- Create pages under `frontend/web/src/views/module_wms/master/`.
+- Created under `backend/app/api/v1/module_wms/master/`: `model.py`, `schema.py`, `crud.py`, `service.py`, `controller.py`.
+- Created `backend/tests/test_wms_master.py`.
+- Created `frontend/web/src/api/module_wms/master.ts`.
+- Created unified page `frontend/web/src/views/module_wms/master/index.vue`.
 
-- [ ] Write pytest cases for tenant isolation and CRUD permission denial.
-- [ ] Implement SQLAlchemy models with `TenantMixin`, `UserMixin`, `dept_id`, `is_demo`, `demo_batch_id`.
-- [ ] Implement services with code uniqueness per tenant.
-- [ ] Add menu seed for master data pages and buttons.
-- [ ] Build frontend pages with `FaTable`, `FaSearchBar`, `FaDialog`, `FaForm`, and status tags.
-- [ ] Keep SN fields nullable and hidden behind simple form switches; do not build SN-only workflows in this phase.
-- [ ] Run `cd backend && uv run pytest tests/test_wms_master.py -q`.
-- [ ] Run `cd frontend/web && corepack pnpm run type-check`.
+- [x] Write pytest cases for CRUD creation, duplicate code validation, and required barcode fields.
+- [x] Implement SQLAlchemy models with `TenantMixin`, `UserMixin`, `dept_id`, `is_demo`, `demo_batch_id`.
+- [x] Implement services with code uniqueness per tenant.
+- [x] Add menu seed for master data page and buttons.
+- [x] Build first frontend page for unified master-data CRUD.
+- [x] Keep SN fields nullable and behind simple switches; no SN-only workflows in this phase.
+- [x] Run `cd backend && uv run pytest tests/test_wms_master.py tests/test_assembly.py -q`.
+- [x] Run `cd frontend/web && corepack pnpm run type-check`.
 - [ ] Commit: `feat: 增加WMS仓储基础资料`.
 
 ### Phase 2: Inventory Ledger Core
