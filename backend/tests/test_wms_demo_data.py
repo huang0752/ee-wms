@@ -50,6 +50,14 @@ async def test_wms_demo_init_creates_task_and_demo_rows(test_client: TestClient,
             assert all(row.is_demo is True for row in rows)
             assert all(row.tenant_id == tasks[0].tenant_id for row in rows)
 
+        for model in [WmsWarehouseModel, WmsMaterialModel]:
+            rows = (await db.execute(select(model).where(model.demo_batch_id == demo_batch_id))).scalars().all()
+            assert all("-" not in row.code for row in rows)
+
+    list_resp = test_client.get("/wms/master/warehouse/list?is_demo=true", headers=auth_headers)
+    assert list_resp.status_code == 200, list_resp.text
+    assert list_resp.json()["code"] == 0
+
 
 async def test_wms_demo_clean_only_deletes_demo_rows_for_batch(test_client: TestClient, auth_headers: dict[str, str]) -> None:
     init_resp = test_client.post("/wms/demo/init", headers=auth_headers, json={"profile": {"company_name": "清理测试有限公司"}})
@@ -68,7 +76,7 @@ async def test_wms_demo_clean_only_deletes_demo_rows_for_batch(test_client: Test
             tenant_id=task.tenant_id,
             created_id=task.created_id,
             updated_id=task.updated_id,
-            code=f"FORMAL-{demo_batch_id[-6:]}",
+            code=f"FORMAL_{demo_batch_id[-6:]}",
             name="正式仓库",
             status=0,
             is_demo=False,

@@ -94,7 +94,7 @@ class WmsDemoGenerator:
         warehouse = self._add(
             "warehouse",
             WmsWarehouseModel(
-                code=f"DEMO-WH-{suffix}",
+                code=self._demo_code("WH", suffix),
                 name=f"{data.profile.company_name} 总仓",
                 type="finished_and_raw",
                 manager="试用管理员",
@@ -108,7 +108,7 @@ class WmsDemoGenerator:
             self._add(
                 "warehouse",
                 WmsWarehouseModel(
-                    code=f"DEMO-WH-{suffix}-{index}",
+                    code=self._demo_code("WH", suffix, index),
                     name=f"{data.profile.company_name} 分仓{index}",
                     type="overflow",
                     manager="试用管理员",
@@ -120,7 +120,7 @@ class WmsDemoGenerator:
         zone = self._add(
             "zone",
             WmsZoneModel(
-                code=f"DEMO-ZONE-{suffix}",
+                code=self._demo_code("ZONE", suffix),
                 name="A区-标准货架",
                 warehouse_id=warehouse.id,
                 usage="raw_and_finished",
@@ -132,7 +132,7 @@ class WmsDemoGenerator:
         location = self._add(
             "location",
             WmsLocationModel(
-                code=f"DEMO-LOC-{suffix}",
+                code=self._demo_code("LOC", suffix),
                 name="A01-01-01",
                 warehouse_id=warehouse.id,
                 zone_id=zone.id,
@@ -146,7 +146,7 @@ class WmsDemoGenerator:
         supplier = self._add(
             "supplier",
             WmsSupplierModel(
-                code=f"DEMO-SUP-{suffix}",
+                code=self._demo_code("SUP", suffix),
                 name="深圳优选电子供应商",
                 contact="陈经理",
                 phone="13800000000",
@@ -157,7 +157,7 @@ class WmsDemoGenerator:
         customer = self._add(
             "customer",
             WmsCustomerModel(
-                code=f"DEMO-CUS-{suffix}",
+                code=self._demo_code("CUS", suffix),
                 name="华东渠道客户",
                 contact="王主管",
                 phone="13900000000",
@@ -168,7 +168,7 @@ class WmsDemoGenerator:
         material = self._add(
             "material",
             WmsMaterialModel(
-                code=f"DEMO-MAT-{suffix}",
+                code=self._demo_code("MAT", suffix),
                 name="智能控制板",
                 spec="PCB-A1",
                 unit="pcs",
@@ -182,7 +182,7 @@ class WmsDemoGenerator:
             self._add(
                 "material",
                 WmsMaterialModel(
-                    code=f"DEMO-MAT-{suffix}-{index}",
+                    code=self._demo_code("MAT", suffix, index),
                     name=f"试用物料{index}",
                     spec=f"SPEC-{index}",
                     unit="pcs",
@@ -195,7 +195,7 @@ class WmsDemoGenerator:
         self._add(
             "barcode_rule",
             WmsBarcodeRuleModel(
-                code=f"DEMO-BC-{suffix}",
+                code=self._demo_code("BC", suffix),
                 name="批次条码规则",
                 object_type="batch",
                 prefix="WMS",
@@ -389,6 +389,13 @@ class WmsDemoGenerator:
             "已生成到货、检验、入库、出库、领料、预警和追溯样例",
         ]
         return WmsDemoBatchOut(module="wms", scenario=data.profile.scenario, demo_batch_id=demo_batch_id, task_id=0, counts=self.counts, summary=summary)
+
+    @staticmethod
+    def _demo_code(resource: str, suffix: str, index: int | None = None) -> str:
+        parts = ["DEMO", resource, suffix]
+        if index is not None:
+            parts.append(str(index))
+        return "_".join(parts)
 
     def _stock_payload(self, material_id: int, warehouse_id: int, location_id: int, batch_no: str, quantity: Decimal, document_type: str, document_no: str, demo_batch_id: str) -> WmsStockMutationSchema:
         return WmsStockMutationSchema(
