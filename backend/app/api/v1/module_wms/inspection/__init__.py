@@ -1,0 +1,2 @@
+"""WMS inspection task module."""
+

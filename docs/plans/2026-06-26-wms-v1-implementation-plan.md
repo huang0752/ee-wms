@@ -266,12 +266,12 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - Create `backend/tests/test_wms_inbound_flow.py`.
 - Create matching frontend API and views.
 
-- [ ] Test arrival status: `pending_receive -> received -> pending_inspection -> pending_inbound -> closed`.
-- [ ] Test inspection result controls stock status.
-- [ ] Test inbound confirmation writes `WmsStockFlow` and updates `WmsStockBalance`.
-- [ ] Implement location recommendation using material category and available capacity.
-- [ ] Add pages for arrival list/detail, inspection task, inbound confirmation.
-- [ ] Keep IQC local to WMS: store result, inspector, inspected time, attachment references, and optional `external_quality_id`.
+- [x] Test arrival status: `pending_receive -> received -> pending_inspection -> pending_inbound -> closed`.
+- [x] Test inspection result controls stock status.
+- [x] Test inbound confirmation writes `WmsStockFlow` and updates `WmsStockBalance`.
+- [x] Implement location recommendation using material category and available capacity.
+- [x] Add pages for arrival list/detail, inspection task, inbound confirmation.
+- [x] Keep IQC local to WMS: store result, inspector, inspected time, attachment references, and optional `external_quality_id`.
 - [ ] Commit: `feat: 打通WMS采购到货入库闭环`.
 
 ### Phase 4: Production Issue And Outbound

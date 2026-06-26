@@ -53,6 +53,18 @@ class WmsStockLedgerService:
         await self.db.flush()
         return WmsStockBalanceOutSchema.model_validate(balance)
 
+    async def reject_to_defective(self, data: WmsStockMutationSchema) -> WmsStockBalanceOutSchema:
+        qty = self._qty(data.quantity)
+        balance = await self._get_required_balance(data)
+        self._ensure_enough(balance.pending_qty, qty, "待检库存不足")
+        flow = await self._write_flow(data=data, flow_type="reject_to_defective", direction="adjust", before="pending_inspection", after="defective")
+        flow.balance_id = balance.id
+        balance.pending_qty -= qty
+        balance.defective_qty += qty
+        self._touch(balance)
+        await self.db.flush()
+        return WmsStockBalanceOutSchema.model_validate(balance)
+
     async def lock_stock(self, data: WmsStockLockSchema) -> list[WmsStockLockOutSchema]:
         need_qty = self._qty(data.quantity)
         balances = await self._available_balances(data)

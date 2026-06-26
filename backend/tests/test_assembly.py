@@ -276,6 +276,11 @@ async def test_wms_seed_appends_product_menu_to_base_seed() -> None:
         assert "module_wms:dashboard:query" in permissions
         assert "module_wms:master:query" in permissions
         assert "module_wms:master:create" in permissions
+        assert "module_wms:arrival:query" in permissions
+        assert "module_wms:arrival:receive" in permissions
+        assert "module_wms:inspection:judge" in permissions
+        assert "module_wms:inbound:query" in permissions
+        assert "module_wms:inbound:confirm" in permissions
         assert "module_wms:stock:query" in permissions
         assert "module_wms:stock:lock" in permissions
         assert "module_wms:stock:unlock" in permissions
