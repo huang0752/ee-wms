@@ -289,10 +289,10 @@ class InitializeData:
 
     def __filter_seed_data(self, table_name: str, data: list[dict]) -> list[dict]:
         """按当前 assembly 裁剪 legacy seed 中的可选插件数据。"""
-        if not self._disabled_module_codes:
-            return data
         if table_name == "platform_menu":
             return self.__filter_menu_tree(data)
+        if not self._disabled_module_codes:
+            return data
         if table_name == "platform_plugin":
             return self.__filter_platform_plugins(data)
         if table_name in {"platform_package_plugin", "platform_tenant_plugin"}:
@@ -300,43 +300,7 @@ class InitializeData:
         return data
 
     def __filter_menu_tree(self, data: list[dict]) -> list[dict]:
-        filtered: list[dict] = []
-        for item in data:
-            next_item = self.__filter_menu_item(item)
-            if next_item is not None:
-                filtered.append(next_item)
-        return filtered
-
-    def __filter_menu_item(self, item: dict) -> dict | None:
-        if self.__menu_item_disabled(item):
-            return None
-
-        children = item.get("children") or []
-        filtered_children = []
-        for child in children:
-            next_child = self.__filter_menu_item(child)
-            if next_child is not None:
-                filtered_children.append(next_child)
-
-        next_item = dict(item)
-        if "children" in next_item:
-            next_item["children"] = filtered_children
-
-        had_children = bool(children)
-        is_empty_catalog = had_children and not filtered_children and not next_item.get("component_path")
-        if is_empty_catalog:
-            return None
-        return next_item
-
-    def __menu_item_disabled(self, item: dict) -> bool:
-        permission = str(item.get("permission") or "")
-        component_path = str(item.get("component_path") or "")
-        for module_code in self._disabled_module_codes:
-            if permission.startswith(f"{module_code}:"):
-                return True
-            if component_path.startswith(f"{module_code}/"):
-                return True
-        return False
+        return self._assembly.filter_menu_tree(data)
 
     def __filter_platform_plugins(self, data: list[dict]) -> list[dict]:
         filtered: list[dict] = []

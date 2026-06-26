@@ -2,7 +2,7 @@
  * 快速入口配置
  * 包含：应用列表、快速链接等配置
  */
-import { WEB_LINKS } from "@utils";
+import { WEB_LINKS } from "@/utils/constants/definitions";
 import type { FastEnterConfig } from "@/types/config";
 
 const fastEnterConfig: FastEnterConfig = {
@@ -108,6 +108,7 @@ const fastEnterConfig: FastEnterConfig = {
       enabled: true,
       order: 4,
       isDialog: true,
+      featureFlag: "demoContent",
     },
     {
       name: "个人中心",

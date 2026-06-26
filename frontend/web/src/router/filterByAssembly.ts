@@ -1,9 +1,10 @@
-import type { AppRouteRecordRaw } from "@utils";
 import type { RouteRecordRaw } from "vue-router";
 import {
   defaultAssemblySummary,
   type AssemblySummary,
 } from "@/config/assembly/default";
+
+type AppRouteRecordRaw = RouteRecordRaw & { hidden?: boolean };
 
 function routeGroupOf(route: RouteRecordRaw): string | undefined {
   return route.meta?.routeGroup as string | undefined;

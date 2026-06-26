@@ -71,6 +71,7 @@
               <span class="text-sm">{{ $t("topBar.user.paramConfig") }}</span>
             </li>
             <li
+              v-if="showProjectLinks"
               class="flex items-center p-2 mb-3 select-none rounded-md cursor-pointer last:mb-0 hover:bg-(--fa-gray-200)"
               @click="toGithub()"
             >
@@ -78,6 +79,7 @@
               <span class="text-sm">{{ $t("topBar.user.github") }}</span>
             </li>
             <li
+              v-if="showProjectLinks"
               class="flex items-center p-2 mb-3 select-none rounded-md cursor-pointer last:mb-0 hover:bg-(--fa-gray-200)"
               @click="toGitee"
             >
@@ -111,13 +113,14 @@
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
-import { useUserStore } from "@stores";
+import { useAssemblyStore, useUserStore } from "@stores";
 import { WEB_LINKS, mittBus } from "@utils";
 
 defineOptions({ name: "FaUserMenu" });
 
 const router = useRouter();
 const { t } = useI18n();
+const assemblyStore = useAssemblyStore();
 const userStore = useUserStore();
 
 const { info: userInfo } = storeToRefs(userStore);
@@ -137,6 +140,7 @@ const displayName = computed(
 );
 
 const displayEmail = computed(() => (userInfo.value as { email?: string })?.email || "");
+const showProjectLinks = computed(() => assemblyStore.isFeatureEnabled("demoContent", true));
 
 function openParamConfig(): void {
   closeUserMenu();

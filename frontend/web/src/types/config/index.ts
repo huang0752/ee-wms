@@ -116,6 +116,8 @@ export interface FastEnterBaseItem {
   link?: string;
   /** 点击弹出介绍弹窗（代替路由跳转） */
   isDialog?: boolean;
+  /** 绑定 assembly feature flag；关闭时该入口不显示 */
+  featureFlag?: string;
 }
 
 // 快速入口应用项

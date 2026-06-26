@@ -44,16 +44,17 @@
  *   → settingStore.showGuide=false → 后续不再显示
  */
 import { computed } from "vue";
-import { useAppStore, useSettingsStore } from "@stores";
+import { useAppStore, useAssemblyStore, useSettingsStore } from "@stores";
 
 defineOptions({ name: "AppLayout" });
 
 const appStore = useAppStore();
+const assemblyStore = useAssemblyStore();
 const settingStore = useSettingsStore();
 
 /** 新手指引显隐 —— session 级状态，首次登录/注册后自动弹出 */
 const guideVisible = computed({
-  get: () => appStore.guideVisible,
+  get: () => appStore.guideVisible && assemblyStore.isFeatureEnabled("demoContent", true),
   set: (v: boolean) => appStore.showGuide(v),
 });
 

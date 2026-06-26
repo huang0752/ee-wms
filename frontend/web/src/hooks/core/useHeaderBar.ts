@@ -17,7 +17,7 @@
 
 import { computed } from "vue";
 import { storeToRefs } from "pinia";
-import { useSettingsStore } from "@stores";
+import { useAssemblyStore, useSettingsStore } from "@stores";
 import { headerBarConfig } from "@/config/modules/headerBar";
 import { HeaderBarFeatureConfig } from "@/types";
 
@@ -27,6 +27,7 @@ import { HeaderBarFeatureConfig } from "@/types";
  */
 export function useHeaderBar() {
   const settingStore = useSettingsStore();
+  const assemblyStore = useAssemblyStore();
 
   // 获取顶部栏配置
   const headerBarConfigRef = computed<HeaderBarFeatureConfig>(() => headerBarConfig);
@@ -74,7 +75,11 @@ export function useHeaderBar() {
 
   // 检查快速入口是否显示
   const shouldShowFastEnter = computed(() => {
-    return isFeatureEnabled("fastEnter") && showFastEnter.value;
+    return (
+      isFeatureEnabled("fastEnter") &&
+      showFastEnter.value &&
+      assemblyStore.isFeatureEnabled("fastEnter", true)
+    );
   });
 
   // 检查面包屑是否显示

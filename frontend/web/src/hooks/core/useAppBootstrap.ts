@@ -17,12 +17,14 @@ export function useAppBootstrap() {
   const { initSiteConfig } = useSiteConfig();
   const assemblyStore = useAssemblyStore();
 
-  const bootstrap = () => {
+  const bootstrap = async () => {
     checkStorageCompatibility();
     toggleTransition(false);
-    systemUpgrade();
-    startVersionPolling();
-    assemblyStore.loadPublicConfig();
+    await assemblyStore.loadPublicConfig();
+    if (assemblyStore.isFeatureEnabled("demoContent", true)) {
+      systemUpgrade();
+      startVersionPolling();
+    }
     initSiteConfig();
   };
 

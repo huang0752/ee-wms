@@ -13,6 +13,7 @@ from app.api.v1.module_platform.tenant.service import TenantService
 from app.api.v1.module_system.dept.crud import DeptCRUD
 from app.api.v1.module_system.position.crud import PositionCRUD
 from app.api.v1.module_system.role.crud import RoleCRUD
+from app.core.assembly import filter_menu_tree_by_assembly
 from app.core.base_schema import AuthSchema, BatchSetAvailable
 from app.core.exceptions import CustomException
 from app.core.logger import logger
@@ -223,7 +224,8 @@ class UserService:
                 if menu_ids
                 else []
             )
-        user_dict.menus = traversal_to_tree([menu.model_dump() for menu in menus])
+        menu_tree = traversal_to_tree([menu.model_dump() for menu in menus])
+        user_dict.menus = filter_menu_tree_by_assembly(menu_tree)
         return user_dict
 
     async def update_current_info(self, data: CurrentUserUpdateSchema) -> UserOutSchema:

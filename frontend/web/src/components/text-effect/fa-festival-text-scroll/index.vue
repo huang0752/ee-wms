@@ -21,13 +21,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { storeToRefs } from "pinia";
-import { useSettingsStore } from "@stores";
+import { useAssemblyStore, useSettingsStore } from "@stores";
 import { useCeremony } from "@/hooks/core/useCeremony";
 import { WEB_LINKS } from "@utils";
 
 defineOptions({ name: "FaFestivalTextScroll" });
 
 const settingStore = useSettingsStore();
+const assemblyStore = useAssemblyStore();
 const { showFestivalText } = storeToRefs(settingStore);
 const { currentFestivalData, closeFestivalScroll } = useCeremony();
 
@@ -46,6 +47,7 @@ const festivalScrollDisplayHtml = computed(() => {
 const showFestivalStrip = computed(
   () =>
     showFestivalText.value &&
+    assemblyStore.isFeatureEnabled("demoContent", true) &&
     !!currentFestivalData.value?.scrollText &&
     currentFestivalData.value.scrollText !== ""
 );

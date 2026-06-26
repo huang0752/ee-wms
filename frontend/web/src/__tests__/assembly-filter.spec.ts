@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { filterRoutesByAssembly, isRouteGroupEnabled } from "@/router/filterByAssembly";
+import { filterRoutesByAssembly, isRouteGroupEnabled } from "../router/filterByAssembly";
+import fastEnterConfig from "@/config/modules/fastEnter";
+import { fastEnterRouteGroupMap } from "@/config/assembly/routeGroups";
 import type { AssemblySummary } from "@/config/assembly/default";
 import type { RouteRecordRaw } from "vue-router";
 
@@ -62,5 +64,15 @@ describe("assembly route filtering", () => {
 
     expect(fastlink?.path).toBe("fastlink");
     expect(fastlink?.children?.map((route) => route.path)).toEqual(["profile"]);
+  });
+
+  it("maps every fast-enter routeName to an assembly route group", () => {
+    const routeNames = [
+      ...fastEnterConfig.applications.map((item) => item.routeName),
+      ...fastEnterConfig.quickLinks.map((item) => item.routeName),
+    ].filter((routeName): routeName is string => typeof routeName === "string");
+
+    expect(routeNames.length).toBeGreaterThan(0);
+    expect(routeNames.every((routeName) => routeName in fastEnterRouteGroupMap)).toBe(true);
   });
 });
