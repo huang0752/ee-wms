@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config.setting import settings
-from app.core.assembly import load_assembly_from_file, reset_assembly_cache
+from app.core.assembly import AssemblyConfig, load_assembly_from_file, reset_assembly_cache
 from app.scripts.initialize import InitializeData
 
 
@@ -108,6 +108,43 @@ def test_wms_assembly_cuts_demo_and_marketing_entries() -> None:
     assert assembly.frontend_summary()["featureFlags"]["demoContent"] is False
 
 
+def test_assembly_filters_runtime_menu_tree_by_plugin_and_route_group() -> None:
+    assembly = AssemblyConfig(
+        disabled_plugins=["module_example"],
+        enabled_route_groups=["system", "module-task"],
+        disabled_route_groups=["monitor", "swagger"],
+    )
+    menu_tree = [
+        {"title": "系统管理", "route_path": "/system", "children": []},
+        {"title": "监控管理", "route_path": "/monitor", "children": []},
+        {"title": "接口管理", "route_path": "/swagger", "children": []},
+        {
+            "title": "任务管理",
+            "route_path": "/task",
+            "children": [{"title": "业务任务", "route_path": "business/task"}],
+        },
+        {
+            "title": "案例管理",
+            "route_path": "/example",
+            "children": [
+                {
+                    "title": "demo示例",
+                    "route_path": "demo",
+                    "component_path": "module_example/demo/index",
+                    "permission": "module_example:demo:query",
+                }
+            ],
+        },
+    ]
+
+    filtered = assembly.filter_menu_tree(menu_tree)
+
+    titles = {item["title"] for item in filtered}
+    assert titles == {"系统管理", "任务管理"}
+    task = next(item for item in filtered if item["title"] == "任务管理")
+    assert task["children"] == [{"title": "业务任务", "route_path": "business/task"}]
+
+
 def test_wms_assembly_filters_runtime_menu_tree() -> None:
     assembly = load_assembly_from_file(Path("app/assemblies/wms.toml"))
     menu_tree = [
@@ -174,6 +211,44 @@ async def test_seed_data_filters_disabled_plugin_menus_and_relations() -> None:
         tenant_plugins = await initializer._InitializeData__load_json("platform_tenant_plugin")
         assert all(item["plugin_id"] <= len(plugins) for item in package_plugins)
         assert all(item["plugin_id"] <= len(plugins) for item in tenant_plugins)
+    finally:
+        settings.APP_ASSEMBLY_FILE = old_file
+        settings.APP_ASSEMBLY = old_name
+        reset_assembly_cache()
+
+
+@pytest.mark.asyncio
+async def test_seed_menu_filters_disabled_route_groups_without_disabled_plugins(tmp_path: Path) -> None:
+    config = tmp_path / "route-group-only.toml"
+    config.write_text(
+        """
+[assembly]
+name = "route-group-only"
+
+[backend]
+disabled_plugins = []
+
+[frontend]
+enabled_route_groups = ["system", "platform"]
+disabled_route_groups = ["monitor", "swagger"]
+
+[seed]
+packs = ["legacy"]
+""",
+        encoding="utf-8",
+    )
+    old_file = settings.APP_ASSEMBLY_FILE
+    old_name = settings.APP_ASSEMBLY
+    settings.APP_ASSEMBLY_FILE = str(config)
+    settings.APP_ASSEMBLY = "route-group-only"
+    reset_assembly_cache()
+
+    try:
+        initializer = InitializeData()
+        menus = await initializer._InitializeData__load_json("platform_menu")
+        top_paths = {item.get("route_path") for item in menus}
+        assert "/monitor" not in top_paths
+        assert "/swagger" not in top_paths
     finally:
         settings.APP_ASSEMBLY_FILE = old_file
         settings.APP_ASSEMBLY = old_name

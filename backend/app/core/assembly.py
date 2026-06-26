@@ -105,31 +105,23 @@ class AssemblyConfig:
         enabled = set(self.enabled_route_groups)
         return not enabled or group in enabled
 
+    def is_feature_enabled(self, feature: str, default: bool = True) -> bool:
+        value = self.feature_flags.get(feature)
+        return value if isinstance(value, bool) else default
+
     def is_menu_item_enabled(self, item: dict[str, Any]) -> bool:
         permission = str(item.get("permission") or "")
         component_path = str(item.get("component_path") or "")
         route_group = self._menu_route_group(item)
 
-        for plugin_code in self.disabled_plugins:
-            for candidate in plugin_code_candidates(plugin_code):
+        for module_code in self.disabled_plugins:
+            for candidate in plugin_code_candidates(module_code):
                 if permission.startswith(f"{candidate}:"):
                     return False
                 if component_path.startswith(f"{candidate}/"):
                     return False
 
-        if route_group and not self.is_route_group_enabled(route_group):
-            return False
-        return True
-
-    def _menu_route_group(self, item: dict[str, Any]) -> str | None:
-        raw_path = str(item.get("route_path") or "").strip()
-        if not raw_path or not raw_path.startswith("/"):
-            return None
-        first_segment = raw_path.strip("/").split("/", 1)[0]
-        if not first_segment:
-            return None
-        normalized = first_segment.replace("_", "-")
-        return MENU_ROUTE_GROUP_ALIASES.get(normalized, normalized)
+        return self.is_route_group_enabled(route_group)
 
     def filter_menu_tree(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         filtered: list[dict[str, Any]] = []
@@ -148,6 +140,16 @@ class AssemblyConfig:
                 continue
             filtered.append(next_item)
         return filtered
+
+    def _menu_route_group(self, item: dict[str, Any]) -> str | None:
+        raw_path = str(item.get("route_path") or "").strip()
+        if not raw_path.startswith("/"):
+            return None
+        first_segment = raw_path.strip("/").split("/", 1)[0]
+        if not first_segment:
+            return None
+        normalized = first_segment.replace("_", "-")
+        return MENU_ROUTE_GROUP_ALIASES.get(normalized, normalized)
 
     def frontend_summary(self) -> dict[str, Any]:
         return {

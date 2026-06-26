@@ -18,23 +18,18 @@
 import { computed } from "vue";
 import appConfig from "@/config";
 import { useAssemblyStore } from "@stores";
+import { fastEnterRouteGroupMap } from "@/config/assembly/routeGroups";
 import type { FastEnterApplication, FastEnterQuickLink } from "@/types/config";
 
-const routeNameGroupMap: Record<string, string> = {
-  FastlinkProfile: "user-profile",
-  FastlinkChangeLog: "changelog",
-  FastlinkPricing: "pricing",
-  FastlinkArticleList: "article",
-  FastlinkTutorial: "tutorial",
-  FastlinkFachat: "ai-chat",
-};
-
 function routeEntryEnabled(
-  entry: Pick<FastEnterApplication | FastEnterQuickLink, "routeName">,
+  entry: Pick<FastEnterApplication | FastEnterQuickLink, "routeName" | "featureFlag">,
   assemblyStore: ReturnType<typeof useAssemblyStore>
 ): boolean {
+  if (entry.featureFlag && !assemblyStore.isFeatureEnabled(entry.featureFlag, true)) {
+    return false;
+  }
   if (!entry.routeName) return true;
-  return assemblyStore.isRouteGroupEnabled(routeNameGroupMap[entry.routeName]);
+  return assemblyStore.isRouteGroupEnabled(fastEnterRouteGroupMap[entry.routeName]);
 }
 
 export function useFastEnter() {
