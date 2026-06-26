@@ -1,0 +1,1 @@
+"""WMS demo data fixtures."""

@@ -32,6 +32,7 @@ from app.api.v1.module_system.ticket.model import TicketModel
 from app.api.v1.module_system.user.model import UserModel, UserRolesModel
 from app.api.v1.module_wms.arrival.model import WmsArrivalLineModel, WmsArrivalOrderModel
 from app.api.v1.module_wms.check.model import WmsStockCheckLineModel, WmsStockCheckOrderModel
+from app.api.v1.module_wms.demo.model import WmsDemoSampleItemModel, WmsDemoSamplePoolModel
 from app.api.v1.module_wms.inbound.model import WmsInboundLineModel, WmsInboundOrderModel
 from app.api.v1.module_wms.inspection.model import WmsInspectionLineModel, WmsInspectionTaskModel
 from app.api.v1.module_wms.integration.model import WmsIntegrationRequestModel
@@ -145,6 +146,8 @@ class InitializeData:
         WmsStockCheckOrderModel,
         WmsStockCheckLineModel,
         WmsStockWarningModel,
+        WmsDemoSamplePoolModel,
+        WmsDemoSampleItemModel,
     ]
 
     # 树形模型：JSON 含嵌套 children，需递归创建对象
