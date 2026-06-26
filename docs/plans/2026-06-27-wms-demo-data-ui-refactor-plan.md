@@ -26,9 +26,10 @@ Current UI and backend are too narrow for real tenant trials:
 2. System default sample pool is built in, but tenants can copy it and edit their own pool.
 3. Users can enter their own products and requirements per generation run without first maintaining formal material records.
 4. Quantity controls must be user-adjustable and clamped by server-side limits.
-5. The generator must be dynamic and deterministic: same input and same seed produce stable structure, but generated records are not fixed one-off rows.
-6. AI can enrich names and descriptions, but rule planning owns counts, relationships, dates, statuses, quantities, and referential integrity.
-7. AI failure must not block generation.
+5. Numbering rules are tenant-scoped. The generator resolves prefixes, tenant short code, date format, sequence width, and batch-number style from tenant config or request-level overrides; it must not hard-code `DEMO`, `DAO`, `DIN`, or similar business prefixes.
+6. The generator must be dynamic and deterministic: same input and same seed produce stable structure, but generated records are not fixed one-off rows.
+7. AI can enrich names and descriptions, but rule planning owns numbering, counts, relationships, dates, statuses, quantities, and referential integrity.
+8. AI failure must not block generation.
 
 ## 3. Target User Experience
 
@@ -58,6 +59,11 @@ Use fixed controls where possible, plus explicit free-text fields for tenant-spe
 | 生成要求 | 仓储场景 | `ElCheckboxGroup` | `warehouse_scenarios` |
 | 生成要求 | 质量/检验要求 | `ElInput type=textarea` | `quality_requirements` |
 | 生成要求 | 命名风格 | `ElSelect` 工业真实/简洁编码/客户化 | `naming_style` |
+| 编号规则 | 租户短码 | `ElInput` default from tenant code | `numbering.tenant_short_code` |
+| 编号规则 | 编号风格 | `ElSegmented` 默认/客户化/演示追踪 | `numbering.numbering_style` |
+| 编号规则 | 日期格式 | `ElSelect` `yyyyMMdd`/`yyMMdd`/`yyyyMM` | `numbering.date_format` |
+| 编号规则 | 流水位数 | `ElInputNumber` 4-8 | `numbering.sequence_digits` |
+| 编号规则 | 前缀配置 | `ElTable` object + prefix | `numbering.prefixes` |
 | 数据规模 | 规模模式 | `ElSegmented` 快速/标准/丰富/自定义 | `scale_mode` |
 | 数据规模 | 数量目标 | `ElSlider` + `ElInputNumber` | `quantity_targets` |
 | 数据范围 | 时间范围 | `ElSelect` 30/90/180 天 | `time_range_days` |
@@ -111,6 +117,7 @@ The form must show an estimated count preview before generation.
 - `backend/app/api/v1/module_wms/demo/pool_service.py`: system-pool loading, tenant copy, tenant edit, validation.
 - `backend/app/api/v1/module_wms/demo/fixtures/electrical_equipment.py`: default built-in sample pool.
 - `backend/app/api/v1/module_wms/demo/planner.py`: converts request + sample pool into a deterministic generation plan.
+- `backend/app/api/v1/module_wms/demo/numbering.py`: resolves tenant numbering profile and generates scoped codes.
 - `backend/app/api/v1/module_wms/demo/ai_enricher.py`: calls platform AI only for naming and narrative enrichment.
 - `backend/app/api/v1/module_wms/demo/writer.py`: writes planned WMS rows and counts.
 - `backend/app/api/v1/module_wms/demo/quality.py`: validates generated plan and persisted counts.
@@ -159,9 +166,19 @@ class WmsDemoCustomProduct(BaseModel):
     weight: int = Field(default=1, ge=1, le=10)
 
 
+class WmsDemoNumberingProfile(BaseModel):
+    tenant_short_code: str | None = Field(default=None, max_length=16)
+    numbering_style: Literal["default", "tenant", "traceable_demo"] = "tenant"
+    date_format: Literal["yyyyMMdd", "yyMMdd", "yyyyMM"] = "yyyyMMdd"
+    sequence_digits: int = Field(default=4, ge=4, le=8)
+    include_demo_suffix: bool = False
+    prefixes: dict[str, str] = Field(default_factory=dict)
+
+
 class WmsDemoInitSchema(BaseModel):
     profile: WmsDemoEnterpriseProfile = Field(default_factory=WmsDemoEnterpriseProfile)
     sample_pool_id: int | None = Field(default=None)
+    numbering: WmsDemoNumberingProfile = Field(default_factory=WmsDemoNumberingProfile)
     product_directions: list[str] = Field(default_factory=list, max_length=20)
     custom_products: list[WmsDemoCustomProduct] = Field(default_factory=list, max_length=80)
     warehouse_scenarios: list[str] = Field(default_factory=list, max_length=10)
@@ -207,7 +224,63 @@ class WmsDemoBatchOut(BaseModel):
 
 ## 6. Generation Rules
 
-### 6.1 Deterministic Dynamic Seed
+### 6.1 Tenant-Scoped Numbering
+
+Number generation is dynamic and tenant-related. It is not AI-generated and not hard-coded in the writer.
+
+Resolution order:
+
+1. request-level `numbering` values,
+2. tenant saved numbering profile,
+3. system default WMS numbering profile.
+
+Default profile:
+
+| Object | Default Prefix | Pattern |
+|---|---|---|
+| warehouse | `WH` | `{tenant_short_code}-{prefix}-{seq}` |
+| zone | `ZN` | `{warehouse_code}-{prefix}{seq}` |
+| location | `LOC` | `{warehouse_code}-{zone_code}-{row}-{col}-{level}` |
+| material | `MAT` | `{tenant_short_code}-{prefix}-{category_short}-{seq}` |
+| supplier | `SUP` | `{tenant_short_code}-{prefix}-{seq}` |
+| customer | `CUS` | `{tenant_short_code}-{prefix}-{seq}` |
+| arrival | `ARR` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+| inspection | `IQC` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+| inbound | `INB` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+| outbound | `OUT` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+| issue | `ISS` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+| transfer | `TRF` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+| stock_check | `CHK` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+| warning | `WRN` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+| stock_flow | `FL` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+| stock_lock | `LK` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+| batch | `B` | `{prefix}-{tenant_short_code}-{material_short}-{date}-{seq}` |
+| work_order | `MO` | `{prefix}-{tenant_short_code}-{date}-{seq}` |
+
+Rules:
+
+- `tenant_short_code` defaults to tenant code or a normalized abbreviation of tenant name; if unavailable, use `T{tenant_id}`.
+- Sequence counters are scoped by `tenant_id + object_type + date + demo_batch_id` for demo generation.
+- Business-visible numbers should not include `DEMO` by default. Demo identity is stored by `is_demo` and `demo_batch_id`.
+- `include_demo_suffix=true` appends the demo-batch short suffix for troubleshooting, for example `ARR-HNDL-20260627-0001-A8F31C`.
+- If a generated code collides within the tenant, increment the sequence and retry; do not mutate prefixes randomly.
+- AI may suggest display names but cannot generate or alter codes.
+
+Examples:
+
+```text
+WH-HNDL-001
+WH-HNDL-001-ZN01
+WH-HNDL-001-A-01-01-01
+HNDL-MAT-SW-0001
+B-HNDL-MATSW001-20260627-0001
+ARR-HNDL-20260627-0001
+IQC-HNDL-20260627-0001
+INB-HNDL-20260627-0001
+OUT-HNDL-20260627-0001
+```
+
+### 6.2 Deterministic Dynamic Seed
 
 Use a seeded random generator:
 
@@ -219,7 +292,7 @@ rng = random.Random(seed)
 
 This avoids hard-coded rows while keeping generation debuggable.
 
-### 6.2 Product Mix
+### 6.3 Product Mix
 
 Planner builds product candidates from:
 
@@ -235,7 +308,7 @@ Rules:
 - Generated material names must not use generic names like `试用物料1` unless all product sources are empty.
 - Specs must combine voltage level, sample patterns, and sequence, for example `10kV KYN28A-12`, `110kV GIS-HG-252`, `ZC-YJV22-8.7/15kV`.
 
-### 6.3 Count Allocation
+### 6.4 Count Allocation
 
 Planner derives target counts from mode and user overrides:
 
@@ -252,7 +325,7 @@ Distribution:
 - 5-10% check/adjustment flows.
 - 3-8% warnings depending on selected risk style.
 
-### 6.4 Workflow Coverage
+### 6.5 Workflow Coverage
 
 Standard and rich modes must cover:
 
@@ -268,7 +341,7 @@ Standard and rich modes must cover:
 
 Quick mode may skip transfer and stock check only if the UI warns the user before generation.
 
-### 6.5 Quality Gate
+### 6.6 Quality Gate
 
 Before commit, run a quality check:
 
@@ -286,6 +359,7 @@ Minimum checks:
 - `is_demo=True` and `demo_batch_id` present on every generated row.
 - material count >= requested minimum after clamping.
 - no duplicate codes within tenant.
+- all generated codes conform to the resolved tenant numbering profile.
 - every custom product appears in at least one material or warning text.
 - standard/rich mode covers all required workflows.
 - cleanup list includes every model written by writer.
@@ -372,21 +446,24 @@ git commit -m "feat: 增加WMS演示数据样本池"
 
 **Files:**
 - Create: `backend/app/api/v1/module_wms/demo/planner.py`
+- Create: `backend/app/api/v1/module_wms/demo/numbering.py`
 - Create: `backend/app/api/v1/module_wms/demo/quality.py`
 - Modify: `backend/app/api/v1/module_wms/demo/controller.py`
 - Test: `backend/tests/test_wms_demo_generation_plan.py`
 
 - [ ] Implement deterministic plan generation.
+- [ ] Implement tenant-scoped numbering profile resolution.
 - [ ] Implement product mix from custom products plus sample pool.
 - [ ] Implement estimated counts and workflow coverage.
 - [ ] Add `POST /wms/demo/preview`.
 - [ ] Test preview does not write WMS rows.
 - [ ] Test custom product names appear in preview.
+- [ ] Test tenant short code and custom prefixes are reflected in preview numbers.
 - [ ] Run `uv run pytest tests/test_wms_demo_generation_plan.py -q`.
 - [ ] Commit:
 
 ```bash
-git add backend/app/api/v1/module_wms/demo/planner.py backend/app/api/v1/module_wms/demo/quality.py backend/app/api/v1/module_wms/demo/controller.py backend/tests/test_wms_demo_generation_plan.py
+git add backend/app/api/v1/module_wms/demo/planner.py backend/app/api/v1/module_wms/demo/numbering.py backend/app/api/v1/module_wms/demo/quality.py backend/app/api/v1/module_wms/demo/controller.py backend/tests/test_wms_demo_generation_plan.py
 git commit -m "feat: 增加WMS演示数据生成预览"
 ```
 
@@ -400,6 +477,7 @@ git commit -m "feat: 增加WMS演示数据生成预览"
 
 - [ ] Move row persistence from `generator.py` into writer.
 - [ ] Generate multiple warehouses, locations, materials, suppliers, batches, and flows from plan.
+- [ ] Use `numbering.py` for every generated code and document number; remove fixed `DEMO/DAO/DIN/DOU/DIS` prefixes from writer logic.
 - [ ] Add transfer, stock check, and stock lock/freeze/warning generation.
 - [ ] Ensure `_delete_order()` includes every model written.
 - [ ] Test standard mode count thresholds.
@@ -437,6 +515,7 @@ git commit -m "feat: 增强WMS演示数据AI命名"
 - Modify: `frontend/web/src/api/module_wms/demo.ts`
 
 - [ ] Add TypeScript interfaces matching section 5.
+- [ ] Add numbering profile interfaces and prefix editor types.
 - [ ] Add APIs: `preview`, `listSamplePools`, `copySamplePool`, `updateSamplePool`, `updateSampleItem`, `listHistory`.
 - [ ] Run `pnpm type-check`.
 - [ ] Commit:
@@ -457,6 +536,7 @@ git commit -m "feat: 扩展WMS演示数据前端契约"
 
 - [ ] Replace single card form with tabbed page.
 - [ ] Add custom product table and batch text parser.
+- [ ] Add numbering profile section with tenant short code, prefix table, date format, sequence digits, and demo suffix switch.
 - [ ] Add scale mode cards and quantity sliders.
 - [ ] Add preview panel before generation.
 - [ ] Add sample-pool editor with system pool read-only state.
@@ -492,10 +572,12 @@ git commit -m "fix: 完善WMS演示数据重构验证"
 
 - User can enter custom products, specs, quality requirements, supplier requirements, and generation instructions in the UI.
 - User can adjust data scale with fixed modes or custom counts.
+- User can configure tenant-related numbering profile for demo generation.
 - Preview shows estimated generated counts and sample names before writing data.
 - Standard mode generates at least 3 warehouses, 80 materials, 100 locations, 300 stock flows, and covers inbound, inspection, outbound, issue, transfer, stock check, warning, and trace.
 - Custom product names appear in generated materials or related remarks.
 - No generated material names are generic `试用物料N` when sample pool or custom products exist.
+- Generated codes and document numbers use tenant short code, configured prefixes, configured date format, and configured sequence width.
 - All generated business rows carry `tenant_id`, `is_demo=True`, and `demo_batch_id`.
 - Cleanup only affects current tenant demo rows.
 - AI unavailable path succeeds with rule-generated names.
