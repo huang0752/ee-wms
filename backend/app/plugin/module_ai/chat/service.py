@@ -626,6 +626,50 @@ async def _langchain_chat_runner(
     return json.dumps(result, ensure_ascii=False)
 
 
+def _structured_output_unavailable(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "response_format" in message and ("unavailable" in message or "unsupported" in message or "invalid_request_error" in message)
+
+
+def _structured_json_prompt(prompt: str, response_format: Any) -> str:
+    schema_json = "{}"
+    if hasattr(response_format, "model_json_schema"):
+        schema_json = json.dumps(response_format.model_json_schema(), ensure_ascii=False)
+    return (
+        f"{prompt}\n\n"
+        "请严格输出一个 JSON 对象，不要输出 Markdown，不要输出代码块，不要输出额外解释。"
+        f"JSON Schema: {schema_json}"
+    )
+
+
+def _strip_json_text(raw: str) -> str:
+    text = raw.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines and lines[0].strip().startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start >= 0 and end >= start:
+        return text[start : end + 1]
+    return text
+
+
+def _validate_structured_result(result: Any, response_format: Any) -> Any:
+    if hasattr(response_format, "model_validate"):
+        if isinstance(result, response_format):
+            return result
+        if isinstance(result, str):
+            return response_format.model_validate_json(_strip_json_text(result))
+        return response_format.model_validate(result)
+    if isinstance(result, str):
+        return json.loads(_strip_json_text(result))
+    return result
+
+
 class AiRuntimeService:
     """基于平台默认模型的 LangChain 运行时。"""
 
@@ -737,12 +781,24 @@ class AiRuntimeService:
         started_at = perf_counter()
         try:
             model_config = await resolve_default_model_config(self.auth, repository=self.repository)
-            result = await self.chat_runner(
-                model_config=model_config,
-                message=prompt,
-                system_prompt=system_prompt,
-                response_format=response_format,
-            )
+            try:
+                result = await self.chat_runner(
+                    model_config=model_config,
+                    message=prompt,
+                    system_prompt=system_prompt,
+                    response_format=response_format,
+                )
+            except Exception as exc:
+                if not _structured_output_unavailable(exc):
+                    raise
+                logger.warning("结构化输出原生模式不可用，改用 JSON 文本校验: {}", exc)
+                raw_result = await self.chat_runner(
+                    model_config=model_config,
+                    message=_structured_json_prompt(prompt, response_format),
+                    system_prompt=system_prompt,
+                    response_format=None,
+                )
+                result = _validate_structured_result(raw_result, response_format)
             duration_ms = int((perf_counter() - started_at) * 1000)
             if self.audit_enabled:
                 await record_ai_call_audit(

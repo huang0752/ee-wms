@@ -227,6 +227,49 @@ async def test_ai_runtime_structured_generate_uses_langchain_contract() -> None:
 
 
 @pytest.mark.asyncio
+async def test_ai_runtime_structured_generate_falls_back_to_json_text_when_provider_rejects_response_format() -> None:
+    repo = MemoryAiConfigRepository()
+    service = PlatformAiModelConfigService(make_auth(), repository=repo)
+    await service.create(
+        AiModelConfigSchema(
+            name="DeepSeek",
+            provider_type="deepseek",
+            base_url="https://api.deepseek.com",
+            api_key="sk-active",
+            model_id="deepseek-v4-flash",
+            is_default=True,
+        )
+    )
+    calls: list[dict[str, Any]] = []
+
+    async def fake_runner(**kwargs):
+        calls.append(kwargs)
+        if kwargs["response_format"] is RuntimeStructuredOut:
+            raise RuntimeError("This response_format type is unavailable now")
+        assert kwargs["response_format"] is None
+        assert "JSON Schema" in kwargs["message"]
+        return '{"summary":"改用 JSON 文本校验成功","risk_level":"warning"}'
+
+    runtime = AiRuntimeService(
+        make_auth(),
+        repository=repo,
+        chat_runner=fake_runner,
+        audit_enabled=False,
+    )
+
+    result = await runtime.structured_generate(
+        "基于规则摘要生成结构化结果",
+        response_format=RuntimeStructuredOut,
+        source_module="module_wms",
+        source_feature="dashboard_summary",
+    )
+
+    assert result.summary == "改用 JSON 文本校验成功"
+    assert result.risk_level == "warning"
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
 async def test_missing_platform_default_model_config_is_controlled_error() -> None:
     repo = MemoryAiConfigRepository()
 
