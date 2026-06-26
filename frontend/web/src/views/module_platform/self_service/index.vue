@@ -13,9 +13,9 @@
             class="workspace-banner"
             :title="`${workspace.tenant.name}（${workspace.tenant.code}）`"
             :subtitle="
-              workspace.package
+              showTenantBilling && workspace.package
                 ? `${workspace.package.name} · ${workspace.package.period === 'year' ? '年付' : '月付'} · 剩余 ${workspace.tenant.days_remaining} 天 · ${workspace.tenant.status_label}`
-                : `暂无套餐 · 剩余 ${workspace.tenant.days_remaining} 天 · ${workspace.tenant.status_label}`
+                : `剩余 ${workspace.tenant.days_remaining} 天 · ${workspace.tenant.status_label}`
             "
             boxStyle="bg-theme/5!"
             titleColor="var(--fa-gray-900)"
@@ -25,7 +25,7 @@
 
           <!-- 统计卡片行 -->
           <ElRow :gutter="16" class="workspace-section">
-            <ElCol :xs="24" :sm="12" :md="6">
+            <ElCol :xs="24" :sm="12" :md="workspaceStatSpan">
               <FaStatsCard
                 icon="ri:user-line"
                 iconStyle="bg-theme"
@@ -37,7 +37,7 @@
                 :showArrow="false"
               />
             </ElCol>
-            <ElCol :xs="24" :sm="12" :md="6">
+            <ElCol :xs="24" :sm="12" :md="workspaceStatSpan">
               <FaStatsCard
                 icon="ri:shield-user-line"
                 iconStyle="bg-success"
@@ -49,7 +49,7 @@
                 :showArrow="false"
               />
             </ElCol>
-            <ElCol :xs="24" :sm="12" :md="6">
+            <ElCol :xs="24" :sm="12" :md="workspaceStatSpan">
               <FaStatsCard
                 icon="ri:organization-chart"
                 iconStyle="bg-info"
@@ -61,7 +61,7 @@
                 :showArrow="false"
               />
             </ElCol>
-            <ElCol :xs="24" :sm="12" :md="6">
+            <ElCol v-if="showTenantBilling" :xs="24" :sm="12" :md="6">
               <FaStatsCard
                 icon="ri:money-cny-box-line"
                 iconStyle="bg-warning"
@@ -112,7 +112,7 @@
           </ElRow>
 
           <!-- 近期订单时间轴 -->
-          <ElRow :gutter="16" class="workspace-section">
+          <ElRow v-if="showTenantBilling" :gutter="16" class="workspace-section">
             <ElCol :span="24">
               <FaTimelineListCard
                 :list="recentOrderTimeline"
@@ -221,7 +221,7 @@
       </ElTabPane>
 
       <!-- ─── 选购套餐 ─── -->
-      <ElTabPane label="选购套餐" name="packages">
+      <ElTabPane v-if="showTenantBilling" label="选购套餐" name="packages">
         <div v-if="!packagesLoading && packages.length" class="package-grid">
           <div
             v-for="pkg in packages"
@@ -272,7 +272,7 @@
       </ElTabPane>
 
       <!-- ─── 我的订单 ─── -->
-      <ElTabPane label="我的订单" name="orders">
+      <ElTabPane v-if="showTenantBilling" label="我的订单" name="orders">
         <ElCard shadow="hover" class="fa-table-card">
           <FaTableHeader
             v-model:columns="orderColumnChecks"
@@ -294,7 +294,12 @@
     </ElTabs>
 
     <!-- ─── 套餐操作确认弹窗 ─── -->
-    <FaDialog v-model="actionDialogVisible" :title="actionDialogTitle" width="560px">
+    <FaDialog
+      v-if="showTenantBilling"
+      v-model="actionDialogVisible"
+      :title="actionDialogTitle"
+      width="560px"
+    >
       <div v-if="preview">
         <FaDescriptions
           :column="2"
@@ -384,17 +389,20 @@ import type {
 } from "@/api/module_platform/self_service";
 import { resolveStatusColumns } from "@utils";
 import type { DescriptionsItem } from "@/components/others/fa-descriptions/index.vue";
-import { useConfigStore } from "@stores";
+import { useAssemblyStore, useConfigStore } from "@stores";
 
 defineOptions({ name: "SelfService" });
 
 const router = useRouter();
 const configStore = useConfigStore();
+const assemblyStore = useAssemblyStore();
 const activeTab = ref("workspace");
 
 // ─── 工作台 ───
 const workspace = ref<WorkspaceData | null>(null);
 const workspaceLoading = ref(false);
+const showTenantBilling = computed(() => assemblyStore.isFeatureEnabled("tenantBilling", true));
+const workspaceStatSpan = computed(() => (showTenantBilling.value ? 6 : 8));
 
 const recentOrderTimeline = computed(() => {
   if (!workspace.value?.recent_orders?.length) return [];
@@ -600,8 +608,8 @@ async function loadPackages() {
 function onTabChange(tab: TabPaneName) {
   if (tab === "workspace") loadWorkspace();
   else if (tab === "brand") loadBrandConfig();
-  else if (tab === "packages") loadPackages();
-  else if (tab === "orders") getOrderData();
+  else if (showTenantBilling.value && tab === "packages") loadPackages();
+  else if (showTenantBilling.value && tab === "orders") getOrderData();
 }
 
 // ─── 动作处理 ───

@@ -75,4 +75,5 @@ describe("assembly route filtering", () => {
     expect(routeNames.length).toBeGreaterThan(0);
     expect(routeNames.every((routeName) => routeName in fastEnterRouteGroupMap)).toBe(true);
   });
+
 });

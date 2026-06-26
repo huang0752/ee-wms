@@ -14,20 +14,28 @@ disabled_plugins = ["module_example"]
 enabled_route_groups = [
   "auth",
   "home",
-  "dashboard",
   "system",
   "platform",
   "module-wms",
   "user-profile",
-  "payment",
   "workspace",
   "outside",
   "exception"
 ]
-disabled_route_groups = ["ai-chat", "module-task", "module-generator", "pricing", "article", "tutorial", "changelog"]
+disabled_route_groups = ["ai-chat", "dashboard", "module-task", "module-generator", "payment", "pricing", "article", "tutorial", "changelog"]
+
+[menu]
+disabled_paths = [
+  "/platform/package",
+  "/platform/order",
+  "/platform/invoice",
+  "/platform/plugin-market",
+  "/system/notice",
+  "/system/ticket"
+]
 
 [seed]
 packs = ["wms"]
 
 [features]
-flags = { ai_assistant = false, plugin_market = false, tenant_package = true, demo_content = false, fast_enter = true, wms_demo_data = true }
+flags = { ai_assistant = false, plugin_market = false, tenant_billing = false, tenant_package = true, demo_content = false, fast_enter = true, wms_demo_data = true }

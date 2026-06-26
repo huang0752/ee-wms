@@ -85,6 +85,7 @@ class AssemblyConfig:
     disabled_plugins: list[str] = field(default_factory=list)
     enabled_route_groups: list[str] = field(default_factory=list)
     disabled_route_groups: list[str] = field(default_factory=list)
+    disabled_menu_paths: list[str] = field(default_factory=list)
     seed_packs: list[str] = field(default_factory=lambda: ["legacy"])
     feature_flags: dict[str, bool] = field(default_factory=dict)
 
@@ -109,10 +110,13 @@ class AssemblyConfig:
         value = self.feature_flags.get(feature)
         return value if isinstance(value, bool) else default
 
-    def is_menu_item_enabled(self, item: dict[str, Any]) -> bool:
+    def is_menu_item_enabled(self, item: dict[str, Any], full_path: str | None = None) -> bool:
         permission = str(item.get("permission") or "")
         component_path = str(item.get("component_path") or "")
         route_group = self._menu_route_group(item)
+
+        if full_path and self._is_menu_path_disabled(full_path):
+            return False
 
         for module_code in self.disabled_plugins:
             for candidate in plugin_code_candidates(module_code):
@@ -123,16 +127,17 @@ class AssemblyConfig:
 
         return self.is_route_group_enabled(route_group)
 
-    def filter_menu_tree(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def filter_menu_tree(self, items: list[dict[str, Any]], parent_path: str = "") -> list[dict[str, Any]]:
         filtered: list[dict[str, Any]] = []
         for item in items:
-            if not self.is_menu_item_enabled(item):
+            full_path = self._menu_full_path(item, parent_path)
+            if not self.is_menu_item_enabled(item, full_path):
                 continue
 
             next_item = dict(item)
             children = next_item.get("children") or []
             if children:
-                next_item["children"] = self.filter_menu_tree(children)
+                next_item["children"] = self.filter_menu_tree(children, full_path or parent_path)
 
             had_children = bool(children)
             is_empty_catalog = had_children and not next_item.get("children") and not next_item.get("component_path")
@@ -151,6 +156,20 @@ class AssemblyConfig:
         normalized = first_segment.replace("_", "-")
         return MENU_ROUTE_GROUP_ALIASES.get(normalized, normalized)
 
+    def _menu_full_path(self, item: dict[str, Any], parent_path: str = "") -> str | None:
+        raw_path = str(item.get("route_path") or "").strip()
+        if not raw_path:
+            return parent_path or None
+        if raw_path.startswith("/"):
+            return "/" + raw_path.strip("/")
+        base = "/" + parent_path.strip("/") if parent_path else ""
+        return f"{base}/{raw_path.strip('/')}" if base else f"/{raw_path.strip('/')}"
+
+    def _is_menu_path_disabled(self, full_path: str) -> bool:
+        normalized_path = "/" + full_path.strip("/")
+        disabled_paths = {"/" + item.strip("/") for item in self.disabled_menu_paths if item.strip()}
+        return normalized_path in disabled_paths
+
     def frontend_summary(self) -> dict[str, Any]:
         return {
             "name": self.name,
@@ -168,6 +187,7 @@ class AssemblyConfig:
         logger.info("✅ Seed packs: {}", ",".join(self.seed_packs) or "legacy")
         logger.info("✅ Enabled route groups: {}", ",".join(self.enabled_route_groups) or "all")
         logger.info("⏭️ Disabled route groups: {}", ",".join(self.disabled_route_groups) or "-")
+        logger.info("⏭️ Disabled menu paths: {}", ",".join(self.disabled_menu_paths) or "-")
 
 
 def _assembly_path_from_settings() -> Path:
@@ -186,6 +206,7 @@ def load_assembly_from_file(path: Path) -> AssemblyConfig:
     core = raw.get("core", {})
     backend = raw.get("backend", {})
     frontend = raw.get("frontend", {})
+    menu = raw.get("menu", {})
     seed = raw.get("seed", {})
     features = raw.get("features", {})
 
@@ -207,6 +228,7 @@ def load_assembly_from_file(path: Path) -> AssemblyConfig:
         disabled_plugins=_string_list(backend.get("disabled_plugins")),
         enabled_route_groups=_string_list(frontend.get("enabled_route_groups")),
         disabled_route_groups=_string_list(frontend.get("disabled_route_groups")),
+        disabled_menu_paths=_string_list(menu.get("disabled_paths")),
         seed_packs=_string_list(seed.get("packs")) or ["legacy"],
         feature_flags={str(k): bool(v) for k, v in flags_raw.items()},
     )

@@ -279,7 +279,10 @@ function dashboardRoutesToShellMenu(route: AppRouteRecord, parentAbs = ""): AppR
   };
 }
 
-export function mergeShellRoutesIntoMenu(menuList: AppRouteRecord[]): AppRouteRecord[] {
+export function mergeShellRoutesIntoMenu(
+  menuList: AppRouteRecord[],
+  options: { includeDashboard?: boolean } = {}
+): AppRouteRecord[] {
   const paths = new Set<string>();
   const names = new Set<string>();
   collectPathsAndNames(menuList, paths, names);
@@ -301,7 +304,7 @@ export function mergeShellRoutesIntoMenu(menuList: AppRouteRecord[]): AppRouteRe
 
   tryPush(mergeShellHomeMenu);
 
-  if (!paths.has("/dashboard")) {
+  if (options.includeDashboard !== false && !paths.has("/dashboard")) {
     tryPush(dashboardRoutesToShellMenu(structuredClone(getDashboardMenuTreeForMerge())));
   }
 

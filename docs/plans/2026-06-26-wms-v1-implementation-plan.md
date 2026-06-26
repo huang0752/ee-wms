@@ -133,17 +133,29 @@ Use these WMS menus:
 | Menu | Route | Permission |
 |---|---|---|
 | 仓储管理 | `/module-wms` | directory only |
-| 仓储驾驶舱 | `/module-wms/dashboard` | `module_wms:dashboard:query` |
-| 仓储基础 | `/module-wms/master` | directory only |
-| 到货与检验 | `/module-wms/arrival` | directory only |
-| 入库管理 | `/module-wms/inbound` | directory only |
-| 出库管理 | `/module-wms/outbound` | directory only |
-| 库存管理 | `/module-wms/stock` | directory only |
-| 预警与分析 | `/module-wms/warning` | directory only |
-| 仓储追溯 | `/module-wms/trace` | `module_wms:trace:query` |
-| 试用数据 | `/module-wms/demo` | `module_wms:demo:init` |
+| 运营看板 | `/module-wms/ops` | directory only |
+| 仓储驾驶舱 | `/module-wms/ops/dashboard` | `module_wms:dashboard:query` |
+| 基础资料 | `/module-wms/base` | directory only |
+| 仓储基础 | `/module-wms/base/master` | directory only |
+| 入库作业 | `/module-wms/receiving` | directory only |
+| 到货与检验 | `/module-wms/receiving/arrival` | directory only |
+| 入库管理 | `/module-wms/receiving/inbound` | directory only |
+| 出库作业 | `/module-wms/shipping` | directory only |
+| 出库管理 | `/module-wms/shipping/outbound` | directory only |
+| 生产领料 | `/module-wms/shipping/issue` | directory only |
+| 库存作业 | `/module-wms/inventory` | directory only |
+| 库存管理 | `/module-wms/inventory/stock` | directory only |
+| 调拨管理 | `/module-wms/inventory/transfer` | directory only |
+| 盘点管理 | `/module-wms/inventory/check` | directory only |
+| 分析追溯 | `/module-wms/analytics` | directory only |
+| 预警与分析 | `/module-wms/analytics/warning` | directory only |
+| 仓储追溯 | `/module-wms/analytics/trace` | `module_wms:trace:query` |
+| 试用工具 | `/module-wms/trial-tools` | directory only |
+| 试用数据 | `/module-wms/trial-tools/demo` | `module_wms:demo:init` |
 
 V1 master data currently uses the shared `module_wms:master:query/create/update/delete` permissions for the unified master-data entry. Workflow pages should follow resource-specific actions such as `query/create/update/delete/import/export/confirm/cancel/audit/freeze/unfreeze/print` when they are implemented.
+
+Current WMS seed only appends product menus. Before real tenant acceptance, add product role and package-menu seed data so non-super users can see the new grouped parent directories and their authorized pages. Recommended first roles: `WMS管理员`, `仓管员`, `质检员`, `生产领料员`, `库存主管`, `只读审计员`.
 
 ## 5. Product Assembly
 
@@ -166,29 +178,40 @@ disabled_plugins = ["module_example"]
 enabled_route_groups = [
   "auth",
   "home",
-  "dashboard",
   "system",
   "platform",
   "module-wms",
   "user-profile",
-  "payment",
   "workspace",
   "outside",
   "exception"
 ]
-disabled_route_groups = ["ai-chat", "module-task", "module-generator", "pricing", "article", "tutorial", "changelog"]
+disabled_route_groups = ["ai-chat", "dashboard", "module-task", "module-generator", "payment", "pricing", "article", "tutorial", "changelog"]
+
+[menu]
+disabled_paths = [
+  "/platform/package",
+  "/platform/order",
+  "/platform/invoice",
+  "/platform/plugin-market",
+  "/system/notice",
+  "/system/ticket"
+]
 
 [seed]
 packs = ["wms"]
 
 [features]
-flags = { ai_assistant = false, plugin_market = false, tenant_package = true, demo_content = false, fast_enter = true, wms_demo_data = true }
+flags = { ai_assistant = false, plugin_market = false, tenant_billing = false, tenant_package = true, demo_content = false, fast_enter = true, wms_demo_data = true }
 ```
 
 Placement decision for V1:
 
 - Keep backend plugins `module_ai`, `module_task`, and `module_generator` enabled so framework capabilities remain maintainable and reusable.
 - Hide framework management entrances from the WMS frontend: `AI管理`, `任务管理`, and `代码管理/代码生成`.
+- Hide tenant-distribution finance entrances from the WMS frontend: `套餐管理`, `订单管理`, `发票管理`, `支付页面`, and the billing widgets inside `租户工作台`.
+- Hide first-version non-core platform operations: `插件市场`, `公告管理`, and `工单管理`.
+- Keep multi-tenant foundations visible: `租户管理`, `菜单管理`, `邮件管理`, and a slimmed `租户工作台`.
 - Build WMS-facing AI or task workflows later under `module_wms` business pages, reusing framework services behind the scenes instead of exposing framework admin screens directly.
 
 Local development already uses the WMS assembly. The WMS seed pack depends on `business-admin` and appends product-specific seed files after framework seed packs; do not copy WMS menus into framework seed JSON.
@@ -208,6 +231,9 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - Create/maintain: `frontend/web/src/views/module_wms/`
 
 - [x] Create the WMS assembly file from section 5.
+- [x] Reorganize WMS menus from a flat second level into operation-oriented groups.
+- [x] Hide first-version non-core framework/platform menus by route group and menu path.
+- [ ] Add WMS product role and package-menu seed data for non-super tenant verification.
 - [x] Keep visible subtraction in assembly and feature flags; do not physically delete framework source.
 - [x] Hide FastapiAdmin demo/marketing links behind `demoContent` or WMS config.
 - [x] Create WMS backend and frontend module directories.

@@ -34,6 +34,7 @@ import { AppRouteRecord } from "@/types/router";
 import { getFirstMenuPath } from "@utils";
 import { HOME_PAGE_PATH } from "@/router";
 import { mergeShellRoutesIntoMenu } from "@/router/staticRoutes";
+import { useAssemblyStore } from "./assembly.store";
 
 /**
  * 菜单状态管理
@@ -56,7 +57,10 @@ export const useMenuStore = defineStore(
      * @param list 菜单路由记录数组
      */
     const setMenuList = (list: AppRouteRecord[]) => {
-      const merged = mergeShellRoutesIntoMenu(list);
+      const assemblyStore = useAssemblyStore();
+      const merged = mergeShellRoutesIntoMenu(list, {
+        includeDashboard: assemblyStore.isRouteGroupEnabled("dashboard"),
+      });
       menuList.value = merged;
       setHomePath(HOME_PAGE_PATH || getFirstMenuPath(merged));
     };

@@ -141,24 +141,33 @@ disabled_plugins = ["module_example"]
 enabled_route_groups = [
   "auth",
   "home",
-  "dashboard",
   "system",
   "platform",
   "module-wms",
   "user-profile",
   "exception"
 ]
-disabled_route_groups = ["ai-chat", "module-task", "module-generator", "pricing", "article", "tutorial", "changelog"]
+disabled_route_groups = ["ai-chat", "dashboard", "module-task", "module-generator", "payment", "pricing", "article", "tutorial", "changelog"]
+
+[menu]
+disabled_paths = [
+  "/platform/package",
+  "/platform/order",
+  "/platform/invoice",
+  "/platform/plugin-market",
+  "/system/notice",
+  "/system/ticket"
+]
 
 [seed]
 packs = ["wms"]
 
 [features]
-flags = { demo_content = false, ai_assistant = false, fast_enter = true }
+flags = { demo_content = false, ai_assistant = false, tenant_billing = false, fast_enter = true }
 ```
 
 框架不要对 `name = "wms"` 做任何特殊判断。`wms` 只是产品仓库选择的装配文件名。
-该示例同时说明：后端插件启用不等于前端管理入口必须展示。产品可以保留框架能力，同时通过 route group 和 feature flag 隐藏业务用户不该直接看到的管理界面。
+该示例同时说明：后端插件启用不等于前端管理入口必须展示。产品可以保留框架能力，同时通过 route group、精确菜单路径和 feature flag 隐藏业务用户不该直接看到的管理界面。WMS 仍保留 `platform` route group，因为多租户、菜单、邮件和品牌工作台是产品底座；只是把套餐、订单、发票、插件市场等非 V1 运行入口裁掉。
 
 ## 6. 后端框架改造建议
 

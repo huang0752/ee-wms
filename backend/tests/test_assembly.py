@@ -24,6 +24,9 @@ disabled_plugins = ["module_example"]
 enabled_route_groups = ["home", "system"]
 disabled_route_groups = ["pricing"]
 
+[menu]
+disabled_paths = ["/system/notice"]
+
 [seed]
 packs = ["minimal"]
 
@@ -40,6 +43,7 @@ flags = { ai_assistant = false }
     assert assembly.is_plugin_enabled("module_task")
     assert assembly.is_route_group_enabled("home")
     assert not assembly.is_route_group_enabled("pricing")
+    assert assembly.disabled_menu_paths == ["/system/notice"]
     assert assembly.seed_packs == ["minimal"]
     assert assembly.frontend_summary()["featureFlags"]["aiAssistant"] is False
 
@@ -127,13 +131,21 @@ def test_wms_assembly_cuts_demo_and_marketing_entries() -> None:
     assert assembly.is_plugin_enabled("module_task")
     assert assembly.is_plugin_enabled("module_generator")
     assert not assembly.is_route_group_enabled("ai-chat")
+    assert not assembly.is_route_group_enabled("dashboard")
     assert not assembly.is_route_group_enabled("module-task")
     assert not assembly.is_route_group_enabled("module-generator")
+    assert not assembly.is_route_group_enabled("payment")
     assert not assembly.is_route_group_enabled("pricing")
     assert not assembly.is_route_group_enabled("article")
     assert not assembly.is_route_group_enabled("tutorial")
     assert not assembly.is_route_group_enabled("changelog")
     assert assembly.is_route_group_enabled("module-wms")
+    assert "/platform/package" in assembly.disabled_menu_paths
+    assert "/platform/order" in assembly.disabled_menu_paths
+    assert "/platform/invoice" in assembly.disabled_menu_paths
+    assert "/platform/plugin-market" in assembly.disabled_menu_paths
+    assert "/system/notice" in assembly.disabled_menu_paths
+    assert "/system/ticket" in assembly.disabled_menu_paths
     assert assembly.seed_packs == ["wms"]
     assert assembly.frontend_summary()["featureFlags"]["aiAssistant"] is False
     assert assembly.frontend_summary()["featureFlags"]["demoContent"] is False
@@ -149,6 +161,17 @@ def test_assembly_filters_runtime_menu_tree_by_plugin_and_route_group() -> None:
         {"title": "系统管理", "route_path": "/system", "children": []},
         {"title": "监控管理", "route_path": "/monitor", "children": []},
         {"title": "接口管理", "route_path": "/swagger", "children": []},
+        {
+            "title": "平台管理",
+            "route_path": "/platform",
+            "children": [
+                {"title": "租户管理", "route_path": "tenant"},
+                {"title": "套餐管理", "route_path": "package"},
+                {"title": "订单管理", "route_path": "order"},
+                {"title": "发票管理", "route_path": "invoice"},
+                {"title": "插件市场", "route_path": "plugin-market"},
+            ],
+        },
         {
             "title": "任务管理",
             "route_path": "/task",
@@ -188,6 +211,17 @@ def test_wms_assembly_filters_runtime_menu_tree() -> None:
         {"title": "监控管理", "route_path": "/monitor", "children": []},
         {"title": "接口管理", "route_path": "/swagger", "children": []},
         {
+            "title": "平台管理",
+            "route_path": "/platform",
+            "children": [
+                {"title": "租户管理", "route_path": "tenant"},
+                {"title": "套餐管理", "route_path": "package"},
+                {"title": "订单管理", "route_path": "order"},
+                {"title": "发票管理", "route_path": "invoice"},
+                {"title": "插件市场", "route_path": "plugin-market"},
+            ],
+        },
+        {
             "title": "任务管理",
             "route_path": "/task",
             "children": [{"title": "业务任务", "route_path": "business/task"}],
@@ -222,12 +256,16 @@ def test_wms_assembly_filters_runtime_menu_tree() -> None:
     titles = {item["title"] for item in filtered}
 
     assert "系统管理" in titles
+    assert "平台管理" in titles
     assert "代码管理" not in titles
     assert "任务管理" not in titles
     assert "AI管理" not in titles
     assert "监控管理" not in titles
     assert "接口管理" not in titles
     assert "案例管理" not in titles
+    platform = next(item for item in filtered if item["title"] == "平台管理")
+    platform_titles = {item["title"] for item in platform["children"]}
+    assert platform_titles == {"租户管理"}
 
 
 @pytest.mark.asyncio
@@ -317,10 +355,24 @@ async def test_wms_seed_appends_product_menu_to_base_seed() -> None:
         flat_menus = _flatten_menu_seed(menus)
         top_paths = {item.get("route_path") for item in menus}
         permissions = {item.get("permission") for item in flat_menus}
+        route_names = {item.get("route_name") for item in flat_menus}
+        redirects = {item.get("route_name"): item.get("redirect") for item in flat_menus}
 
         assert "/platform" in top_paths
         assert "/system" in top_paths
         assert "/module-wms" in top_paths
+        assert "WmsOps" in route_names
+        assert "WmsReceiving" in route_names
+        assert "WmsShipping" in route_names
+        assert "WmsInventory" in route_names
+        assert "WmsAnalytics" in route_names
+        assert redirects["WmsOps"] == "/module-wms/ops/dashboard"
+        assert redirects["WmsBase"] == "/module-wms/base/master"
+        assert redirects["WmsReceiving"] == "/module-wms/receiving/arrival"
+        assert redirects["WmsShipping"] == "/module-wms/shipping/outbound"
+        assert redirects["WmsInventory"] == "/module-wms/inventory/stock"
+        assert redirects["WmsAnalytics"] == "/module-wms/analytics/warning"
+        assert redirects["WmsTrialTools"] == "/module-wms/trial-tools/demo"
         assert "module_wms:dashboard:query" in permissions
         assert "module_wms:master:query" in permissions
         assert "module_wms:master:create" in permissions
