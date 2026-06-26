@@ -16,7 +16,7 @@ The system already has an intelligence foundation, but WMS business intelligence
 
 | Area | Current Implementation | Gap |
 |---|---|---|
-| Platform LLM | `backend/app/plugin/module_ai/chat/service.py` provides `AiRuntimeService`, platform default model resolution, encrypted API key, and basic audit. | Missing token usage, latency, prompt key, and structured WMS usage conventions. |
+| Platform LLM | `backend/app/plugin/module_ai/chat/service.py` provides `AiRuntimeService`, platform default model resolution, encrypted API key, LangChain `ChatOpenAI`, and basic audit. | Missing a stable structured-output runtime contract, token usage, latency, prompt key, and WMS usage conventions. |
 | Model Config | DeepSeek is configured locally as platform default; frontend model config is super-admin only. | WMS business pages do not consume the model yet. |
 | WMS Warnings | `WmsStockWarningService.scan()` creates safety stock and shortage warnings. | No reason summary, severity scoring, handling suggestion, or AI explanation. |
 | WMS Recommendations | `WmsStockRecommendService.recommend_outbound()` returns available balances ordered by creation time. | No score, rule reason, stock policy explanation, or user-facing recommendation text. |
@@ -34,6 +34,44 @@ The target is not a free-form chatbot. The target is WMS-facing intelligence emb
 4. AI failures must degrade to deterministic rule templates.
 5. Frontend must label generated text as `智能摘要` or `智能建议`, not as official inventory truth.
 6. Any AI-assisted action that creates a task, opens a document, or proposes a stock operation must require user confirmation and permission checks.
+
+### 2.1 LangChain Runtime Decision
+
+Official docs checked for this plan:
+
+| Topic | Official Source |
+|---|---|
+| LangChain product boundary and model abstraction | `https://docs.langchain.com/oss/python/langchain/overview` |
+| `ChatOpenAI`, OpenAI-compatible endpoint behavior, base URL configuration, async support, token usage | `https://docs.langchain.com/oss/python/integrations/chat/openai` |
+| Structured output with schema validation | `https://docs.langchain.com/oss/python/langchain/structured-output` |
+| LangGraph positioning for long-running stateful workflows | `https://docs.langchain.com/oss/python/langgraph/overview` |
+| DeepSeek OpenAI-compatible chat API usage | `https://api-docs.deepseek.com/zh-cn/` |
+
+Decision:
+
+| Layer | Decision | Reason |
+|---|---|---|
+| Platform runtime | Use LangChain through `AiRuntimeService`. | The project already depends on `langchain-core` and `langchain-openai`, and the current runtime already wraps `ChatOpenAI`. |
+| Provider adapter | Use `ChatOpenAI` with explicit `model`, `api_key`, `base_url`, `temperature`, `timeout`, and max-token config from platform model settings. | DeepSeek exposes an OpenAI-compatible chat API, and platform config already stores model/base URL/key. |
+| WMS business code | Do not import LangChain, `ChatOpenAI`, OpenAI SDKs, or provider SDKs. | WMS must stay portable and only call platform-level `AiRuntimeService`. |
+| Structured outputs | Add a platform method such as `structured_generate()` and use Pydantic schemas for WMS summaries/advice. | WMS should validate AI output as application data instead of parsing prose. |
+| Provider-specific fields | Do not rely on DeepSeek-specific fields such as reasoning/thinking output in V1. | LangChain `ChatOpenAI` targets the OpenAI API shape and may not preserve non-standard provider fields. |
+| Agents/tools | Do not introduce `create_agent` or tool-calling for V1 WMS summaries. | Dashboard, warning advice, and recommendation explanations are one-shot generation/extraction tasks. |
+| LangGraph | Do not introduce LangGraph in V1. Revisit only for persistent, resumable workflows with approval gates. | V1 does not need durable execution, human-in-the-loop checkpoints, persistent graph state, or multi-step agent orchestration. |
+| LangSmith | Optional later, behind environment configuration only. | Local audit in Redis/logs is enough for V1; tracing/evaluation can be added when prompt quality becomes operationally important. |
+
+Runtime contract:
+
+```text
+WMS rule service
+  -> WMS AI enhancement service
+    -> AiRuntimeService.chat() for short prose only
+    -> AiRuntimeService.structured_generate() for validated Pydantic output
+      -> LangChain ChatOpenAI adapter
+        -> DeepSeek/OpenAI-compatible endpoint
+```
+
+If WMS later needs provider-specific DeepSeek fields, the change belongs in the platform adapter, not in WMS business modules.
 
 ## 3. Target Capabilities
 
@@ -81,8 +119,8 @@ Modify these backend files:
 | `backend/app/api/v1/module_wms/stock/recommend_service.py` | Add score and rule reason generation for outbound candidates. |
 | `backend/app/api/v1/module_wms/stock/schema.py` | Add scored recommendation response schema. |
 | `backend/app/api/v1/module_wms/warning/schema.py` | Add optional advice fields only if persisting advice is chosen. V1 can return advice without persisting. |
-| `backend/app/plugin/module_ai/chat/audit.py` | Add optional `prompt_key`, `duration_ms`, `input_tokens`, `output_tokens`, and `business_id`. |
-| `backend/app/plugin/module_ai/chat/service.py` | Populate duration and prompt metadata in `AiRuntimeService`; keep token usage best-effort. |
+| `backend/app/plugin/module_ai/chat/audit.py` | Add optional `runtime`, `provider`, `prompt_key`, `duration_ms`, `input_tokens`, `output_tokens`, and `business_id`. |
+| `backend/app/plugin/module_ai/chat/service.py` | Add `structured_generate()` to `AiRuntimeService`, keep LangChain hidden behind platform runtime, populate duration and prompt metadata, and keep token usage best-effort. |
 | `backend/tests/test_wms_intelligence.py` | New backend coverage for fallback, rule scoring, and AI call boundaries. |
 | `backend/tests/test_ai_platform_foundation.py` | Extend audit assertions for added metadata. |
 
@@ -107,6 +145,110 @@ Modify:
 | `frontend/web/src/views/module_wms/demo/index.vue` | Show generated scenario narrative after demo generation. |
 
 ## 5. Implementation Tasks
+
+### Task 0: Lock The Platform LangChain Runtime Contract
+
+**Files:**
+- Modify: `backend/app/plugin/module_ai/chat/service.py`
+- Modify: `backend/app/plugin/module_ai/chat/audit.py`
+- Modify: `backend/tests/test_ai_platform_foundation.py`
+
+This task must be done before WMS-specific AI code so every business module gets the same runtime, config, audit, and fallback behavior.
+
+- [ ] **Step 1: Write runtime contract tests**
+
+Extend `backend/tests/test_ai_platform_foundation.py` with fake model calls only. Do not call a live provider in unit tests.
+
+```python
+from pydantic import BaseModel
+
+from app.plugin.module_ai.chat.service import AiRuntimeService
+
+
+class RuntimeStructuredOut(BaseModel):
+    summary: str
+    risk_level: str
+
+
+async def fake_structured_runner(**kwargs):
+    assert kwargs["response_format"] is RuntimeStructuredOut
+    assert kwargs["model_config"]["base_url"] == "https://api.deepseek.com"
+    return RuntimeStructuredOut(summary="库存预警集中在低安全库存物料。", risk_level="warning")
+
+
+@pytest.mark.asyncio
+async def test_ai_runtime_structured_generate_uses_langchain_contract(fake_auth, fake_model_repository) -> None:
+    runtime = AiRuntimeService(
+        fake_auth,
+        repository=fake_model_repository,
+        chat_runner=fake_structured_runner,
+        audit_enabled=False,
+    )
+
+    result = await runtime.structured_generate(
+        "基于规则摘要生成结构化结果",
+        response_format=RuntimeStructuredOut,
+        source_module="module_wms",
+        source_feature="dashboard_summary",
+        prompt_key="wms.dashboard_summary.v1",
+        business_id="tenant:1",
+    )
+
+    assert result.summary == "库存预警集中在低安全库存物料。"
+    assert result.risk_level == "warning"
+```
+
+- [ ] **Step 2: Add a structured runtime method**
+
+Add this public method shape to `AiRuntimeService`:
+
+```python
+async def structured_generate(
+    self,
+    prompt: str,
+    *,
+    response_format: Any,
+    source_module: str,
+    source_feature: str,
+    prompt_key: str | None = None,
+    business_id: str | None = None,
+    system_prompt: str | None = None,
+) -> Any:
+    ...
+```
+
+Implementation requirements:
+
+- Resolve the platform default model through `resolve_default_model_config()`.
+- Call the existing LangChain runner with `response_format=response_format`.
+- Keep explicit `base_url` and `api_key` from platform config; do not rely on process-wide `OPENAI_API_KEY`.
+- Return the validated structured object or dict from LangChain.
+- Record source module, feature, prompt key, business id, duration, runtime name, and status through the audit path.
+- Raise the original exception so WMS services can return deterministic fallback.
+
+- [ ] **Step 3: Keep raw LangChain hidden inside the platform adapter**
+
+`_langchain_chat_runner()` may import `ChatOpenAI`, `SystemMessage`, and `HumanMessage`; WMS modules must not. If `response_format` is provided, it should use LangChain structured output and return the structured result instead of string-parsing natural language.
+
+```python
+runnable = llm.with_structured_output(response_format) if response_format is not None else llm
+result = await runnable.ainvoke(messages)
+if response_format is not None:
+    return result
+```
+
+- [ ] **Step 4: Keep DeepSeek-specific fields out of V1**
+
+Do not pass `thinking`, `reasoning_effort`, or provider-specific response fields from WMS in V1. If the product later needs DeepSeek reasoning traces, add a provider adapter at the platform runtime layer and document the behavior there.
+
+- [ ] **Step 5: Run tests and commit**
+
+```bash
+cd backend
+uv run pytest tests/test_ai_platform_foundation.py -q
+git add backend/app/plugin/module_ai/chat/service.py backend/app/plugin/module_ai/chat/audit.py backend/tests/test_ai_platform_foundation.py
+git commit -m "feat: 固化LangChain运行时结构化输出契约"
+```
 
 ### Task 1: Add WMS Intelligence Contracts
 
@@ -226,6 +368,11 @@ class WmsOutboundExplainOut(BaseModel):
     source: WmsIntelligenceSource
     summary: str
     candidates: list[WmsOutboundCandidateScore]
+
+
+class WmsIntelligenceDraft(BaseModel):
+    summary: str = Field(..., min_length=1, max_length=300)
+    bullets: list[str] = Field(default_factory=list, max_length=5)
 ```
 
 - [ ] **Step 4: Run schema test**
@@ -362,23 +509,36 @@ git add backend/app/api/v1/module_wms/intelligence/rule_service.py backend/tests
 git commit -m "feat: 增加WMS规则智能摘要"
 ```
 
-### Task 3: Add AI Enhancement Service With Fallback
+### Task 3: Add LangChain Structured AI Enhancement With Fallback
 
 **Files:**
 - Create: `backend/app/api/v1/module_wms/intelligence/ai_service.py`
 - Modify: `backend/tests/test_wms_intelligence.py`
 
-- [ ] **Step 1: Write AI fallback test**
+- [ ] **Step 1: Write structured AI success and fallback tests**
 
 Add:
 
 ```python
 from app.api.v1.module_wms.intelligence.ai_service import WmsIntelligenceAIService
+from app.api.v1.module_wms.intelligence.schema import WmsIntelligenceDraft
 
 
 class FailingRuntime:
-    async def chat(self, *args, **kwargs):
+    async def structured_generate(self, *args, **kwargs):
         raise RuntimeError("model unavailable")
+
+
+class StructuredRuntime:
+    async def structured_generate(self, *args, **kwargs):
+        assert kwargs["response_format"] is WmsIntelligenceDraft
+        assert kwargs["source_module"] == "module_wms"
+        assert kwargs["source_feature"] == "dashboard_summary"
+        assert kwargs["prompt_key"] == "wms.dashboard_summary.v1"
+        return WmsIntelligenceDraft(
+            summary="当前库存预警集中在安全库存不足物料，建议先处理 3 条预警。",
+            bullets=["优先处理安全库存不足", "复核待处理单据"],
+        )
 
 
 @pytest.mark.asyncio
@@ -394,18 +554,34 @@ async def test_ai_dashboard_summary_falls_back_to_rules(monkeypatch: pytest.Monk
 
     assert result.source == WmsIntelligenceSource.rule_fallback
     assert "未关闭预警" in result.summary
+
+
+@pytest.mark.asyncio
+async def test_ai_dashboard_summary_uses_structured_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    auth = AuthSchema(user=SimpleNamespace(id=1), tenant_id=1)
+
+    monkeypatch.setattr(
+        "app.api.v1.module_wms.intelligence.rule_service.WmsDashboardService",
+        lambda _auth: FakeDashboardService(),
+    )
+
+    result = await WmsIntelligenceAIService(auth, runtime=StructuredRuntime()).dashboard_summary()
+
+    assert result.source == WmsIntelligenceSource.ai
+    assert result.summary.startswith("当前库存预警")
+    assert result.bullets == ["优先处理安全库存不足", "复核待处理单据"]
 ```
 
 - [ ] **Step 2: Run failing test**
 
 ```bash
 cd backend
-uv run pytest tests/test_wms_intelligence.py::test_ai_dashboard_summary_falls_back_to_rules -q
+uv run pytest tests/test_wms_intelligence.py::test_ai_dashboard_summary_falls_back_to_rules tests/test_wms_intelligence.py::test_ai_dashboard_summary_uses_structured_output -q
 ```
 
 Expected: import failure because `ai_service.py` does not exist.
 
-- [ ] **Step 3: Implement AI service**
+- [ ] **Step 3: Implement AI service through `structured_generate()`**
 
 Create `backend/app/api/v1/module_wms/intelligence/ai_service.py`:
 
@@ -415,7 +591,7 @@ from app.core.logger import logger
 from app.plugin.module_ai.chat.service import AiRuntimeService
 
 from .rule_service import WmsIntelligenceRuleService
-from .schema import WmsIntelligenceSource, WmsIntelligenceSummaryOut
+from .schema import WmsIntelligenceDraft, WmsIntelligenceSource, WmsIntelligenceSummaryOut
 
 
 class WmsIntelligenceAIService:
@@ -428,33 +604,41 @@ class WmsIntelligenceAIService:
         fallback = await self.rule_service.dashboard_summary()
         prompt = (
             "你是 WMS 智慧仓储系统的业务分析助手。"
-            "请基于以下规则摘要生成一段更自然的中文仓储风险摘要，"
+            "请基于以下规则摘要生成结构化中文摘要，"
             "不要改变数量事实，不要编造不存在的库存数据。"
             f"标题：{fallback.title}\n"
             f"规则摘要：{fallback.summary}\n"
             f"要点：{'；'.join(fallback.bullets)}"
         )
         try:
-            text = await self.runtime.chat(
+            draft = await self.runtime.structured_generate(
                 prompt,
+                response_format=WmsIntelligenceDraft,
                 source_module="module_wms",
                 source_feature="dashboard_summary",
-                system_prompt="只输出 120 字以内的中文摘要。不得输出 JSON。",
+                prompt_key="wms.dashboard_summary.v1",
+                business_id=f"tenant:{self.auth.tenant_id}",
+                system_prompt="只返回符合结构化输出契约的中文仓储摘要，不得新增库存事实。",
             )
         except Exception as exc:
             logger.warning("WMS 智能摘要 AI 降级: {}", exc)
             return fallback
-        clean_text = text.strip()
-        if not clean_text:
+        if not draft.summary.strip():
             return fallback
-        return fallback.model_copy(update={"summary": clean_text, "source": WmsIntelligenceSource.ai})
+        return fallback.model_copy(
+            update={
+                "summary": draft.summary.strip(),
+                "bullets": draft.bullets or fallback.bullets,
+                "source": WmsIntelligenceSource.ai,
+            }
+        )
 ```
 
-- [ ] **Step 4: Run AI fallback test**
+- [ ] **Step 4: Run AI enhancement tests**
 
 ```bash
 cd backend
-uv run pytest tests/test_wms_intelligence.py::test_ai_dashboard_summary_falls_back_to_rules -q
+uv run pytest tests/test_wms_intelligence.py::test_ai_dashboard_summary_falls_back_to_rules tests/test_wms_intelligence.py::test_ai_dashboard_summary_uses_structured_output -q
 ```
 
 Expected: pass.
@@ -642,22 +826,30 @@ Add to `WmsIntelligenceAIService`:
         fallback = self.rule_service.warning_advice_from_warning(warning)
         prompt = (
             "你是 WMS 库存预警处理助手。请在不改变事实的前提下，"
-            "把以下规则建议改写成更清晰的处理建议。"
+            "把以下规则建议生成结构化中文建议。"
             f"预警类型：{fallback.warning_type}\n"
             f"原因：{fallback.reason}\n"
             f"规则建议：{fallback.advice}"
         )
         try:
-            text = await self.runtime.chat(
+            draft = await self.runtime.structured_generate(
                 prompt,
+                response_format=WmsIntelligenceDraft,
                 source_module="module_wms",
                 source_feature="warning_advice",
-                system_prompt="只输出 160 字以内中文建议，不要输出库存数量以外的新事实。",
+                prompt_key="wms.warning_advice.v1",
+                business_id=f"warning:{fallback.warning_id}",
+                system_prompt="只返回符合结构化输出契约的中文预警建议，不得新增库存事实。",
             )
         except Exception as exc:
             logger.warning("WMS 预警建议 AI 降级: {}", exc)
             return fallback
-        return fallback.model_copy(update={"advice": text.strip() or fallback.advice, "source": WmsIntelligenceSource.ai})
+        return fallback.model_copy(
+            update={
+                "advice": draft.summary.strip() or fallback.advice,
+                "source": WmsIntelligenceSource.ai,
+            }
+        )
 ```
 
 - [ ] **Step 4: Add endpoint**
@@ -1169,13 +1361,19 @@ record = AiCallAuditRecord(
     model_config={"model_id": "active-model", "api_key": "sk-secret"},
     source_module="module_wms",
     source_feature="stock_warning",
+    runtime="langchain",
+    provider="openai-compatible",
     prompt_key="wms.warning_advice.v1",
+    business_id="warning:12",
     duration_ms=123,
     status="success",
 )
 
 dumped = record.to_safe_dict()
+assert dumped["runtime"] == "langchain"
+assert dumped["provider"] == "openai-compatible"
 assert dumped["prompt_key"] == "wms.warning_advice.v1"
+assert dumped["business_id"] == "warning:12"
 assert dumped["duration_ms"] == 123
 assert "api_key" not in dumped["model_config"]
 ```
@@ -1185,6 +1383,8 @@ assert "api_key" not in dumped["model_config"]
 Modify `AiCallAuditRecord`:
 
 ```python
+runtime: str | None = None
+provider: str | None = None
 prompt_key: str | None = None
 business_id: str | None = None
 duration_ms: int | None = None
@@ -1206,7 +1406,7 @@ started_at = perf_counter()
 duration_ms = int((perf_counter() - started_at) * 1000)
 ```
 
-Pass `duration_ms=duration_ms` to `AiCallAuditRecord` on success and error.
+Pass `runtime="langchain"`, `provider="openai-compatible"`, `duration_ms=duration_ms`, and any `prompt_key`/`business_id` to `AiCallAuditRecord` on success and error for both `chat()` and `structured_generate()`.
 
 - [ ] **Step 4: Run tests**
 
@@ -1247,6 +1447,7 @@ Manual smoke checks:
 3. Stop or break the model config temporarily in a dev database copy and confirm dashboard still shows a rule fallback summary.
 4. Open WMS warning page and click `智能建议`; confirm advice appears and source tag is visible.
 5. Confirm normal WMS stock operations still work without AI.
+6. Run `rg -n "langchain|ChatOpenAI|openai" backend/app/api/v1/module_wms` and confirm WMS business modules do not import provider/runtime packages directly.
 
 ## 7. Acceptance Criteria
 
@@ -1258,22 +1459,25 @@ The implementation is acceptable when:
 4. AI failure does not break dashboard, warning, recommendation, or stock operations.
 5. All AI calls are made through platform default model configuration.
 6. No WMS code stores API keys, model keys, or tenant-level LLM settings.
-7. Frontend labels AI output clearly as `AI 摘要` or `AI 智能建议`.
-8. Backend tests cover rule fallback and AI failure paths.
-9. Frontend type check and backend test matrix pass.
+7. WMS AI output that is consumed as application data uses validated structured output, not prose parsing.
+8. WMS business code has no direct LangChain, OpenAI SDK, or provider SDK imports.
+9. Frontend labels AI output clearly as `AI 摘要` or `AI 智能建议`.
+10. Backend tests cover rule fallback and AI failure paths.
+11. Frontend type check and backend test matrix pass.
 
 ## 8. Rollout Order
 
 Use this order to keep risk low:
 
-1. Contracts and rule fallback.
-2. AI enhancement with fallback.
-3. API exposure.
-4. Dashboard summary.
-5. Warning advice.
-6. Outbound recommendation explanation.
-7. Stock check and demo-data enhancement.
-8. Audit metadata and operational hardening.
+1. Platform LangChain runtime contract.
+2. WMS contracts and rule fallback.
+3. Structured AI enhancement with fallback.
+4. API exposure.
+5. Dashboard summary.
+6. Warning advice.
+7. Outbound recommendation explanation.
+8. Stock check and demo-data enhancement.
+9. Audit metadata and operational hardening.
 
 Each step must be independently shippable. If a later AI feature is delayed, the earlier dashboard and warning intelligence still remain useful.
 
@@ -1281,7 +1485,8 @@ Each step must be independently shippable. If a later AI feature is delayed, the
 
 Spec coverage:
 
-- Platform default LLM usage is covered in Tasks 3, 4, 5, and 10.
+- Platform default LLM and LangChain runtime boundaries are covered in Tasks 0, 3, 4, 5, and 10.
+- Structured output is covered in Tasks 0, 1, 3, and 5.
 - Rule-first WMS intelligence is covered in Tasks 2, 5, and 6.
 - Dashboard, warning, outbound recommendation, stock check, and demo scenario are listed in target scope; dashboard and warning are first implementation path.
 - Frontend WMS-specific intelligent surfaces are covered in Tasks 7, 8, and 9.
@@ -1297,3 +1502,4 @@ Type consistency:
 - Backend response source values are `ai` and `rule_fallback`.
 - Frontend uses the same source union type.
 - WMS endpoints consistently live under `/wms/intelligence`.
+- WMS code calls `AiRuntimeService`, while LangChain and `ChatOpenAI` remain platform-layer dependencies.
