@@ -276,6 +276,11 @@ async def test_wms_seed_appends_product_menu_to_base_seed() -> None:
         assert "module_wms:dashboard:query" in permissions
         assert "module_wms:master:query" in permissions
         assert "module_wms:master:create" in permissions
+        assert "module_wms:stock:query" in permissions
+        assert "module_wms:stock:lock" in permissions
+        assert "module_wms:stock:unlock" in permissions
+        assert "module_wms:stock:freeze" in permissions
+        assert "module_wms:stock:adjust" in permissions
         assert not any(str(item.get("permission") or "").startswith("module_example:") for item in flat_menus)
     finally:
         settings.APP_ASSEMBLY_FILE = old_file

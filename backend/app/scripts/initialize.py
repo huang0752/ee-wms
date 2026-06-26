@@ -39,6 +39,13 @@ from app.api.v1.module_wms.master.model import (
     WmsWarehouseModel,
     WmsZoneModel,
 )
+from app.api.v1.module_wms.stock.model import (
+    WmsStockBalanceModel,
+    WmsStockBatchModel,
+    WmsStockFlowModel,
+    WmsStockLockModel,
+    WmsTraceLinkModel,
+)
 from app.config.path_conf import SCRIPT_DIR
 from app.core.assembly import get_assembly, known_plugin_module_codes, plugin_code_candidates
 from app.core.database import async_db_session, create_tables
@@ -106,6 +113,11 @@ class InitializeData:
         WmsSupplierModel,
         WmsCustomerModel,
         WmsBarcodeRuleModel,
+        WmsStockBatchModel,
+        WmsStockBalanceModel,
+        WmsStockFlowModel,
+        WmsStockLockModel,
+        WmsTraceLinkModel,
     ]
 
     # 树形模型：JSON 含嵌套 children，需递归创建对象

@@ -246,13 +246,13 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - Create `frontend/web/src/api/module_wms/stock.ts`.
 - Create `frontend/web/src/views/module_wms/stock/`.
 
-- [ ] Write tests for inbound flow creating balance.
-- [ ] Write tests for lock preventing double allocation.
-- [ ] Write tests for frozen/pending/defective stock excluded from outbound recommendation.
-- [ ] Write tests for flow-before-balance transaction behavior.
-- [ ] Implement ledger service methods: `receive_pending`, `approve_to_available`, `lock_stock`, `release_lock`, `ship_locked`, `freeze`, `unfreeze`, `adjust_after_check`.
-- [ ] Implement realtime stock query page.
-- [ ] Treat `sn_code` as optional metadata in ledger tests; batch number remains the required trace key.
+- [x] Write tests for inbound flow creating balance.
+- [x] Write tests for lock preventing double allocation.
+- [x] Write tests for frozen/pending/defective stock excluded from outbound recommendation.
+- [x] Write tests for flow-before-balance transaction behavior.
+- [x] Implement ledger service methods: `receive_pending`, `approve_to_available`, `lock_stock`, `release_lock`, `ship_locked`, `freeze`, `unfreeze`, `adjust_after_check`.
+- [x] Implement realtime stock query page.
+- [x] Treat `sn_code` as optional metadata in ledger tests; batch number remains the required trace key.
 - [ ] Commit: `feat: 增加WMS库存账核心`.
 
 ### Phase 3: Arrival, Inspection, And Inbound

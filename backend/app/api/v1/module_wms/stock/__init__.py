@@ -1,0 +1,2 @@
+"""WMS inventory ledger module."""
+
