@@ -209,7 +209,7 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - [x] Hide FastapiAdmin demo/marketing links behind `demoContent` or WMS config.
 - [x] Create WMS backend and frontend module directories.
 - [x] Create seed pack and product menu append file.
-- [ ] Verify WMS menu appears for superadmin after database initialization.
+- [x] Verify WMS menu appears for superadmin after database initialization.
 - [x] Run `cd backend && uv run pytest tests/test_assembly.py -q`.
 - [x] Run `cd frontend/web && corepack pnpm run type-check`.
 - [x] Commit: `chore: 收口WMS产品减法与模块空壳`.

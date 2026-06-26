@@ -91,6 +91,32 @@ def test_public_config_info_returns_assembly(test_client: TestClient) -> None:
     assert isinstance(payload["featureFlags"], dict)
 
 
+@pytest.mark.asyncio
+async def test_wms_menu_visible_for_superadmin_after_wms_seed_initialization() -> None:
+    old_file = settings.APP_ASSEMBLY_FILE
+    old_name = settings.APP_ASSEMBLY
+    settings.APP_ASSEMBLY_FILE = "app/assemblies/wms.toml"
+    settings.APP_ASSEMBLY = "wms"
+    reset_assembly_cache()
+
+    try:
+        initializer = InitializeData()
+        menus = _flatten_menu_seed(await initializer._InitializeData__load_json("platform_menu"))
+    finally:
+        settings.APP_ASSEMBLY_FILE = old_file
+        settings.APP_ASSEMBLY = old_name
+        reset_assembly_cache()
+
+    route_paths = {item.get("route_path") for item in menus}
+    route_names = {item.get("route_name") for item in menus}
+
+    assert "/module-wms" in route_paths
+    assert "dashboard" in route_paths
+    assert "demo" in route_paths
+    assert "WmsDashboard" in route_names
+    assert "WmsDemo" in route_names
+
+
 def test_wms_assembly_cuts_demo_and_marketing_entries() -> None:
     assembly = load_assembly_from_file(Path("app/assemblies/wms.toml"))
 
