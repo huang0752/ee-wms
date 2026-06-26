@@ -70,7 +70,7 @@ async def test_platform_model_config_does_not_expose_api_key_and_preserves_exist
             api_key="sk-secret-123456",
             model_id="deepseek-v4-flash",
             temperature=0.5,
-            max_tokens=20000,
+            max_tokens=200000,
             timeout_seconds=30,
             enabled=True,
             is_default=True,

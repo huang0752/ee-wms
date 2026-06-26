@@ -330,7 +330,7 @@ const form = reactive<AiModelConfigForm>({
   api_key: "",
   model_id: "",
   temperature: 0.7,
-  max_tokens: 20000,
+  max_tokens: 200000,
   timeout_seconds: 60,
   enabled: true,
   is_default: false,
@@ -424,7 +424,7 @@ const resetForm = () => {
   form.api_key = "";
   form.model_id = "";
   form.temperature = 0.7;
-  form.max_tokens = 20000;
+  form.max_tokens = 200000;
   form.timeout_seconds = 60;
   form.enabled = true;
   form.is_default = items.value.length === 0;
