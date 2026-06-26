@@ -358,12 +358,12 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - Create `backend/tests/test_wms_integration_contracts.py`.
 - Create docs under `docs/product/integration/`.
 
-- [ ] Define inbound contracts for material, purchase arrival, sales order, MES work order, BOM demand, completion inbound request.
-- [ ] Define outbound contracts for available stock, shortage result, issue result, inbound result, trace result.
-- [ ] Add idempotency keys for external requests.
-- [ ] Store external reference fields on business documents.
-- [ ] Keep V1 endpoints usable by manual tests and future sync clients; do not implement scheduled ERP/MES polling.
-- [ ] Commit: `feat: 增加WMS外部系统对接契约`.
+- [x] Define inbound contracts for material, purchase arrival, sales order, MES work order, BOM demand, completion inbound request.
+- [x] Define outbound contracts for available stock, shortage result, issue result, inbound result, trace result.
+- [x] Add idempotency keys for external requests.
+- [x] Store external reference fields on business documents.
+- [x] Keep V1 endpoints usable by manual tests and future sync clients; do not implement scheduled ERP/MES polling.
+- [x] Commit: `feat: 增加WMS外部系统对接契约`.
 
 ## 8. Verification Policy
 
@@ -398,6 +398,7 @@ Use one commit per phase or one commit per independently usable slice:
 - `feat: 增加WMS盘点调拨与库存预警`
 - `feat: 增加WMS追溯与仓储驾驶舱`
 - `feat: 增加WMS试用数据初始化`
+- `feat: 增加WMS外部系统对接契约`
 
 ## 10. Scope Guardrails
 

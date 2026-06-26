@@ -6,6 +6,7 @@ from .dashboard.controller import DashboardRouter
 from .demo.controller import DemoRouter
 from .inbound.controller import InboundRouter
 from .inspection.controller import InspectionRouter
+from .integration.controller import IntegrationRouter
 from .issue.controller import IssueRouter
 from .master.controller import MasterRouter
 from .outbound.controller import OutboundRouter
@@ -23,6 +24,7 @@ wms_router.include_router(StockRouter)
 wms_router.include_router(ArrivalRouter)
 wms_router.include_router(InspectionRouter)
 wms_router.include_router(InboundRouter)
+wms_router.include_router(IntegrationRouter)
 wms_router.include_router(OutboundRouter)
 wms_router.include_router(IssueRouter)
 wms_router.include_router(TransferRouter)

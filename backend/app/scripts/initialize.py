@@ -34,6 +34,7 @@ from app.api.v1.module_wms.arrival.model import WmsArrivalLineModel, WmsArrivalO
 from app.api.v1.module_wms.check.model import WmsStockCheckLineModel, WmsStockCheckOrderModel
 from app.api.v1.module_wms.inbound.model import WmsInboundLineModel, WmsInboundOrderModel
 from app.api.v1.module_wms.inspection.model import WmsInspectionLineModel, WmsInspectionTaskModel
+from app.api.v1.module_wms.integration.model import WmsIntegrationRequestModel
 from app.api.v1.module_wms.issue.model import WmsIssueLineModel, WmsIssueOrderModel
 from app.api.v1.module_wms.master.model import (
     WmsBarcodeRuleModel,
@@ -132,6 +133,7 @@ class InitializeData:
         WmsInspectionLineModel,
         WmsInboundOrderModel,
         WmsInboundLineModel,
+        WmsIntegrationRequestModel,
         WmsOutboundOrderModel,
         WmsOutboundLineModel,
         WmsIssueOrderModel,

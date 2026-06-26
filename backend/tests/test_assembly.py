@@ -296,6 +296,9 @@ async def test_wms_seed_appends_product_menu_to_base_seed() -> None:
         assert "module_wms:trace:query" in permissions
         assert "module_wms:demo:init" in permissions
         assert "module_wms:demo:clean" in permissions
+        assert "module_wms:integration:inbound" in permissions
+        assert "module_wms:integration:outbound" in permissions
+        assert "module_wms:integration:query" in permissions
         assert "module_wms:stock:query" in permissions
         assert "module_wms:stock:lock" in permissions
         assert "module_wms:stock:unlock" in permissions
