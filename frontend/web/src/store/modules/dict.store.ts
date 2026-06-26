@@ -31,7 +31,7 @@
  * - 减少重复请求
  *
  * @module store/modules/dict.store
- * @author FastapiAdmin Team
+ * @author EE WMS Team
  */
 import { store } from "@stores";
 import DictAPI, { DictDataTable } from "@/api/module_system/dict";

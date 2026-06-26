@@ -152,7 +152,7 @@ class InvoiceTenantService:
         if hasattr(invoice, "tenant_id") and invoice.tenant_id != tenant_id:
             raise CustomException(msg="发票不存在")
         if not invoice.oss_license_pdf_url:
-            raise CustomException(msg="开源授权函 PDF 不存在，请先开票")
+            raise CustomException(msg="授权声明函 PDF 不存在，请先开票")
         return invoice.oss_license_pdf_url
 
 
@@ -225,7 +225,7 @@ class InvoicePlatformService:
         if invoice.status != 0:
             raise CustomException(msg="仅待开票状态可操作")
 
-        # 调用开票服务：本地 WeasyPrint 渲染发票 PDF + 开源授权函 PDF（独立两个文件）
+        # 调用开票服务：本地 WeasyPrint 渲染发票 PDF + 授权声明函 PDF（独立两个文件）
         try:
             pdf_url_result = _render_invoice_pdf(invoice)
             oss_license_pdf_url_result = _render_oss_license_pdf(invoice)

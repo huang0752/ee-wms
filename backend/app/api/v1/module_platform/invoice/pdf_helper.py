@@ -46,13 +46,13 @@ def _render_invoice_pdf(invoice: InvoiceOutSchema) -> str:
         "buyer_tax_no": invoice.tax_no or "-",
         "buyer_address_info": invoice.address_info or "-",
         "buyer_bank_info": invoice.bank_info or "-",
-        "seller_name": "FastapiAdmin 平台",
+        "seller_name": "电工装备智慧仓储WMS系统",
         "seller_tax_no": "91310115MA1K00000X",
         "seller_address_info": "上海市浦东新区张江高科技园区",
         "seller_bank_info": "招商银行上海分行 1234 5678 9012 3456",
         "items": [
             {
-                "name": "FastapiAdmin 企业服务",
+                "name": "电工装备智慧仓储WMS系统服务",
                 "spec": "SaaS 订阅",
                 "unit": "套",
                 "quantity": "1",
@@ -84,7 +84,7 @@ def _render_invoice_pdf(invoice: InvoiceOutSchema) -> str:
 
 def _render_oss_license_pdf(invoice: InvoiceOutSchema) -> str:
     """
-    渲染并保存开源项目授权声明函 PDF（与发票 PDF 独立存储）
+    渲染并保存授权声明函 PDF（与发票 PDF 独立存储）
 
     参数:
     - invoice (InvoiceOutSchema): 发票对象（用于在授权函中展示关联发票号）
@@ -98,7 +98,7 @@ def _render_oss_license_pdf(invoice: InvoiceOutSchema) -> str:
     variables = {
         "invoice_no": invoice.invoice_no,
         "invoice_date": datetime.now().strftime("%Y-%m-%d"),
-        "product_version": "v1.0.0",
+        "product_version": "v2.0.0",
         "groups": groups,
         "total_packages": total_packages,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

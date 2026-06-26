@@ -26,7 +26,6 @@
  * - headerBar: 顶部栏功能配置
  *
  * @module config
- * @author FastapiAdmin Team
  */
 
 import { MenuThemeEnum, MenuTypeEnum, SystemThemeEnum } from "@/enums/appEnum";
@@ -38,7 +37,7 @@ import { headerBarConfig } from "./modules/headerBar";
 const appConfig: SystemConfig = {
   // 系统信息
   systemInfo: {
-    name: "EE WMS", // 系统名称
+    name: "电工装备智慧仓储WMS系统", // 系统名称
   },
   // 系统主题
   systemThemeStyles: {

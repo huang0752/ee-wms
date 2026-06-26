@@ -26,7 +26,7 @@
  * 4. 登出时调用移除函数清理路由
  *
  * @module store/modules/menu.store
- * @author FastapiAdmin Team
+ * @author EE WMS Team
  */
 import { defineStore } from "pinia";
 import { ref } from "vue";

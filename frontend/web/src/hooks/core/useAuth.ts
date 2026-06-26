@@ -27,7 +27,7 @@
  * ```
  *
  * @module useAuth
- * @author FastapiAdmin Team
+ * @author EE WMS Team
  */
 
 import { useRoute } from "vue-router";

@@ -42,7 +42,7 @@
  * ```
  *
  * @module useCeremony
- * @author FastapiAdmin Team
+ * @author EE WMS Team
  */
 
 import { useTimeoutFn, useIntervalFn, useDateFormat } from "@vueuse/core";

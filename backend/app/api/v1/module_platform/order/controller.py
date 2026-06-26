@@ -169,7 +169,7 @@ async def payment_mock_callback_controller(
     await mock_gw.create_payment(
         order_no=order.order_no,
         amount=order.amount,
-        subject=f"FastapiAdmin Mock Order {order.order_no}",
+        subject=f"电工装备智慧仓储WMS系统 Mock Order {order.order_no}",
         notify_url="",
     )
     callback_data = mock_gw.get_mock_callback_data(order.id, order.order_no)

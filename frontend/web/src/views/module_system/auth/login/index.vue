@@ -132,18 +132,16 @@
         >
           <div class="login-footer-text text-sm">
             <div class="login-footer-row">
-              <a
-                :href="configStore.configData?.git_code?.config_value || '#'"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="login-page-footer__link"
-              >
+              <span class="login-page-footer__record">
                 {{ configStore.configData?.copyright?.config_value || "" }}
-              </a>
+              </span>
             </div>
-            <span class="login-page-footer__sep login-footer-sep-center">|</span>
-            <div class="login-footer-row">
+            <span v-if="hasFooterLinks" class="login-page-footer__sep login-footer-sep-center"
+              >|</span
+            >
+            <div v-if="hasFooterLinks" class="login-footer-row">
               <a
+                v-if="configStore.configData?.help_doc?.config_value"
                 :href="configStore.configData?.help_doc?.config_value || '#'"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -151,8 +149,16 @@
               >
                 帮助
               </a>
-              <span class="login-page-footer__sep">|</span>
+              <span
+                v-if="
+                  configStore.configData?.help_doc?.config_value &&
+                  configStore.configData?.privacy?.config_value
+                "
+                class="login-page-footer__sep"
+                >|</span
+              >
               <a
+                v-if="configStore.configData?.privacy?.config_value"
                 :href="configStore.configData?.privacy?.config_value || '#'"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -160,8 +166,17 @@
               >
                 隐私
               </a>
-              <span class="login-page-footer__sep">|</span>
+              <span
+                v-if="
+                  (configStore.configData?.help_doc?.config_value ||
+                    configStore.configData?.privacy?.config_value) &&
+                  configStore.configData?.clause?.config_value
+                "
+                class="login-page-footer__sep"
+                >|</span
+              >
               <a
+                v-if="configStore.configData?.clause?.config_value"
                 :href="configStore.configData?.clause?.config_value || '#'"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -274,6 +289,13 @@ const panelSubTitle = computed(() => {
 });
 
 const userAgreementHref = computed(() => configStore.configData?.clause?.config_value || "#");
+const hasFooterLinks = computed(
+  () =>
+    Boolean(configStore.configData?.help_doc?.config_value) ||
+    Boolean(configStore.configData?.privacy?.config_value) ||
+    Boolean(configStore.configData?.clause?.config_value) ||
+    Boolean(configStore.configData?.keep_record?.config_value)
+);
 
 function setAuthPanel(panel: AuthPanel) {
   const nextPanel =
@@ -588,27 +610,6 @@ function resolveRedirectTarget(query: LocationQuery): RouteLocationRaw {
   }
 }
 
-let notificationInstance: ReturnType<typeof ElNotification> | null = null;
-
-const showVoteNotification = () => {
-  if (!allowDemoContent.value) return;
-  notificationInstance = ElNotification({
-    title: "⭐ FastapiAdmin 完全开源 · 期待您的 Star 支持 🙏",
-    message: `项目持续迭代中，若对您有所帮助，欢迎点亮 Star 支持！
-    <br/><a href="https://github.com/fastapiadmin/FastapiAdmin" target="_blank" style="color: var(--el-color-primary); text-decoration: none; font-weight: 500;">Github仓库 →</a>
-    <br/><a href="https://gitee.com/fastapiadmin/FastapiAdmin" target="_blank" style="color: var(--el-color-warning); text-decoration: none; font-weight: 500;">Gitee仓库 →</a>`,
-    type: "success",
-    position:
-      panelAlign.value === "right" || panelAlign.value === "center"
-        ? "bottom-left"
-        : "bottom-right",
-    duration: 0,
-    dangerouslyUseHTMLString: true,
-  });
-};
-
-let voteTimer: ReturnType<typeof setTimeout> | null = null;
-
 onMounted(async () => {
   await assemblyStore.loadPublicConfig();
   if (showDemoAccounts.value) {
@@ -623,9 +624,6 @@ onMounted(async () => {
     return;
   }
   getCaptcha();
-  if (allowDemoContent.value) {
-    voteTimer = setTimeout(showVoteNotification, 500);
-  }
 });
 
 onActivated(() => {
@@ -635,10 +633,7 @@ onActivated(() => {
 });
 
 onBeforeUnmount(() => {
-  if (voteTimer !== null) clearTimeout(voteTimer);
   if (forgetCodeTimer !== null) clearInterval(forgetCodeTimer);
-  notificationInstance?.close();
-  notificationInstance = null;
 });
 
 watch(

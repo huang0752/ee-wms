@@ -16,7 +16,7 @@
  * - AI 命令执行流程
  *
  * @module types/ai/index
- * @author FastapiAdmin Team
+ * @author EE WMS Team
  */
 
 /**

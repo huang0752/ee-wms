@@ -118,7 +118,7 @@ const siteTitle = computed(
   () => configStore.configData.tenant_name?.config_value?.trim() || AppConfig.systemInfo.name
 );
 
-const DEFAULT_APP_VERSION = "3.0.0";
+const DEFAULT_APP_VERSION = "2.0.0";
 const displayVersion = computed(() => {
   const raw = configStore.configData.tenant_version?.config_value?.trim();
   const ver = raw || DEFAULT_APP_VERSION;

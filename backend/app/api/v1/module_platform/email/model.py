@@ -26,7 +26,7 @@ class EmailConfigModel(ModelMixin):
     smtp_port: Mapped[int] = mapped_column(Integer, nullable=False, default=465, comment="SMTP 端口（465=SSL, 587=TLS）")
     smtp_user: Mapped[str] = mapped_column(String(255), nullable=False, comment="SMTP 登录用户名（发件邮箱）")
     smtp_password: Mapped[str] = mapped_column(String(255), nullable=False, comment="SMTP 授权密码（AES 加密存储）")
-    from_name: Mapped[str] = mapped_column(String(100), nullable=False, default="FastapiAdmin", comment="发件人显示名")
+    from_name: Mapped[str] = mapped_column(String(100), nullable=False, default="电工装备智慧仓储WMS系统", comment="发件人显示名")
     use_tls: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, comment="是否启用 SSL/TLS")
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, comment="是否为默认配置")
     timeout: Mapped[int] = mapped_column(Integer, nullable=False, default=30, comment="连接超时（秒）")

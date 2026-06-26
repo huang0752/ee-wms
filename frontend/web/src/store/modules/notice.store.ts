@@ -25,7 +25,7 @@
  * - 刷新页面后保留已读状态
  *
  * @module store/modules/notice.store
- * @author FastapiAdmin Team
+ * @author EE WMS Team
  */
 import { store } from "@stores";
 import NoticeAPI, { NoticeTable } from "@/api/module_system/notice";

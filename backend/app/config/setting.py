@@ -43,10 +43,10 @@ class Settings(BaseSettings):
     # ******************* API文档配置 ****************** #
     # ================================================= #
     DEBUG: bool = True  # 调试模式
-    TITLE: str = "🎉 FastapiAdmin 🎉 "  # 文档标题
-    VERSION: str = "0.1.0"  # 版本号
-    DESCRIPTION: str = "后台接口文档"  # 文档描述
-    SUMMARY: str = "接口汇总"  # 文档概述
+    TITLE: str = "电工装备智慧仓储WMS系统v2.0"  # 文档标题
+    VERSION: str = "2.0.0"  # 版本号
+    DESCRIPTION: str = "电工装备智慧仓储WMS系统接口文档"  # 文档描述
+    SUMMARY: str = "电工装备智慧仓储WMS系统接口汇总"  # 文档概述
     DOCS_URL: str = "/docs"  # Swagger UI路径
     REDOC_URL: str = "/redoc"  # ReDoc路径
     ROOT_PATH: str = "/api/v1"  # API路由前缀
@@ -100,8 +100,8 @@ class Settings(BaseSettings):
     # ================================================= #
     # *************** 软件使用证明配置 ***************** #
     # ================================================= #
-    USAGE_CERT_SYSTEM_NAME: str = "EE WMS 电工装备智慧仓储系统"
-    USAGE_CERT_SYSTEM_VERSION: str = "0.1.0"
+    USAGE_CERT_SYSTEM_NAME: str = "电工装备智慧仓储WMS系统"
+    USAGE_CERT_SYSTEM_VERSION: str = "2.0.0"
     USAGE_CERT_COVERAGE_SCOPE: str = "智能仓储、库存管理、批次追溯、MES 集成"
     USAGE_CERT_NO_PREFIX: str = "EE-WMS"
 
@@ -140,7 +140,7 @@ class Settings(BaseSettings):
     DATABASE_PORT: int = 3306
     DATABASE_USER: str = "root"
     DATABASE_PASSWORD: str = ""
-    DATABASE_NAME: str = "fastapiadmin"
+    DATABASE_NAME: str = "ee_wms_dev"
 
     # ================================================= #
     # ******************** Redis配置 ******************* #
@@ -248,7 +248,7 @@ class Settings(BaseSettings):
     # ================================================= #
     # ******************* 请求限制配置 ****************** #
     # ================================================= #
-    REQUEST_LIMITER_REDIS_PREFIX: str = "fastapiadmin:request_limiter:"
+    REQUEST_LIMITER_REDIS_PREFIX: str = "ee_wms:request_limiter:"
 
     # ================================================= #
     # ******************* 动态配置 ******************* #

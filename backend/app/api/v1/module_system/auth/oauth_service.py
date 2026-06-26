@@ -1,5 +1,5 @@
 """
-第三方 OAuth2 登录（微信开放平台扫码、QQ、GitHub、Gitee）。
+第三方 OAuth2 登录（微信开放平台扫码、QQ、外部代码托管账号）。
 
 各平台需在开放平台登记「授权回调域 / redirect_uri」为：
   {API}/system/auth/oauth/{provider}/callback
@@ -175,10 +175,10 @@ async def exchange_github_token(client_id: str, client_secret: str, code: str, r
         },
     )
     if not isinstance(data, dict):
-        raise CustomException(msg="GitHub token 响应格式错误")
+        raise CustomException(msg="外部账号 token 响应格式错误")
     token = data.get("access_token")
     if not token:
-        raise CustomException(msg=data.get("error_description") or "GitHub 换取令牌失败")
+        raise CustomException(msg=data.get("error_description") or "外部账号换取令牌失败")
     return str(token)
 
 
@@ -194,10 +194,10 @@ async def exchange_gitee_token(client_id: str, client_secret: str, code: str, re
     )
     data = await _http_json("GET", f"https://gitee.com/oauth/token?{qs}")
     if not isinstance(data, dict):
-        raise CustomException(msg="Gitee token 响应格式错误")
+        raise CustomException(msg="外部账号 token 响应格式错误")
     token = data.get("access_token")
     if not token:
-        raise CustomException(msg=data.get("error_description") or "Gitee 换取令牌失败")
+        raise CustomException(msg=data.get("error_description") or "外部账号换取令牌失败")
     return str(token)
 
 
@@ -252,7 +252,7 @@ async def fetch_github_profile(access_token: str) -> tuple[str, str, str | None]
     headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
     user = await _http_json("GET", "https://api.github.com/user", headers=headers)
     if not isinstance(user, dict):
-        raise CustomException(msg="GitHub 用户信息格式错误")
+        raise CustomException(msg="外部账号用户信息格式错误")
     login = str(user.get("login") or "")
     name = str(user.get("name") or login or "github")
     email = user.get("email")
@@ -272,7 +272,7 @@ async def fetch_gitee_profile(access_token: str) -> tuple[str, str, str | None]:
         params={"access_token": access_token},
     )
     if not isinstance(user, dict):
-        raise CustomException(msg="Gitee 用户信息格式错误")
+        raise CustomException(msg="外部账号用户信息格式错误")
     login = str(user.get("login") or "")
     name = str(user.get("name") or login)
     email = user.get("email")

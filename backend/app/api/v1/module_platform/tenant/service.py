@@ -709,7 +709,7 @@ class TenantService:
         """当前租户自助更新品牌配置。
 
         只允许写入展示品牌与法务链接字段，不允许通过自助入口修改套餐、状态、版本、
-        源码地址等平台治理字段。
+        产品链接等平台治理字段。
         """
         if not self.auth.tenant_id:
             raise CustomException(msg="当前会话缺少租户信息")

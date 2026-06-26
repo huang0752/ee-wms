@@ -55,16 +55,16 @@ class AgnoFactory:
                 temperature = float(model_config["temperature"])
 
         # 创建 Agent
-        fastapiadmin_agent = Agent(
+        wms_agent = Agent(
             id=user_id,
-            name="fastapiadmin_agent",
+            name="wms_agent",
             role="You are a helpful AI assistant",
             description=self.AGENT_DESCRIPTION,
             tools=[],
         )
 
         # 创建 Team
-        fastapiadmin_team = Team(
+        wms_team = Team(
             id=dept_id,
             user_id=user_id,
             session_id=session_id,
@@ -75,7 +75,7 @@ class AgnoFactory:
                 temperature=temperature,
                 timeout=self.REQUEST_TIMEOUT,
             ),
-            members=[fastapiadmin_agent],
+            members=[wms_agent],
             instructions=self.AGENT_INSTRUCTIONS,
             expected_output=self.AGENT_EXPECTED_OUTPUT,
             add_datetime_to_context=True,
@@ -89,4 +89,4 @@ class AgnoFactory:
             db=db,
         )
 
-        return fastapiadmin_team
+        return wms_team

@@ -21,7 +21,7 @@
  * - 配置数据验证
  *
  * @module types/config/index
- * @author FastapiAdmin Team
+ * @author EE WMS Team
  */
 
 import { MenuTypeEnum, SystemThemeEnum } from "@/enums/appEnum";

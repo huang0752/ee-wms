@@ -37,8 +37,8 @@
       "changeLog": "更新日志",
       "paramConfig": "配置中心",
       "docs": "使用文档",
-      "github": "Github",
-      "gitee": "Gitee",
+      "github": "外部账号",
+      "gitee": "外部账号",
       "tour": "功能引导",
       "lockScreen": "锁定屏幕",
       "logout": "退出登录"
@@ -429,8 +429,8 @@
     "oauthTooltip": {
       "wechat": "微信",
       "qq": "QQ",
-      "github": "GitHub",
-      "gitee": "Gitee"
+      "github": "外部账号",
+      "gitee": "外部账号"
     },
     "otherLoginMethods": "其他登录方式",
     "resetPassword": "重置密码",

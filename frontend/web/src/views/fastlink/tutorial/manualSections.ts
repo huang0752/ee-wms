@@ -350,7 +350,7 @@ export const MANUAL_MODULES_AFTER_SYSTEM: ManualModuleSection[] = [
         title: "工作台",
         path: "dashboard/workplace/index.vue",
         notes: [
-          "仪表盘子路由 `dashboard/workplace`：独立 `dashboard-container` 布局（含 Github 角标、问候区、天气文案、统计卡片与图表等，以页面为准）。",
+          "仪表盘子路由 `dashboard/workplace`：独立 `dashboard-container` 布局（含问候区、天气文案、统计卡片与图表等，以页面为准）。",
           "与 `/home` 所用 `dashboard/index.vue` 不是同一文件；完整性需单独打开该路由逐项看区块是否渲染。",
         ],
       },

@@ -60,7 +60,7 @@ async def invoice_download_controller(
     )
 
 
-@TenantInvoiceRouter.get("/{id}/license/download", summary="下载开源授权函PDF", response_model=ResponseSchema[dict])
+@TenantInvoiceRouter.get("/{id}/license/download", summary="下载授权声明函PDF", response_model=ResponseSchema[dict])
 async def invoice_license_download_controller(
     id: Annotated[int, Path(ge=1)],
     auth: Annotated[AuthSchema, Depends(AuthPermission())],

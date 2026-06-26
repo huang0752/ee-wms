@@ -44,7 +44,7 @@ class TenantModel(ModelMixin):
     help_doc: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None, comment="帮助文档地址")
     privacy: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None, comment="隐私政策地址")
     clause: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None, comment="服务条款地址")
-    git_code: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None, comment="源码地址")
+    git_code: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None, comment="产品链接")
     status: Mapped[int] = mapped_column(Integer, default=0, nullable=False, comment="状态(0:启动 1:停用)", index=True)
     description: Mapped[str | None] = mapped_column(Text, default=None, nullable=True, comment="备注")
 

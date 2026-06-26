@@ -37,8 +37,8 @@
       "changeLog": "Release notes",
       "paramConfig": "Config center",
       "docs": "Document",
-      "github": "Github",
-      "gitee": "Gitee",
+      "github": "External Account",
+      "gitee": "External Account",
       "tour": "Guided tour",
       "lockScreen": "Lock screen",
       "logout": "Log out"
@@ -429,8 +429,8 @@
     "oauthTooltip": {
       "wechat": "WeChat",
       "qq": "QQ",
-      "github": "GitHub",
-      "gitee": "Gitee"
+      "github": "External Account",
+      "gitee": "External Account"
     },
     "otherLoginMethods": "Other",
     "resetPassword": "Reset password",
@@ -650,7 +650,7 @@
     "dashboard": "Dashboard",
     "logout": "Logout",
     "document": "Document",
-    "gitee": "Gitee",
+    "gitee": "External Account",
     "lock": "Lock",
     "unlock": "Unlock",
     "profile": "User Profile",

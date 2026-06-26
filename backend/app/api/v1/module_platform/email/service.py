@@ -79,7 +79,7 @@ class EmailConfigService:
         if not config:
             raise CustomException(msg="SMTP 配置不存在")
 
-        subject = ("【FastapiAdmin】SMTP 连接测试")
+        subject = "【电工装备智慧仓储WMS系统】SMTP 连接测试"
         body_html = ("<p>这是一封测试邮件，SMTP 配置「{name}」连接成功！</p>"
                      "<p>发送时间：{time}</p>").format(name=config.name, time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 

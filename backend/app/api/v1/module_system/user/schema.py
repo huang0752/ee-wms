@@ -344,8 +344,8 @@ class UserOutSchema(UserUpdateSchema, BaseSchema, UserBySchema, TenantBySchema):
         exclude=True,
         description="创建入参使用；列表/详情出参见 tenant",
     )
-    gitee_login: str | None = Field(default=None, max_length=32, description="Gitee登录")
-    github_login: str | None = Field(default=None, max_length=32, description="Github登录")
+    gitee_login: str | None = Field(default=None, max_length=32, description="外部账号登录")
+    github_login: str | None = Field(default=None, max_length=32, description="外部账号登录")
     wx_login: str | None = Field(default=None, max_length=32, description="微信登录")
     qq_login: str | None = Field(default=None, max_length=32, description="QQ登录")
     dept_name: str | None = Field(default=None, description="部门名称")

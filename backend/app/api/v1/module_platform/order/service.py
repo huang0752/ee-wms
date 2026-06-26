@@ -245,10 +245,10 @@ class PaymentService:
             from app.api.v1.module_platform.plugin.model import PluginModel
 
             plugin = await auth.db.get(PluginModel, order.plugin_id)
-            subject = f"FastapiAdmin - 插件 {plugin.name}" if plugin else "FastapiAdmin 插件"
+            subject = f"电工装备智慧仓储WMS系统 - 插件 {plugin.name}" if plugin else "电工装备智慧仓储WMS系统 插件"
         else:
             pkg = await auth.db.get(PackageModel, order.package_id)
-            subject = f"FastapiAdmin - {pkg.name}" if pkg else "FastapiAdmin 套餐"
+            subject = f"电工装备智慧仓储WMS系统 - {pkg.name}" if pkg else "电工装备智慧仓储WMS系统 套餐"
 
         notify_url = f"{notify_base_url}/api/v1/platform/payment/callback/{method}" if method else ""
 

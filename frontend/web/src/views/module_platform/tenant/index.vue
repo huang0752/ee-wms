@@ -463,7 +463,6 @@ const tenantDetailItems: import("@/components/others/fa-descriptions/index.vue")
     { label: "网站图标", prop: "favicon", slot: "favicon" },
     { label: "登录背景", prop: "login_bg", slot: "login_bg" },
     { label: "帮助文档", prop: "help_doc" },
-    { label: "源码地址", prop: "git_code" },
     { label: "备案号", prop: "keep_record" },
     { label: "版权信息", prop: "copyright" },
     { label: "隐私政策", prop: "privacy" },
@@ -752,13 +751,6 @@ const securityFormItems: FormItem[] = [
     type: "input",
     span: 24,
     props: { placeholder: "帮助文档链接", maxlength: 500 },
-  },
-  {
-    label: "源码地址",
-    key: "git_code",
-    type: "input",
-    span: 24,
-    props: { placeholder: "Git 仓库地址", maxlength: 500 },
   },
   {
     label: "备案号",

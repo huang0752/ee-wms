@@ -108,7 +108,7 @@ def apply_preset(preset: StarterPreset, *, dry_run: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Apply FastapiAdmin product starter preset.")
+    parser = argparse.ArgumentParser(description="Apply product starter preset.")
     parser.add_argument("--preset", choices=sorted(PRESETS), default="minimal")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()

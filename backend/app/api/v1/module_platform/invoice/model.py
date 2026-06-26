@@ -30,7 +30,7 @@ class InvoiceModel(ModelMixin, TenantMixin, UserMixin):
     amount: Mapped[int] = mapped_column(Integer, nullable=False, comment="发票金额(分)")
     tax_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="税额(分)")
     pdf_url: Mapped[str | None] = mapped_column(String(500), nullable=True, comment="发票PDF下载地址")
-    oss_license_pdf_url: Mapped[str | None] = mapped_column(String(500), nullable=True, comment="开源授权函PDF下载地址")
+    oss_license_pdf_url: Mapped[str | None] = mapped_column(String(500), nullable=True, comment="授权声明函PDF下载地址")
     api_response: Mapped[str | None] = mapped_column(Text, nullable=True, comment="第三方API响应")
     status: Mapped[int] = mapped_column(Integer, default=0, nullable=False, comment="状态(0:待开票 1:已开票 2:开票失败 3:已作废)", index=True)
     description: Mapped[str | None] = mapped_column(Text, default=None, nullable=True, comment="备注")

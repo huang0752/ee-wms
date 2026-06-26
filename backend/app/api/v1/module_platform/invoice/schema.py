@@ -30,7 +30,7 @@ class InvoiceUpdateSchema(BaseModel):
 
     status: int | None = Field(default=None, ge=0, le=3, description="状态(0:待开票 1:已开票 2:开票失败 3:已作废)")
     pdf_url: str | None = Field(default=None, max_length=500, description="发票 PDF 下载地址")
-    oss_license_pdf_url: str | None = Field(default=None, max_length=500, description="开源授权函 PDF 下载地址")
+    oss_license_pdf_url: str | None = Field(default=None, max_length=500, description="授权声明函 PDF 下载地址")
     api_response: str | None = Field(default=None, description="第三方 API 响应")
     description: str | None = Field(default=None, description="备注")
 
@@ -52,7 +52,7 @@ class InvoiceIssueSchema(BaseModel):
 
     api_response: str | None = Field(default=None, description="第三方 API 响应（手动填入）")
     pdf_url: str | None = Field(default=None, max_length=500, description="发票 PDF 下载地址")
-    oss_license_pdf_url: str | None = Field(default=None, max_length=500, description="开源授权函 PDF 下载地址")
+    oss_license_pdf_url: str | None = Field(default=None, max_length=500, description="授权声明函 PDF 下载地址")
 
 
 class InvoiceVoidSchema(BaseModel):
@@ -67,7 +67,7 @@ class InvoiceOutSchema(InvoiceCreateSchema, BaseSchema, UserBySchema, TenantBySc
     model_config = ConfigDict(from_attributes=True)
 
     pdf_url: str | None = Field(default=None, description="发票 PDF 下载地址")
-    oss_license_pdf_url: str | None = Field(default=None, description="开源授权函 PDF 下载地址")
+    oss_license_pdf_url: str | None = Field(default=None, description="授权声明函 PDF 下载地址")
     api_response: str | None = Field(default=None, description="第三方 API 响应")
 
 

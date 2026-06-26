@@ -9,7 +9,7 @@ import { StorageConfig } from "@utils";
 import { BANNER } from "../../../build/banner";
 
 // -----------------------------
-// Console banner：ANSI 转义码生成网站  https://patorjk.com/software/taag/#p=testall&f=Fire+Font-k&t=fastapiadmin%0A&x=none&v=4&h=4&w=80&we=false
+// Console banner
 // -----------------------------
 
 export function printConsoleBanner(): void {
@@ -18,11 +18,7 @@ export function printConsoleBanner(): void {
 \x1b[0m
 \x1b[32m${BANNER}
 \x1b[0m
-\x1b[36m哇！你居然在用我的项目～ 好用的话别忘了去 GitHub 点个 ★Star 呀，你的支持就是我更新的超强动力！祝使用体验满分💯
-\x1b[0m
-\x1b[33mGitHub: https://github.com/fastapiadmin/FastapiAdmin
-\x1b[0m
-\x1b[31m技术支持（社区群）: https://service.fastapiadmin.com/about/，和开发者一起交流～ 群里有小伙伴实时答疑，遇到问题不用慌！
+\x1b[36m电工装备智慧仓储WMS系统已启动。
 \x1b[0m
 `;
 

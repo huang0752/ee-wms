@@ -43,7 +43,7 @@
  * - 每个用户每个自然日「自动礼花」流程只会完整播放一次（由 setting store 按自然日记录）。
  *
  * @module config/modules/festival
- * @author FastapiAdmin Team
+ * @author EE WMS Team
  */
 
 import { FestivalConfig } from "@/types/config";

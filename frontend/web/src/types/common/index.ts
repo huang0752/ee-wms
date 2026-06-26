@@ -24,7 +24,7 @@
  * - 减少重复类型定义
  *
  * @module types/common/index
- * @author FastapiAdmin Team
+ * @author EE WMS Team
  */
 
 // 状态类型

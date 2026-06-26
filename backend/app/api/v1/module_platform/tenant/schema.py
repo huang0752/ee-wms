@@ -34,7 +34,7 @@ class TenantCreateSchema(BaseModel):
     help_doc: str | None = Field(default=None, max_length=500, description="帮助文档地址")
     privacy: str | None = Field(default=None, max_length=500, description="隐私政策地址")
     clause: str | None = Field(default=None, max_length=500, description="服务条款地址")
-    git_code: str | None = Field(default=None, max_length=500, description="源码地址")
+    git_code: str | None = Field(default=None, max_length=500, description="产品链接")
 
     @field_validator("name")
     @classmethod
@@ -105,7 +105,7 @@ class TenantUpdateSchema(TenantCreateSchema):
     help_doc: str | None = Field(default=None, max_length=500, description="帮助文档地址")
     privacy: str | None = Field(default=None, max_length=500, description="隐私政策地址")
     clause: str | None = Field(default=None, max_length=500, description="服务条款地址")
-    git_code: str | None = Field(default=None, max_length=500, description="源码地址")
+    git_code: str | None = Field(default=None, max_length=500, description="产品链接")
 
     @field_validator("code")
     @classmethod

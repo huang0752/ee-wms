@@ -42,7 +42,7 @@ def setup_logger() -> None:
     )
     logger.add(sys.stdout, format=LOG_FMT, level=settings.LOGGER_LEVEL)
     logger.add(
-        str(LOG_DIR / "fastapiadmin.log"),
+        str(LOG_DIR / "ee-wms.log"),
         format=LOG_FMT,
         level="INFO",
         rotation="00:00",

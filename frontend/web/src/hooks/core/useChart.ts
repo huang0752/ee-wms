@@ -46,7 +46,7 @@
  * ```
  *
  * @module useChart
- * @author FastapiAdmin Team
+ * @author EE WMS Team
  */
 
 import { echarts, type EChartsOption } from "@/plugins/echarts";
