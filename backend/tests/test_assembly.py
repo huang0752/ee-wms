@@ -149,6 +149,7 @@ def test_wms_assembly_cuts_demo_and_marketing_entries() -> None:
     assert assembly.seed_packs == ["wms"]
     assert assembly.frontend_summary()["featureFlags"]["aiAssistant"] is False
     assert assembly.frontend_summary()["featureFlags"]["demoContent"] is False
+    assert assembly.frontend_summary()["featureFlags"]["tenantWorkspaceOverview"] is False
 
 
 def test_assembly_filters_runtime_menu_tree_by_plugin_and_route_group() -> None:

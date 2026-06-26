@@ -38,4 +38,4 @@ disabled_paths = [
 packs = ["wms"]
 
 [features]
-flags = { ai_assistant = false, plugin_market = false, tenant_billing = false, tenant_package = true, demo_content = false, fast_enter = true, wms_demo_data = true }
+flags = { ai_assistant = false, plugin_market = false, tenant_billing = false, tenant_workspace_overview = false, tenant_package = true, demo_content = false, fast_enter = true, wms_demo_data = true }

@@ -2,7 +2,7 @@
   <div class="fa-full-height">
     <ElTabs v-model="activeTab" @tab-change="onTabChange">
       <!-- ─── 工作台 ─── -->
-      <ElTabPane label="工作台" name="workspace">
+      <ElTabPane v-if="showWorkspaceOverview" label="工作台" name="workspace">
         <ElScrollbar
           v-if="workspace"
           class="workspace-scroll"
@@ -396,12 +396,17 @@ defineOptions({ name: "SelfService" });
 const router = useRouter();
 const configStore = useConfigStore();
 const assemblyStore = useAssemblyStore();
-const activeTab = ref("workspace");
+const activeTab = ref(
+  assemblyStore.isFeatureEnabled("tenantWorkspaceOverview", true) ? "workspace" : "brand"
+);
 
 // ─── 工作台 ───
 const workspace = ref<WorkspaceData | null>(null);
 const workspaceLoading = ref(false);
 const showTenantBilling = computed(() => assemblyStore.isFeatureEnabled("tenantBilling", true));
+const showWorkspaceOverview = computed(() =>
+  assemblyStore.isFeatureEnabled("tenantWorkspaceOverview", true)
+);
 const workspaceStatSpan = computed(() => (showTenantBilling.value ? 6 : 8));
 
 const recentOrderTimeline = computed(() => {
@@ -606,7 +611,7 @@ async function loadPackages() {
 }
 
 function onTabChange(tab: TabPaneName) {
-  if (tab === "workspace") loadWorkspace();
+  if (tab === "workspace" && showWorkspaceOverview.value) loadWorkspace();
   else if (tab === "brand") loadBrandConfig();
   else if (showTenantBilling.value && tab === "packages") loadPackages();
   else if (showTenantBilling.value && tab === "orders") getOrderData();
@@ -655,7 +660,13 @@ async function confirmAction() {
 }
 
 onMounted(() => {
-  loadWorkspace();
+  if (showWorkspaceOverview.value) {
+    activeTab.value = "workspace";
+    loadWorkspace();
+  } else {
+    activeTab.value = "brand";
+    loadBrandConfig();
+  }
 });
 </script>
 
