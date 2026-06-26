@@ -311,11 +311,8 @@ async function handleDynamicRoutes(to: RouteLocationNormalized, router: Router) 
   loadingService.showLoading();
 
   try {
-    // 1. 获取用户信息（若 login() 已拉取则跳过，避免重复请求）
-    const userStore = useUserStore();
-    if (!userStore.hasGetRoute) {
-      await fetchUserInfo();
-    }
+    // 1. 获取用户信息。routeList 会被持久化，启动时必须刷新，避免菜单 seed/权限更新后继续使用旧菜单。
+    await fetchUserInfo();
 
     // 2. 获取菜单数据
     const menuList = await menuProcessor.getMenuList();

@@ -198,6 +198,13 @@ class InitializeData:
                 if table_name in self._RECURSIVE_TABLES:
                     count = await db.execute(select(func.count()).select_from(model))
                     if count.scalar():
+                        if table_name == "platform_menu":
+                            added = await self.__append_missing_menu_tree(db, data, model)
+                            if added:
+                                logger.info(f"✅️ 已向 {table_name} 追加 {added} 条缺失菜单")
+                            else:
+                                logger.info(f"⏭️  跳过 {table_name} 表数据初始化（表已有数据且无缺失菜单）")
+                            continue
                         logger.info(f"⏭️  跳过 {table_name} 表数据初始化（表已有数据）")
                         continue
                     objs = self.__create_objects_with_children(data, model)
@@ -322,6 +329,66 @@ class InitializeData:
             return obj
 
         return [_create(item) for item in data]
+
+    async def __append_missing_menu_tree(
+        self,
+        db: AsyncSession,
+        data: list[dict],
+        model_class: type,
+        parent_id: int | None = None,
+    ) -> int:
+        """向已有菜单表幂等追加 seed 中缺失的菜单节点。"""
+        added = 0
+        for raw_item in data:
+            item = dict(raw_item)
+            children = item.pop("children", [])
+            menu = await self.__find_existing_menu(db, model_class, item, parent_id)
+            if menu is None:
+                menu = model_class(**item, parent_id=parent_id)
+                db.add(menu)
+                await db.flush()
+                added += 1
+            added += await self.__append_missing_menu_tree(db, children, model_class, menu.id)
+        return added
+
+    async def __find_existing_menu(
+        self,
+        db: AsyncSession,
+        model_class: type,
+        item: dict,
+        parent_id: int | None,
+    ) -> Any | None:
+        """按稳定路由/权限信息查找已存在菜单，避免重复追加。"""
+        conditions = [model_class.parent_id.is_(parent_id)] if parent_id is None else [model_class.parent_id == parent_id]
+        route_name = item.get("route_name")
+        route_path = item.get("route_path")
+        component_path = item.get("component_path")
+        permission = item.get("permission")
+
+        if route_name:
+            conditions.append(model_class.route_name == route_name)
+        elif route_path:
+            conditions.append(model_class.route_path == route_path)
+        elif component_path:
+            conditions.append(model_class.component_path == component_path)
+        elif permission:
+            conditions.extend(
+                [
+                    model_class.permission == permission,
+                    model_class.name == item.get("name"),
+                    model_class.type == item.get("type"),
+                ]
+            )
+        else:
+            conditions.extend(
+                [
+                    model_class.name == item.get("name"),
+                    model_class.type == item.get("type"),
+                ]
+            )
+
+        stmt = select(model_class).where(*conditions).limit(1)
+        return (await db.execute(stmt)).scalar_one_or_none()
 
     async def __load_json(self, filename: str) -> list[dict]:
         """读取并解析种子数据 JSON 文件"""

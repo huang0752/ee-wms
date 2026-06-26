@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import delete, func, or_, select
 
 from app.config.setting import settings
 from app.core.assembly import AssemblyConfig, load_assembly_from_file, reset_assembly_cache
@@ -331,6 +332,53 @@ async def test_wms_seed_appends_product_menu_to_base_seed() -> None:
         assert "module_wms:stock:freeze" in permissions
         assert "module_wms:stock:adjust" in permissions
         assert not any(str(item.get("permission") or "").startswith("module_example:") for item in flat_menus)
+    finally:
+        settings.APP_ASSEMBLY_FILE = old_file
+        settings.APP_ASSEMBLY = old_name
+        reset_assembly_cache()
+
+
+@pytest.mark.asyncio
+async def test_wms_seed_backfills_missing_menu_when_table_already_exists(test_client: TestClient) -> None:
+    old_file = settings.APP_ASSEMBLY_FILE
+    old_name = settings.APP_ASSEMBLY
+    settings.APP_ASSEMBLY_FILE = "app/assemblies/wms.toml"
+    settings.APP_ASSEMBLY = "wms"
+    reset_assembly_cache()
+
+    try:
+        from app.api.v1.module_platform.menu.model import MenuModel
+        from app.core.database import async_db_session
+
+        async with async_db_session() as db:
+            await db.execute(
+                delete(MenuModel).where(
+                    or_(
+                        MenuModel.route_name == "ModuleWms",
+                        MenuModel.permission.like("module_wms:%"),
+                        MenuModel.component_path.like("module_wms/%"),
+                    )
+                )
+            )
+            await db.commit()
+
+        await InitializeData().init_db()
+
+        async with async_db_session() as db:
+            total = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(MenuModel)
+                    .where(
+                        or_(
+                            MenuModel.route_name == "ModuleWms",
+                            MenuModel.permission.like("module_wms:%"),
+                            MenuModel.component_path.like("module_wms/%"),
+                        )
+                    )
+                )
+            ).scalar_one()
+        assert total > 0
     finally:
         settings.APP_ASSEMBLY_FILE = old_file
         settings.APP_ASSEMBLY = old_name
