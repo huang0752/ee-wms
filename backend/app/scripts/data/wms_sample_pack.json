@@ -1,0 +1,9 @@
+[
+  {
+    "code": "wms_starter",
+    "name": "WMS第一版试用样例",
+    "module": "wms",
+    "scenario": "starter",
+    "description": "生成仓储基础资料、采购到货、检验入库、库存余额、预警和批次追溯样例。"
+  }
+]

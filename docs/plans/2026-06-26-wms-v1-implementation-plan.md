@@ -210,9 +210,9 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - [x] Create WMS backend and frontend module directories.
 - [x] Create seed pack and product menu append file.
 - [ ] Verify WMS menu appears for superadmin after database initialization.
-- [ ] Run `cd backend && uv run pytest tests/test_assembly.py -q`.
-- [ ] Run `cd frontend/web && corepack pnpm run type-check`.
-- [ ] Commit: `chore: 收口WMS产品减法与模块空壳`.
+- [x] Run `cd backend && uv run pytest tests/test_assembly.py -q`.
+- [x] Run `cd frontend/web && corepack pnpm run type-check`.
+- [x] Commit: `chore: 收口WMS产品减法与模块空壳`.
 
 ### Phase 1: Master Data Foundation
 
@@ -232,7 +232,7 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - [x] Keep SN fields nullable and behind simple switches; no SN-only workflows in this phase.
 - [x] Run `cd backend && uv run pytest tests/test_wms_master.py tests/test_assembly.py -q`.
 - [x] Run `cd frontend/web && corepack pnpm run type-check`.
-- [ ] Commit: `feat: 增加WMS仓储基础资料`.
+- [x] Commit: `feat: 增加WMS仓储基础资料`.
 
 ### Phase 2: Inventory Ledger Core
 
@@ -253,7 +253,7 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - [x] Implement ledger service methods: `receive_pending`, `approve_to_available`, `lock_stock`, `release_lock`, `ship_locked`, `freeze`, `unfreeze`, `adjust_after_check`.
 - [x] Implement realtime stock query page.
 - [x] Treat `sn_code` as optional metadata in ledger tests; batch number remains the required trace key.
-- [ ] Commit: `feat: 增加WMS库存账核心`.
+- [x] Commit: `feat: 增加WMS库存账核心`.
 
 ### Phase 3: Arrival, Inspection, And Inbound
 
@@ -272,7 +272,7 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - [x] Implement location recommendation using material category and available capacity.
 - [x] Add pages for arrival list/detail, inspection task, inbound confirmation.
 - [x] Keep IQC local to WMS: store result, inspector, inspected time, attachment references, and optional `external_quality_id`.
-- [ ] Commit: `feat: 打通WMS采购到货入库闭环`.
+- [x] Commit: `feat: 打通WMS采购到货入库闭环`.
 
 ### Phase 4: Production Issue And Outbound
 
@@ -290,7 +290,7 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - [x] Test cancel releases locks.
 - [x] Add outbound and issue pages.
 - [x] Support manual and imported production demand first; MES work order fields are optional external references in V1.
-- [ ] Commit: `feat: 增加WMS出库与生产领料闭环`.
+- [x] Commit: `feat: 增加WMS出库与生产领料闭环`.
 
 ### Phase 5: Transfer, Stock Check, And Warning
 
@@ -309,7 +309,7 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - [x] Test safety stock, shortage, idle, overstock warnings.
 - [x] Add warning list with handle/close actions.
 - [x] Implement audit as permission-protected status transition; do not call workflow engine in V1.
-- [ ] Commit: `feat: 增加WMS盘点调拨与库存预警`.
+- [x] Commit: `feat: 增加WMS盘点调拨与库存预警`.
 
 ### Phase 6: Traceability And Dashboard
 
@@ -327,7 +327,7 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - [x] Test trace backward from product batch to material sources when links exist.
 - [x] Implement dashboard endpoints: `summary`, `tasks`, `stock-structure`, `trends`, `warnings`, `latest-flows`.
 - [x] Build dashboard with existing `FaStatsCard`, chart cards, and `FaTimelineListCard`.
-- [ ] Commit: `feat: 增加WMS追溯与仓储驾驶舱`.
+- [x] Commit: `feat: 增加WMS追溯与仓储驾驶舱`.
 
 ### Phase 7: Demo Data And AI-Enhanced Text
 
@@ -342,12 +342,12 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - Create `backend/tests/test_wms_demo_data.py`.
 - Create `frontend/web/src/views/module_wms/demo/`.
 
-- [ ] Test demo generation creates one `BusinessTask`.
-- [ ] Test all generated rows carry `tenant_id`, `is_demo`, and `demo_batch_id`.
-- [ ] Test cleanup only deletes rows for current tenant and batch.
-- [ ] Implement deterministic generator first; call AI only for names, descriptions, summaries, and suggestions.
-- [ ] Add demo initialization page with enterprise profile fields.
-- [ ] Commit: `feat: 增加WMS试用数据初始化`.
+- [x] Test demo generation creates one `BusinessTask`.
+- [x] Test all generated rows carry `tenant_id`, `is_demo`, and `demo_batch_id`.
+- [x] Test cleanup only deletes rows for current tenant and batch.
+- [x] Implement deterministic generator first; call AI only for names, descriptions, summaries, and suggestions.
+- [x] Add demo initialization page with enterprise profile fields.
+- [x] Commit: `feat: 增加WMS试用数据初始化`.
 
 ### Phase 8: Integration Boundaries
 

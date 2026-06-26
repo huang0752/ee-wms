@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from .arrival.controller import ArrivalRouter
 from .check.controller import CheckRouter
 from .dashboard.controller import DashboardRouter
+from .demo.controller import DemoRouter
 from .inbound.controller import InboundRouter
 from .inspection.controller import InspectionRouter
 from .issue.controller import IssueRouter
@@ -16,6 +17,7 @@ from .warning.controller import WarningRouter
 wms_router = APIRouter(prefix="/wms")
 
 wms_router.include_router(DashboardRouter)
+wms_router.include_router(DemoRouter)
 wms_router.include_router(MasterRouter)
 wms_router.include_router(StockRouter)
 wms_router.include_router(ArrivalRouter)
