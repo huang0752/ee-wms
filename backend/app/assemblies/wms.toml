@@ -1,0 +1,36 @@
+[assembly]
+name = "wms"
+title = "EE WMS 装配"
+description = "EE WMS 产品运行态装配：保留后台基础、任务、AI、代码生成与行业样例能力，裁剪演示和营销入口。"
+
+[core]
+required = ["auth", "tenant", "user", "role", "permission", "menu", "settings", "audit"]
+
+[backend]
+enabled_plugins = ["module_ai", "module_task", "module_generator"]
+disabled_plugins = ["module_example"]
+
+[frontend]
+enabled_route_groups = [
+  "auth",
+  "home",
+  "dashboard",
+  "system",
+  "platform",
+  "module-task",
+  "module-generator",
+  "ai-chat",
+  "module-wms",
+  "user-profile",
+  "payment",
+  "workspace",
+  "outside",
+  "exception"
+]
+disabled_route_groups = ["pricing", "article", "tutorial", "changelog"]
+
+[seed]
+packs = ["wms"]
+
+[features]
+flags = { ai_assistant = true, plugin_market = false, tenant_package = true, demo_content = false, fast_enter = true, wms_demo_data = true }

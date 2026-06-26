@@ -1,0 +1,7 @@
+name = "wms"
+depends = ["business-admin"]
+
+# WMS-specific menu, role, dictionary, and sample data files will be added with
+# the corresponding business modules. Keeping this pack explicit lets the
+# product use APP_ASSEMBLY=wms before WMS tables exist.
+tables = []

@@ -91,6 +91,23 @@ def test_public_config_info_returns_assembly(test_client: TestClient) -> None:
     assert isinstance(payload["featureFlags"], dict)
 
 
+def test_wms_assembly_cuts_demo_and_marketing_entries() -> None:
+    assembly = load_assembly_from_file(Path("app/assemblies/wms.toml"))
+
+    assert assembly.name == "wms"
+    assert not assembly.is_plugin_enabled("module_example")
+    assert assembly.is_plugin_enabled("module_ai")
+    assert assembly.is_plugin_enabled("module_task")
+    assert assembly.is_plugin_enabled("module_generator")
+    assert not assembly.is_route_group_enabled("pricing")
+    assert not assembly.is_route_group_enabled("article")
+    assert not assembly.is_route_group_enabled("tutorial")
+    assert not assembly.is_route_group_enabled("changelog")
+    assert assembly.is_route_group_enabled("module-wms")
+    assert assembly.seed_packs == ["wms"]
+    assert assembly.frontend_summary()["featureFlags"]["demoContent"] is False
+
+
 @pytest.mark.asyncio
 async def test_seed_data_filters_disabled_plugin_menus_and_relations() -> None:
     old_file = settings.APP_ASSEMBLY_FILE
