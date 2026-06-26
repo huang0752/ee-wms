@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from pydantic import BaseModel
 
 from app.core.base_schema import AuthSchema
 from app.core.exceptions import CustomException
@@ -55,6 +56,11 @@ def make_auth(*, superuser: bool = True) -> AuthSchema:
         user=SimpleNamespace(id=9001, username="alice", dept_id=7, is_superuser=superuser),
         tenant_id=42,
     )
+
+
+class RuntimeStructuredOut(BaseModel):
+    summary: str
+    risk_level: str
 
 
 @pytest.mark.asyncio
@@ -179,6 +185,48 @@ async def test_runtime_uses_platform_default_model_config() -> None:
 
 
 @pytest.mark.asyncio
+async def test_ai_runtime_structured_generate_uses_langchain_contract() -> None:
+    repo = MemoryAiConfigRepository()
+    service = PlatformAiModelConfigService(make_auth(), repository=repo)
+    await service.create(
+        AiModelConfigSchema(
+            name="DeepSeek",
+            provider_type="deepseek",
+            base_url="https://api.deepseek.com",
+            api_key="sk-active",
+            model_id="deepseek-v4-flash",
+            is_default=True,
+        )
+    )
+
+    async def fake_structured_runner(**kwargs):
+        assert kwargs["response_format"] is RuntimeStructuredOut
+        assert kwargs["model_config"]["base_url"] == "https://api.deepseek.com"
+        assert kwargs["system_prompt"] == "只返回结构化结果"
+        return RuntimeStructuredOut(summary="库存预警集中在低安全库存物料。", risk_level="warning")
+
+    runtime = AiRuntimeService(
+        make_auth(),
+        repository=repo,
+        chat_runner=fake_structured_runner,
+        audit_enabled=False,
+    )
+
+    result = await runtime.structured_generate(
+        "基于规则摘要生成结构化结果",
+        response_format=RuntimeStructuredOut,
+        source_module="module_wms",
+        source_feature="dashboard_summary",
+        prompt_key="wms.dashboard_summary.v1",
+        business_id="tenant:1",
+        system_prompt="只返回结构化结果",
+    )
+
+    assert result.summary == "库存预警集中在低安全库存物料。"
+    assert result.risk_level == "warning"
+
+
+@pytest.mark.asyncio
 async def test_missing_platform_default_model_config_is_controlled_error() -> None:
     repo = MemoryAiConfigRepository()
 
@@ -206,10 +254,20 @@ def test_ai_call_audit_record_redacts_api_key() -> None:
         model_config={"model_id": "active-model", "api_key": "sk-secret"},
         source_module="module_wms",
         source_feature="stock_warning",
+        runtime="langchain",
+        provider="openai-compatible",
+        prompt_key="wms.warning_advice.v1",
+        business_id="warning:12",
+        duration_ms=123,
         status="success",
     )
 
     dumped = record.to_safe_dict()
     assert dumped["model_config"]["model_id"] == "active-model"
     assert dumped["source_module"] == "module_wms"
+    assert dumped["runtime"] == "langchain"
+    assert dumped["provider"] == "openai-compatible"
+    assert dumped["prompt_key"] == "wms.warning_advice.v1"
+    assert dumped["business_id"] == "warning:12"
+    assert dumped["duration_ms"] == 123
     assert "api_key" not in dumped["model_config"]

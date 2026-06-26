@@ -4,6 +4,7 @@ import hashlib
 import json
 from collections.abc import AsyncGenerator
 from datetime import datetime
+from time import perf_counter
 from typing import Any
 
 from agno.session.team import TeamSession
@@ -594,7 +595,7 @@ async def _langchain_chat_runner(
     message: str,
     system_prompt: str | None = None,
     response_format: Any | None = None,
-) -> str:
+) -> Any:
     from langchain_core.messages import HumanMessage, SystemMessage
     from langchain_openai import ChatOpenAI
 
@@ -615,6 +616,8 @@ async def _langchain_chat_runner(
         messages.append(SystemMessage(content=system_prompt))
     messages.append(HumanMessage(content=message))
     result = await runnable.ainvoke(messages)
+    if response_format is not None:
+        return result
     if isinstance(result, str):
         return result
     content = getattr(result, "content", None)
@@ -648,11 +651,15 @@ class AiRuntimeService:
         source_module: str,
         source_feature: str,
         system_prompt: str | None = None,
+        prompt_key: str | None = None,
+        business_id: str | None = None,
     ) -> str:
         model_config: dict[str, Any] | None = None
+        started_at = perf_counter()
         try:
             model_config = await resolve_default_model_config(self.auth, repository=self.repository)
             response = await self.chat_runner(model_config=model_config, message=message, system_prompt=system_prompt)
+            duration_ms = int((perf_counter() - started_at) * 1000)
             if self.audit_enabled:
                 await record_ai_call_audit(
                     self.redis,
@@ -663,11 +670,17 @@ class AiRuntimeService:
                         model_config=model_config,
                         source_module=source_module,
                         source_feature=source_feature,
+                        runtime="langchain",
+                        provider="openai-compatible",
+                        prompt_key=prompt_key,
+                        business_id=business_id,
+                        duration_ms=duration_ms,
                         status="success",
                     ),
                 )
-            return response
+            return str(response)
         except Exception as exc:
+            duration_ms = int((perf_counter() - started_at) * 1000)
             if self.audit_enabled:
                 await record_ai_call_audit(
                     self.redis,
@@ -678,6 +691,11 @@ class AiRuntimeService:
                         model_config=model_config,
                         source_module=source_module,
                         source_feature=source_feature,
+                        runtime="langchain",
+                        provider="openai-compatible",
+                        prompt_key=prompt_key,
+                        business_id=business_id,
+                        duration_ms=duration_ms,
                         status="error",
                         error=str(exc),
                     ),
@@ -692,9 +710,78 @@ class AiRuntimeService:
         source_module: str,
         source_feature: str,
     ) -> str:
-        model_config = await resolve_default_model_config(self.auth, repository=self.repository)
-        return await self.chat_runner(
-            model_config=model_config,
-            message=prompt,
+        result = await self.structured_generate(
+            prompt,
             response_format=response_format,
+            source_module=source_module,
+            source_feature=source_feature,
         )
+        if isinstance(result, str):
+            return result
+        if hasattr(result, "model_dump"):
+            return json.dumps(result.model_dump(), ensure_ascii=False, default=str)
+        return json.dumps(result, ensure_ascii=False, default=str)
+
+    async def structured_generate(
+        self,
+        prompt: str,
+        *,
+        response_format: Any,
+        source_module: str,
+        source_feature: str,
+        prompt_key: str | None = None,
+        business_id: str | None = None,
+        system_prompt: str | None = None,
+    ) -> Any:
+        model_config: dict[str, Any] | None = None
+        started_at = perf_counter()
+        try:
+            model_config = await resolve_default_model_config(self.auth, repository=self.repository)
+            result = await self.chat_runner(
+                model_config=model_config,
+                message=prompt,
+                system_prompt=system_prompt,
+                response_format=response_format,
+            )
+            duration_ms = int((perf_counter() - started_at) * 1000)
+            if self.audit_enabled:
+                await record_ai_call_audit(
+                    self.redis,
+                    AiCallAuditRecord(
+                        user_id=getattr(self.auth.user, "id", None) if self.auth and self.auth.user else None,
+                        tenant_id=self.auth.tenant_id if self.auth else None,
+                        message=prompt,
+                        model_config=model_config,
+                        source_module=source_module,
+                        source_feature=source_feature,
+                        runtime="langchain",
+                        provider="openai-compatible",
+                        prompt_key=prompt_key,
+                        business_id=business_id,
+                        duration_ms=duration_ms,
+                        status="success",
+                    ),
+                )
+            return result
+        except Exception as exc:
+            duration_ms = int((perf_counter() - started_at) * 1000)
+            if self.audit_enabled:
+                await record_ai_call_audit(
+                    self.redis,
+                    AiCallAuditRecord(
+                        user_id=getattr(self.auth.user, "id", None) if self.auth and self.auth.user else None,
+                        tenant_id=self.auth.tenant_id if self.auth else None,
+                        message=prompt,
+                        model_config=model_config,
+                        source_module=source_module,
+                        source_feature=source_feature,
+                        runtime="langchain",
+                        provider="openai-compatible",
+                        prompt_key=prompt_key,
+                        business_id=business_id,
+                        duration_ms=duration_ms,
+                        status="error",
+                        error=str(exc),
+                    ),
+                )
+            raise

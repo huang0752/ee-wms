@@ -30,6 +30,13 @@ class AiCallAuditRecord:
     model_config: dict[str, Any] | None = None
     source_module: str | None = None
     source_feature: str | None = None
+    runtime: str | None = None
+    provider: str | None = None
+    prompt_key: str | None = None
+    business_id: str | None = None
+    duration_ms: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
     status: str = "unknown"
     error: str | None = None
     created_time: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -44,6 +51,13 @@ class AiCallAuditRecord:
             "model_config": _redact_model_config(self.model_config),
             "source_module": self.source_module,
             "source_feature": self.source_feature,
+            "runtime": self.runtime,
+            "provider": self.provider,
+            "prompt_key": self.prompt_key,
+            "business_id": self.business_id,
+            "duration_ms": self.duration_ms,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
             "status": self.status,
             "error": self.error,
             "created_time": self.created_time,

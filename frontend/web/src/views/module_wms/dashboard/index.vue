@@ -8,6 +8,8 @@
       <ElButton :loading="loading" :icon="Refresh" @click="loadDashboard">刷新</ElButton>
     </section>
 
+    <WmsIntelligenceSummary :summary="intelligenceSummary" />
+
     <ElRow :gutter="16">
       <ElCol v-for="metric in metrics" :key="metric.label" :xs="24" :sm="12" :lg="6" class="mb-4">
         <FaStatsCard
@@ -109,6 +111,8 @@ import {
   type WmsDashboardTrendItem,
   type WmsDashboardWarning,
 } from "@/api/module_wms/dashboard";
+import WmsIntelligenceSummary from "@/views/module_wms/components/WmsIntelligenceSummary.vue";
+import WmsIntelligenceAPI, { type WmsIntelligenceSummary as WmsIntelligenceSummaryData } from "@/api/module_wms/intelligence";
 
 defineOptions({ name: "WmsDashboard", inheritAttrs: false });
 
@@ -118,6 +122,7 @@ const stockStructure = ref<WmsDashboardStockStructure>();
 const trends = ref<WmsDashboardTrendItem[]>([]);
 const warnings = ref<WmsDashboardWarning[]>([]);
 const flows = ref<WmsDashboardFlow[]>([]);
+const intelligenceSummary = ref<WmsIntelligenceSummaryData>();
 
 const metrics = computed(() => summary.value?.metrics ?? []);
 const timelineTasks = computed(() =>
@@ -171,18 +176,20 @@ function flowTypeText(type: string) {
 async function loadDashboard() {
   loading.value = true;
   try {
-    const [summaryResp, structureResp, trendResp, warningResp, flowResp] = await Promise.all([
+    const [summaryResp, structureResp, trendResp, warningResp, flowResp, intelligenceResp] = await Promise.all([
       WmsDashboardAPI.summary(),
       WmsDashboardAPI.stockStructure(),
       WmsDashboardAPI.trends(),
       WmsDashboardAPI.warnings(),
       WmsDashboardAPI.latestFlows(),
+      WmsIntelligenceAPI.dashboardSummary(),
     ]);
     summary.value = summaryResp.data.data;
     stockStructure.value = structureResp.data.data;
     trends.value = trendResp.data.data;
     warnings.value = warningResp.data.data;
     flows.value = flowResp.data.data;
+    intelligenceSummary.value = intelligenceResp.data.data;
   } finally {
     loading.value = false;
   }

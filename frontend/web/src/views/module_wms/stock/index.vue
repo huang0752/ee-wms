@@ -10,6 +10,7 @@
           <ElButton :icon="Refresh" @click="refreshData" />
           <ElButton type="primary" :icon="Plus" @click="openAction('receive')">收货待检</ElButton>
           <ElButton :icon="Lock" @click="openAction('lock')">锁库</ElButton>
+          <ElButton :icon="DataAnalysis" :disabled="!query.material_id" @click="openOutboundExplain">推荐解释</ElButton>
         </div>
       </div>
     </ElCard>
@@ -105,18 +106,41 @@
         <ElButton type="primary" :loading="submitting" @click="submitAction">确认</ElButton>
       </template>
     </ElDialog>
+
+    <ElDrawer v-model="explainVisible" title="出库推荐解释" size="520px" destroy-on-close>
+      <ElEmpty v-if="!outboundExplain" description="暂无推荐解释" />
+      <div v-else class="wms-stock__explain">
+        <div class="wms-stock__explain-header">
+          <ElTag effect="plain">{{ outboundExplain.source === "ai" ? "AI 解释" : "规则解释" }}</ElTag>
+          <span>{{ outboundExplain.summary }}</span>
+        </div>
+        <ElTable :data="outboundExplain.candidates" row-key="balance_id">
+          <ElTableColumn prop="batch_no" label="批次" min-width="120" />
+          <ElTableColumn prop="available_qty" label="可用" width="100" />
+          <ElTableColumn prop="score" label="评分" width="90" />
+          <ElTableColumn label="原因" min-width="220">
+            <template #default="{ row }">
+              <div class="wms-stock__reason-list">
+                <span v-for="reason in row.rule_reasons" :key="reason">{{ reason }}</span>
+              </div>
+            </template>
+          </ElTableColumn>
+        </ElTable>
+      </div>
+    </ElDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, type FormInstance, type FormRules } from "element-plus";
-import { Lock, Plus, Refresh, Search } from "@element-plus/icons-vue";
+import { DataAnalysis, Lock, Plus, Refresh, Search } from "@element-plus/icons-vue";
 import WmsStockAPI, {
   type WmsStockBalance,
   type WmsStockFlow,
   type WmsStockMutationForm,
 } from "@/api/module_wms/stock";
+import WmsIntelligenceAPI, { type WmsOutboundExplain } from "@/api/module_wms/intelligence";
 
 defineOptions({ name: "WmsStock", inheritAttrs: false });
 
@@ -135,8 +159,10 @@ const balanceTotal = ref(0);
 const loading = ref(false);
 const submitting = ref(false);
 const dialogVisible = ref(false);
+const explainVisible = ref(false);
 const actionType = ref<ActionType>("receive");
 const formRef = ref<FormInstance>();
+const outboundExplain = ref<WmsOutboundExplain>();
 
 const query = reactive({
   page_no: 1,
@@ -243,6 +269,16 @@ async function submitAction() {
   }
 }
 
+async function openOutboundExplain() {
+  if (!query.material_id) return;
+  const response = await WmsIntelligenceAPI.outboundExplain({
+    material_id: query.material_id,
+    required_qty: "1",
+  });
+  outboundExplain.value = response.data.data;
+  explainVisible.value = true;
+}
+
 watch(activeTab, refreshData);
 onMounted(refreshData);
 </script>
@@ -279,5 +315,31 @@ onMounted(refreshData);
   display: flex;
   justify-content: flex-end;
   padding-top: 16px;
+}
+
+.wms-stock__explain {
+  display: grid;
+  gap: 16px;
+}
+
+.wms-stock__explain-header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  line-height: 1.7;
+}
+
+.wms-stock__reason-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wms-stock__reason-list span {
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
 }
 </style>
