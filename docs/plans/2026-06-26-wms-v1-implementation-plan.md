@@ -126,36 +126,41 @@ All inventory services must enforce:
 
 ## 4. Menu And Permission Plan
 
-Use these top-level menus:
+Use `/module-wms` as the dynamic menu root. The framework assembly derives menu route groups from the first route segment, so all WMS menu routes must stay under `/module-wms/...` and use the enabled `module-wms` route group. Do not create unrelated top-level route groups such as `wms-dashboard` unless the assembly and frontend route filtering are updated together.
 
-| Menu | Route group | Permission |
+Use these WMS menus:
+
+| Menu | Route | Permission |
 |---|---|---|
-| 仓储驾驶舱 | `wms-dashboard` | `module_wms:dashboard:query` |
-| 仓储基础 | `wms-master` | directory only |
-| 到货与检验 | `wms-arrival` | directory only |
-| 入库管理 | `wms-inbound` | directory only |
-| 出库管理 | `wms-outbound` | directory only |
-| 库存管理 | `wms-stock` | directory only |
-| 预警与分析 | `wms-warning` | directory only |
-| 仓储追溯 | `wms-trace` | `module_wms:trace:query` |
-| 试用数据 | `wms-demo` | `module_wms:demo:init` |
+| 仓储管理 | `/module-wms` | directory only |
+| 仓储驾驶舱 | `/module-wms/dashboard` | `module_wms:dashboard:query` |
+| 仓储基础 | `/module-wms/master` | directory only |
+| 到货与检验 | `/module-wms/arrival` | directory only |
+| 入库管理 | `/module-wms/inbound` | directory only |
+| 出库管理 | `/module-wms/outbound` | directory only |
+| 库存管理 | `/module-wms/stock` | directory only |
+| 预警与分析 | `/module-wms/warning` | directory only |
+| 仓储追溯 | `/module-wms/trace` | `module_wms:trace:query` |
+| 试用数据 | `/module-wms/demo` | `module_wms:demo:init` |
 
 Button permissions follow `query/create/update/delete/import/export/confirm/cancel/audit/freeze/unfreeze/print`.
 
 ## 5. Product Assembly
 
-Create `backend/app/assemblies/wms.toml`:
+Current `backend/app/assemblies/wms.toml` is already created and uses the current framework assembly schema:
 
 ```toml
 [assembly]
 name = "wms"
-title = "EE WMS"
-description = "Electrical equipment warehouse management product assembly"
+title = "EE WMS 装配"
+description = "EE WMS 产品运行态装配：保留后台基础、任务、AI、代码生成与行业样例能力，裁剪演示和营销入口。"
+
+[core]
+required = ["auth", "tenant", "user", "role", "permission", "menu", "settings", "audit"]
 
 [backend]
-enabled_core_modules = ["module_system", "module_platform", "module_common", "module_monitor"]
-enabled_plugin_modules = ["module_ai", "module_task", "module_generator"]
-disabled_plugin_modules = ["module_example"]
+enabled_plugins = ["module_ai", "module_task", "module_generator"]
+disabled_plugins = ["module_example"]
 
 [frontend]
 enabled_route_groups = [
@@ -169,6 +174,7 @@ enabled_route_groups = [
   "ai-chat",
   "module-wms",
   "user-profile",
+  "payment",
   "workspace",
   "outside",
   "exception"
@@ -176,36 +182,37 @@ enabled_route_groups = [
 disabled_route_groups = ["pricing", "article", "tutorial", "changelog"]
 
 [seed]
-packs = ["minimal", "wms"]
+packs = ["wms"]
 
-[feature_flags]
-ai_assistant = true
-fast_enter = true
-wms_demo_data = true
+[features]
+flags = { ai_assistant = true, plugin_market = false, tenant_package = true, demo_content = false, fast_enter = true, wms_demo_data = true }
 ```
 
-Add `APP_ASSEMBLY = "wms"` to local development env only after the WMS seed pack exists.
+Local development already uses the WMS assembly. The WMS seed pack depends on `business-admin` and appends product-specific seed files after framework seed packs; do not copy WMS menus into framework seed JSON.
 
 ## 6. Development Phases
 
-### Phase 0: Planning And Product Setup
+### Phase 0: Planning, Product Setup, And Visible Subtraction
 
-**Outcome:** WMS has a tracked plan, assembly, initial seed file, and module skeleton.
+**Outcome:** WMS has a tracked plan, current assembly schema, visible framework-demo subtraction, initial seed pack, WMS menu, and module skeleton.
 
 **Files:**
-- Create: `backend/app/assemblies/wms.toml`
-- Create: `backend/app/api/v1/module_wms/__init__.py`
-- Create: `backend/app/api/v1/module_wms/README.md`
-- Create: `frontend/web/src/api/module_wms/README.md`
-- Create: `frontend/web/src/views/module_wms/README.md`
-- Create: `backend/app/scripts/seeds/wms/seed.toml`
+- Existing: `backend/app/assemblies/wms.toml`
+- Existing: `backend/app/scripts/seeds/wms/seed.toml`
+- Create/maintain: `backend/app/scripts/seeds/wms/platform_menu.json`
+- Create/maintain: `backend/app/api/v1/module_wms/`
+- Create/maintain: `frontend/web/src/api/module_wms/`
+- Create/maintain: `frontend/web/src/views/module_wms/`
 
-- [ ] Create the WMS assembly file from section 5.
-- [ ] Create backend and frontend module directories.
-- [ ] Create an empty seed pack with only package metadata.
+- [x] Create the WMS assembly file from section 5.
+- [x] Keep visible subtraction in assembly and feature flags; do not physically delete framework source.
+- [x] Hide FastapiAdmin demo/marketing links behind `demoContent` or WMS config.
+- [x] Create WMS backend and frontend module directories.
+- [x] Create seed pack and product menu append file.
+- [ ] Verify WMS menu appears for superadmin after database initialization.
 - [ ] Run `cd backend && uv run pytest tests/test_assembly.py -q`.
 - [ ] Run `cd frontend/web && corepack pnpm run type-check`.
-- [ ] Commit: `chore: 初始化WMS产品装配骨架`.
+- [ ] Commit: `chore: 收口WMS产品减法与模块空壳`.
 
 ### Phase 1: Master Data Foundation
 

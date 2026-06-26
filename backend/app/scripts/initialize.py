@@ -271,20 +271,27 @@ class InitializeData:
 
     async def __load_json(self, filename: str) -> list[dict]:
         """读取并解析种子数据 JSON 文件"""
-        json_path = self._seed_files_by_table.get(filename) or SCRIPT_DIR / f"{filename}.json"
-        if not json_path.exists():
+        json_paths = self._seed_files_by_table.get(filename) or [SCRIPT_DIR / f"{filename}.json"]
+        if not json_paths:
             return []
 
         try:
-            with open(json_path, encoding="utf-8") as f:
-                raw = json.loads(f.read())
+            raw: list[dict] = []
+            for json_path in json_paths:
+                if not json_path.exists():
+                    continue
+                with open(json_path, encoding="utf-8") as f:
+                    loaded = json.loads(f.read())
+                if not isinstance(loaded, list):
+                    raise TypeError(f"{json_path} 须为 JSON 数组")
+                raw.extend(loaded)
             data = self.__filter_seed_data(filename, raw)
             return [self._parse_date_strings(item) for item in data]
         except json.JSONDecodeError as e:
-            logger.error(f"❌️ 解析 {json_path} 失败: {e!s}")
+            logger.error(f"❌️ 解析 {filename} seed 失败: {e!s}")
             raise
         except Exception as e:
-            logger.error(f"❌️ 读取 {json_path} 失败: {e!s}")
+            logger.error(f"❌️ 读取 {filename} seed 失败: {e!s}")
             raise
 
     def __filter_seed_data(self, table_name: str, data: list[dict]) -> list[dict]:

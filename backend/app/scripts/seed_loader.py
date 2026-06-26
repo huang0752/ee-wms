@@ -10,9 +10,11 @@ from app.config.path_conf import SCRIPT_DIR, SEEDS_DIR
 from app.core.assembly import get_assembly
 from app.core.logger import logger
 
+SeedFileMap = dict[str, list[Path]]
 
-def _legacy_seed_files() -> dict[str, Path]:
-    return {path.stem: path for path in SCRIPT_DIR.glob("*.json")}
+
+def _legacy_seed_files() -> SeedFileMap:
+    return {path.stem: [path] for path in SCRIPT_DIR.glob("*.json")}
 
 
 def _read_manifest(pack: str) -> tuple[list[str], list[dict[str, Any]], Path]:
@@ -56,14 +58,14 @@ def _resolve_pack_order(packs: list[str]) -> list[str]:
     return ordered
 
 
-def resolve_seed_files() -> dict[str, Path]:
+def resolve_seed_files() -> SeedFileMap:
     """返回 table_name -> JSON 文件路径。"""
     packs = get_assembly().seed_packs
     if not packs or "legacy" in packs:
         logger.info("✅ Seed packs 使用 legacy 兼容模式")
         return _legacy_seed_files()
 
-    seed_files: dict[str, Path] = {}
+    seed_files: SeedFileMap = {}
     for pack in _resolve_pack_order(packs):
         _, tables, manifest = _read_manifest(pack)
         base_dir = manifest.parent
@@ -76,7 +78,7 @@ def resolve_seed_files() -> dict[str, Path]:
             if not seed_file.exists():
                 raise FileNotFoundError(f"seed 数据文件不存在: {pack}/{filename}")
             if table in seed_files:
-                logger.warning("⚠️ seed table {} 被 pack {} 覆盖", table, pack)
-            seed_files[table] = seed_file
+                logger.info("➕ seed table {} 追加 pack {} 数据", table, pack)
+            seed_files.setdefault(table, []).append(seed_file)
     logger.info("✅ Seed packs loaded: {}", ",".join(packs))
     return seed_files

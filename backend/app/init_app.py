@@ -99,11 +99,13 @@ def register_routers(app: FastAPI) -> None:
     from app.api.v1.module_monitor import monitor_router
     from app.api.v1.module_platform import platform_router
     from app.api.v1.module_system import system_router
+    from app.api.v1.module_wms import wms_router
 
     app.include_router(common_router, dependencies=[Depends(RateLimiter(times=200, seconds=10))])
     app.include_router(monitor_router, dependencies=[Depends(RateLimiter(times=200, seconds=10))])
     app.include_router(platform_router, dependencies=[Depends(RateLimiter(times=200, seconds=10))])
     app.include_router(system_router, dependencies=[Depends(RateLimiter(times=200, seconds=10))])
+    app.include_router(wms_router, dependencies=[Depends(RateLimiter(times=200, seconds=10))])
 
     from app.core.assembly import is_plugin_enabled
 

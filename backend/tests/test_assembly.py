@@ -255,6 +255,32 @@ packs = ["legacy"]
         reset_assembly_cache()
 
 
+@pytest.mark.asyncio
+async def test_wms_seed_appends_product_menu_to_base_seed() -> None:
+    old_file = settings.APP_ASSEMBLY_FILE
+    old_name = settings.APP_ASSEMBLY
+    settings.APP_ASSEMBLY_FILE = "app/assemblies/wms.toml"
+    settings.APP_ASSEMBLY = "wms"
+    reset_assembly_cache()
+
+    try:
+        initializer = InitializeData()
+        menus = await initializer._InitializeData__load_json("platform_menu")
+        flat_menus = _flatten_menu_seed(menus)
+        top_paths = {item.get("route_path") for item in menus}
+        permissions = {item.get("permission") for item in flat_menus}
+
+        assert "/platform" in top_paths
+        assert "/system" in top_paths
+        assert "/module-wms" in top_paths
+        assert "module_wms:dashboard:query" in permissions
+        assert not any(str(item.get("permission") or "").startswith("module_example:") for item in flat_menus)
+    finally:
+        settings.APP_ASSEMBLY_FILE = old_file
+        settings.APP_ASSEMBLY = old_name
+        reset_assembly_cache()
+
+
 def _flatten_menu_seed(items: list[dict]) -> list[dict]:
     result: list[dict] = []
     for item in items:

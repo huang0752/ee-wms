@@ -54,6 +54,7 @@ const fastEnterConfig: FastEnterConfig = {
       enabled: true,
       order: 5,
       link: WEB_LINKS.DOCS,
+      featureFlag: "demoContent",
     },
     {
       name: "技术支持",
@@ -63,6 +64,7 @@ const fastEnterConfig: FastEnterConfig = {
       enabled: true,
       order: 6,
       link: WEB_LINKS.COMMUNITY,
+      featureFlag: "demoContent",
     },
     {
       name: "更新日志",

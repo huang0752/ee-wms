@@ -1,7 +1,9 @@
 name = "wms"
 depends = ["business-admin"]
 
-# WMS-specific menu, role, dictionary, and sample data files will be added with
-# the corresponding business modules. Keeping this pack explicit lets the
-# product use APP_ASSEMBLY=wms before WMS tables exist.
-tables = []
+# WMS-specific menu, role, dictionary, and sample data files live in the product
+# seed pack. Tables with the same name are appended after dependency packs.
+
+[[tables]]
+table = "platform_menu"
+file = "platform_menu.json"
