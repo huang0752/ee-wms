@@ -227,3 +227,18 @@ class WorkspaceOut(BaseModel):
     package: WorkspacePackageInfo | None = Field(default=None, description="当前套餐信息")
     quota: WorkspaceQuotaInfo = Field(..., description="配额用量")
     recent_orders: list[WorkspaceOrderItem] = Field(default_factory=list, description="近期订单(最多5条)")
+
+
+class UsageCertificatePreviewOut(BaseModel):
+    """
+    软件使用证明预览
+    """
+
+    certificate_no: str = Field(..., description="证明编号")
+    filename: str = Field(..., description="下载文件名")
+    enterprise_name: str = Field(..., description="企业名称")
+    tenant_code: str = Field(..., description="租户编码")
+    system_name: str = Field(..., description="系统名称")
+    system_version: str = Field(..., description="系统版本")
+    generated_at: str = Field(..., description="生成时间")
+    html: str = Field(..., description="证明 HTML")

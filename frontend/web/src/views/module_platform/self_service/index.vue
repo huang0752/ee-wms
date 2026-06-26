@@ -131,17 +131,8 @@
       <!-- ─── 品牌配置 ─── -->
       <ElTabPane label="品牌配置" name="brand">
         <ElCard shadow="hover" class="brand-card">
-          <ElForm
-            :model="brandForm"
-            label-width="110px"
-            class="brand-form"
-          >
+          <ElForm :model="brandForm" label-width="110px" class="brand-form">
             <ElRow :gutter="20">
-              <ElCol :xs="24" :md="12">
-                <ElFormItem label="租户名称" prop="tenant_name">
-                  <ElInput v-model="brandForm.tenant_name" maxlength="100" show-word-limit />
-                </ElFormItem>
-              </ElCol>
               <ElCol :xs="24" :md="12">
                 <ElFormItem label="备案号" prop="keep_record">
                   <ElInput v-model="brandForm.keep_record" maxlength="100" show-word-limit />
@@ -217,6 +208,49 @@
               </ElButton>
             </div>
           </ElForm>
+        </ElCard>
+      </ElTabPane>
+
+      <!-- ─── 使用证明 ─── -->
+      <ElTabPane v-if="showUsageCertificate" label="使用证明" name="usageCertificate">
+        <ElCard shadow="hover" class="certificate-card">
+          <template #header>
+            <div class="certificate-header">
+              <div>
+                <div class="certificate-title">企业软件使用证明</div>
+                <div v-if="usageCertificate" class="certificate-subtitle">
+                  {{ usageCertificate.enterprise_name }} · {{ usageCertificate.system_name }}
+                  {{ usageCertificate.system_version }}
+                </div>
+              </div>
+              <div class="certificate-actions">
+                <ElButton :loading="certificateLoading" @click="loadUsageCertificate">
+                  刷新预览
+                </ElButton>
+                <ElButton
+                  type="primary"
+                  :loading="certificateDownloading"
+                  @click="downloadUsageCertificate"
+                >
+                  下载证明
+                </ElButton>
+              </div>
+            </div>
+          </template>
+
+          <ElSkeleton v-if="certificateLoading && !usageCertificate" :rows="10" animated />
+          <div v-else-if="usageCertificate" class="certificate-preview">
+            <div class="certificate-meta">
+              <span>编号：{{ usageCertificate.certificate_no }}</span>
+              <span>生成时间：{{ usageCertificate.generated_at }}</span>
+            </div>
+            <iframe
+              class="certificate-frame"
+              title="企业软件使用证明预览"
+              :srcdoc="usageCertificate.html"
+            />
+          </div>
+          <ElEmpty v-else description="暂无证明预览" />
         </ElCard>
       </ElTabPane>
 
@@ -385,8 +419,10 @@ import type {
   PackageChangePreview,
   SelfServiceOrderItem,
   TenantBrandForm,
+  UsageCertificatePreview,
   WorkspaceData,
 } from "@/api/module_platform/self_service";
+import download from "@/utils/download";
 import { resolveStatusColumns } from "@utils";
 import type { DescriptionsItem } from "@/components/others/fa-descriptions/index.vue";
 import { useAssemblyStore, useConfigStore } from "@stores";
@@ -406,6 +442,9 @@ const workspaceLoading = ref(false);
 const showTenantBilling = computed(() => assemblyStore.isFeatureEnabled("tenantBilling", true));
 const showWorkspaceOverview = computed(() =>
   assemblyStore.isFeatureEnabled("tenantWorkspaceOverview", true)
+);
+const showUsageCertificate = computed(() =>
+  assemblyStore.isFeatureEnabled("tenantUsageCertificate", false)
 );
 const workspaceStatSpan = computed(() => (showTenantBilling.value ? 6 : 8));
 
@@ -444,7 +483,6 @@ async function loadWorkspace() {
 const brandLoading = ref(false);
 const brandSaving = ref(false);
 const brandForm = ref<TenantBrandForm>({
-  tenant_name: "",
   tenant_logo: "",
   favicon: "",
   login_bg: "",
@@ -458,7 +496,6 @@ const brandForm = ref<TenantBrandForm>({
 function applyBrandItems(items: Array<{ config_key?: string; config_value?: string | null }>) {
   const map = Object.fromEntries(items.map((item) => [item.config_key, item.config_value || ""]));
   brandForm.value = {
-    tenant_name: String(map.tenant_name ?? map.name ?? ""),
     tenant_logo: String(map.tenant_logo ?? map.logo_url ?? ""),
     favicon: String(map.favicon ?? ""),
     login_bg: String(map.login_bg ?? ""),
@@ -490,6 +527,32 @@ async function saveBrandConfig() {
     ElMessage.success("品牌配置已保存");
   } finally {
     brandSaving.value = false;
+  }
+}
+
+// ─── 使用证明 ───
+const usageCertificate = ref<UsageCertificatePreview | null>(null);
+const certificateLoading = ref(false);
+const certificateDownloading = ref(false);
+
+async function loadUsageCertificate() {
+  certificateLoading.value = true;
+  try {
+    const { data: res } = await SelfServiceAPI.getUsageCertificatePreview();
+    usageCertificate.value = (res?.data as UsageCertificatePreview) || null;
+  } finally {
+    certificateLoading.value = false;
+  }
+}
+
+async function downloadUsageCertificate() {
+  certificateDownloading.value = true;
+  try {
+    const response = await SelfServiceAPI.downloadUsageCertificate();
+    const blob = new Blob([response.data], { type: "text/html;charset=utf-8" });
+    download.saveAs(blob, usageCertificate.value?.filename || "企业软件使用证明.html");
+  } finally {
+    certificateDownloading.value = false;
   }
 }
 
@@ -613,6 +676,7 @@ async function loadPackages() {
 function onTabChange(tab: TabPaneName) {
   if (tab === "workspace" && showWorkspaceOverview.value) loadWorkspace();
   else if (tab === "brand") loadBrandConfig();
+  else if (tab === "usageCertificate" && showUsageCertificate.value) loadUsageCertificate();
   else if (showTenantBilling.value && tab === "packages") loadPackages();
   else if (showTenantBilling.value && tab === "orders") getOrderData();
 }
@@ -726,13 +790,13 @@ onMounted(() => {
 
 .brand-actions {
   display: flex;
-  justify-content: flex-end;
   gap: 10px;
+  justify-content: flex-end;
   padding-top: 12px;
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .brand-actions {
     flex-direction: column;
     align-items: stretch;
@@ -741,6 +805,78 @@ onMounted(() => {
       width: 100%;
       margin-left: 0;
     }
+  }
+}
+
+/* ─── 使用证明 ─── */
+.certificate-card {
+  min-height: 100%;
+}
+
+.certificate-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.certificate-title {
+  color: var(--el-text-color-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.certificate-subtitle {
+  margin-top: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.certificate-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.certificate-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.certificate-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.certificate-frame {
+  width: 100%;
+  height: 72vh;
+  min-height: 640px;
+  background: #fff;
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--custom-radius);
+}
+
+@media (width <= 768px) {
+  .certificate-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .certificate-actions {
+    flex-direction: column;
+
+    :deep(.el-button) {
+      width: 100%;
+      margin-left: 0;
+    }
+  }
+
+  .certificate-frame {
+    min-height: 520px;
   }
 }
 

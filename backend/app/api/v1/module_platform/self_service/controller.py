@@ -1,13 +1,15 @@
 from typing import Annotated
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Path, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi.responses import JSONResponse, Response
 
 from app.common.response import ResponseSchema, SuccessResponse
 from app.core.base_params import PaginationQueryParam
 from app.core.base_schema import AuthSchema
 from app.core.dependencies import AuthPermission, get_current_user
 from app.core.router_class import OperationLogRoute
+from app.utils.ip_local_util import get_client_ip
 
 from .schema import (
     PackageAvailableOut,
@@ -17,6 +19,7 @@ from .schema import (
     SelfOrderDetailOut,
     SelfOrderListOut,
     SelfOrderOut,
+    UsageCertificatePreviewOut,
     WorkspaceOut,
 )
 from .service import SelfService
@@ -114,3 +117,42 @@ async def tenant_workspace_controller(
 ) -> JSONResponse:
     result = await SelfService.get_workspace_data(auth=auth, tenant_id=auth.tenant_id)
     return SuccessResponse(data=result, msg="查询成功")
+
+@TenantSelfServiceRouter.get(
+    "/usage-certificate/preview",
+    summary="软件使用证明预览",
+    response_model=ResponseSchema[UsageCertificatePreviewOut],
+)
+async def usage_certificate_preview_controller(
+    request: Request,
+    auth: Annotated[AuthSchema, Depends(get_current_user)],
+) -> JSONResponse:
+    result = await SelfService.get_usage_certificate_preview(
+        auth=auth,
+        tenant_id=auth.tenant_id,
+        user_ip=get_client_ip(request),
+    )
+    return SuccessResponse(data=result, msg="查询成功")
+
+@TenantSelfServiceRouter.get(
+    "/usage-certificate/download",
+    summary="下载软件使用证明",
+)
+async def usage_certificate_download_controller(
+    request: Request,
+    auth: Annotated[AuthSchema, Depends(get_current_user)],
+) -> Response:
+    result = await SelfService.get_usage_certificate_preview(
+        auth=auth,
+        tenant_id=auth.tenant_id,
+        user_ip=get_client_ip(request),
+    )
+    filename = quote(result.filename)
+    return Response(
+        content=result.html,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+            "download-filename": filename,
+        },
+    )

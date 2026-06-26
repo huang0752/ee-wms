@@ -151,7 +151,8 @@ class TestTenant:
 
         assert resp.status_code == 200, resp.text
         items = {item["config_key"]: item["config_value"] for item in resp.json()["data"]}
-        assert items["tenant_name"] == "自助品牌租户"
+        assert "tenant_name" not in items
+        assert "name" not in items
         assert items["tenant_logo"] == "https://example.test/self-logo.svg"
         assert items["favicon"] == "https://example.test/self-favicon.ico"
         assert items["login_bg"] == "https://example.test/self-login-bg.svg"
@@ -159,7 +160,7 @@ class TestTenant:
         assert "git_code" not in items
 
         after = asyncio.run(_get_tenant_config_snapshot(1))
-        assert after["name"] == "自助品牌租户"
+        assert after["name"] == before["name"]
         assert after["logo_url"] == "https://example.test/self-logo.svg"
         assert after["login_bg"] == "https://example.test/self-login-bg.svg"
         assert after["version"] == before["version"]
@@ -546,3 +547,24 @@ class TestSelfService:
 
     def test_self_workspace(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(test_client, "GET", "/platform/tenant/workspace", auth=auth_headers)
+
+    def test_usage_certificate_preview_and_download(self, test_client: TestClient, auth_headers: dict) -> None:
+        preview_resp = test_client.get("/platform/tenant/usage-certificate/preview", headers=auth_headers)
+
+        assert preview_resp.status_code == 200, preview_resp.text
+        data = preview_resp.json()["data"]
+        assert data["certificate_no"].startswith("EE-WMS-")
+        assert data["filename"].startswith("企业软件使用证明-")
+        assert data["enterprise_name"]
+        assert data["system_name"] == "EE WMS 电工装备智慧仓储系统"
+        assert data["system_version"] == "0.1.0"
+        assert "企业软件使用证明" in data["html"]
+        assert data["enterprise_name"] in data["html"]
+        assert data["system_version"] in data["html"]
+        assert "系统版本由服务端环境变量固定配置" in data["html"]
+
+        download_resp = test_client.get("/platform/tenant/usage-certificate/download", headers=auth_headers)
+        assert download_resp.status_code == 200, download_resp.text
+        assert download_resp.headers["content-type"].startswith("text/html")
+        assert "attachment" in download_resp.headers["content-disposition"]
+        assert "企业软件使用证明" in download_resp.text

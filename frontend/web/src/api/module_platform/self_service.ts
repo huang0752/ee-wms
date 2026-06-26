@@ -54,6 +54,23 @@ const SelfServiceAPI = {
     });
   },
 
+  /** 软件使用证明预览 */
+  getUsageCertificatePreview() {
+    return request<ApiResponse<UsageCertificatePreview>>({
+      url: `${API_PATH}/usage-certificate/preview`,
+      method: "get",
+    });
+  },
+
+  /** 下载软件使用证明 */
+  downloadUsageCertificate() {
+    return request<Blob>({
+      url: `${API_PATH}/usage-certificate/download`,
+      method: "get",
+      responseType: "blob",
+    });
+  },
+
   /** 购买付费插件 */
   purchasePlugin(body: { plugin_id: number; pay_method?: string }) {
     return request<ApiResponse<{ id: number; order_no: string }>>({
@@ -176,7 +193,6 @@ export interface TenantBrandConfigItem {
 }
 
 export interface TenantBrandForm {
-  tenant_name: string;
   tenant_logo: string;
   favicon: string;
   login_bg: string;
@@ -185,4 +201,15 @@ export interface TenantBrandForm {
   help_doc: string;
   privacy: string;
   clause: string;
+}
+
+export interface UsageCertificatePreview {
+  certificate_no: string;
+  filename: string;
+  enterprise_name: string;
+  tenant_code: string;
+  system_name: string;
+  system_version: string;
+  generated_at: string;
+  html: string;
 }

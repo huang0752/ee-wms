@@ -35,7 +35,7 @@ TENANT_CONFIG_FIELDS = [
 ]
 
 TENANT_SELF_BRAND_CONFIG_FIELDS = {
-    "name", "logo_url", "favicon", "login_bg", "copyright",
+    "logo_url", "favicon", "login_bg", "copyright",
     "keep_record", "help_doc", "privacy", "clause",
 }
 
@@ -597,6 +597,8 @@ class TenantService:
             for k, v in config.items()
         ]
         for field, alias in TENANT_BRAND_CONFIG_FIELDS.items():
+            if field not in config:
+                continue
             value = config.get(field)
             items.append(TenantConfigOutSchema(config_key=alias, config_value=str(value) if value is not None else None))
         return items
