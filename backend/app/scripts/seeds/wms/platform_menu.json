@@ -1530,6 +1530,62 @@
             "scope": "tenant"
           }
         ]
+      },
+      {
+        "name": "仓储追溯",
+        "type": 2,
+        "icon": "ri:route-line",
+        "order": 11,
+        "permission": "module_wms:trace:query",
+        "route_name": "WmsTrace",
+        "route_path": "trace",
+        "component_path": "module_wms/trace/index",
+        "status": 0,
+        "keep_alive": true,
+        "hidden": false,
+        "always_show": false,
+        "title": "仓储追溯",
+        "params": null,
+        "affix": false,
+        "redirect": null,
+        "description": "WMS 批次追溯",
+        "client": "pc",
+        "link": null,
+        "is_iframe": false,
+        "is_hide_tab": false,
+        "active_path": null,
+        "show_badge": false,
+        "show_text_badge": null,
+        "scope": "tenant",
+        "children": [
+          {
+            "name": "查询",
+            "type": 3,
+            "icon": null,
+            "order": 1,
+            "permission": "module_wms:trace:query",
+            "route_name": null,
+            "route_path": null,
+            "component_path": null,
+            "status": 0,
+            "keep_alive": true,
+            "hidden": false,
+            "always_show": false,
+            "title": "查询",
+            "params": null,
+            "affix": false,
+            "redirect": null,
+            "description": "查询权限",
+            "client": "pc",
+            "link": null,
+            "is_iframe": false,
+            "is_hide_tab": false,
+            "active_path": null,
+            "show_badge": false,
+            "show_text_badge": null,
+            "scope": "tenant"
+          }
+        ]
       }
     ]
   }

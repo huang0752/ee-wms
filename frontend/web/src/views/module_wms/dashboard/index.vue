@@ -1,14 +1,11 @@
 <template>
   <div class="wms-dashboard">
-    <section class="wms-dashboard__hero">
+    <section class="wms-dashboard__header">
       <div>
-        <p class="wms-dashboard__kicker">EE WMS</p>
         <h1>仓储驾驶舱</h1>
-        <p>
-          第一版先建立可运行产品壳和稳定库存内核。当前页面作为 WMS 业务入口，后续阶段会接入真实仓库、物料、库存和单据数据。
-        </p>
+        <p>装配：{{ summary?.assembly || "wms" }} · 阶段：{{ summary?.phase || "v1-running-loop" }}</p>
       </div>
-      <ElTag effect="plain" type="success">装配：{{ summary?.assembly || "wms" }}</ElTag>
+      <ElButton :loading="loading" :icon="Refresh" @click="loadDashboard">刷新</ElButton>
     </section>
 
     <ElRow :gutter="16">
@@ -24,34 +21,78 @@
     </ElRow>
 
     <ElRow :gutter="16">
-      <ElCol :xs="24" :lg="14" class="mb-4">
+      <ElCol :xs="24" :lg="10" class="mb-4">
         <ElCard shadow="never" class="wms-dashboard__panel">
           <template #header>
-            <div class="wms-dashboard__panel-title">
-              <span>下一步建设</span>
-              <ElButton :loading="loading" :icon="Refresh" text @click="loadSummary" />
-            </div>
+            <span>库存结构</span>
           </template>
-          <ElTimeline>
-            <ElTimelineItem
-              v-for="item in nextSteps"
-              :key="item"
-              type="primary"
-              placement="top"
-            >
-              {{ item }}
-            </ElTimelineItem>
-          </ElTimeline>
+          <div v-for="item in stockBars" :key="item.label" class="wms-dashboard__bar">
+            <div>
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </div>
+            <ElProgress :percentage="item.percent" :status="item.status" :stroke-width="10" />
+          </div>
         </ElCard>
       </ElCol>
 
-      <ElCol :xs="24" :lg="10" class="mb-4">
+      <ElCol :xs="24" :lg="6" class="mb-4">
         <FaTimelineListCard
           title="阶段任务"
           subtitle="来自 WMS dashboard API"
           :list="timelineTasks"
           :max-count="5"
         />
+      </ElCol>
+
+      <ElCol :xs="24" :lg="8" class="mb-4">
+        <ElCard shadow="never" class="wms-dashboard__panel">
+          <template #header>
+            <span>流水趋势</span>
+          </template>
+          <div v-for="item in trendBars" :key="item.flow_type" class="wms-dashboard__bar">
+            <div>
+              <span>{{ flowTypeText(item.flow_type) }}</span>
+              <strong>{{ item.quantity }}</strong>
+            </div>
+            <ElProgress :percentage="item.percent" :stroke-width="10" />
+          </div>
+          <ElEmpty v-if="trendBars.length === 0" :image-size="80" description="暂无流水" />
+        </ElCard>
+      </ElCol>
+    </ElRow>
+
+    <ElRow :gutter="16">
+      <ElCol :xs="24" :lg="14" class="mb-4">
+        <ElCard shadow="never" class="wms-dashboard__panel">
+          <template #header>
+            <span>最新库存流水</span>
+          </template>
+          <ElTable :data="flows" height="320" row-key="id">
+            <ElTableColumn prop="flow_no" label="流水号" min-width="150" />
+            <ElTableColumn prop="flow_type" label="类型" width="150">
+              <template #default="{ row }">{{ flowTypeText(row.flow_type) }}</template>
+            </ElTableColumn>
+            <ElTableColumn prop="batch_no" label="批次" min-width="140" />
+            <ElTableColumn prop="quantity" label="数量" width="100" />
+            <ElTableColumn prop="document_no" label="单据号" min-width="140" />
+          </ElTable>
+        </ElCard>
+      </ElCol>
+
+      <ElCol :xs="24" :lg="10" class="mb-4">
+        <ElCard shadow="never" class="wms-dashboard__panel">
+          <template #header>
+            <span>未处理预警</span>
+          </template>
+          <ElTable :data="warnings" height="320" row-key="id">
+            <ElTableColumn prop="warning_no" label="预警号" min-width="140" />
+            <ElTableColumn prop="warning_type" label="类型" width="120" />
+            <ElTableColumn prop="material_id" label="物料ID" width="90" />
+            <ElTableColumn prop="current_qty" label="当前数" width="100" />
+            <ElTableColumn prop="status" label="状态" width="90" />
+          </ElTable>
+        </ElCard>
       </ElCol>
     </ElRow>
   </div>
@@ -60,15 +101,25 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { Refresh } from "@element-plus/icons-vue";
-import { WmsDashboardAPI, type WmsDashboardSummary } from "@/api/module_wms/dashboard";
+import {
+  WmsDashboardAPI,
+  type WmsDashboardFlow,
+  type WmsDashboardStockStructure,
+  type WmsDashboardSummary,
+  type WmsDashboardTrendItem,
+  type WmsDashboardWarning,
+} from "@/api/module_wms/dashboard";
 
 defineOptions({ name: "WmsDashboard", inheritAttrs: false });
 
 const loading = ref(false);
 const summary = ref<WmsDashboardSummary>();
+const stockStructure = ref<WmsDashboardStockStructure>();
+const trends = ref<WmsDashboardTrendItem[]>([]);
+const warnings = ref<WmsDashboardWarning[]>([]);
+const flows = ref<WmsDashboardFlow[]>([]);
 
 const metrics = computed(() => summary.value?.metrics ?? []);
-const nextSteps = computed(() => summary.value?.next_steps ?? []);
 const timelineTasks = computed(() =>
   (summary.value?.tasks ?? []).map((item) => ({
     time: item.time,
@@ -77,19 +128,68 @@ const timelineTasks = computed(() =>
     code: item.status,
   }))
 );
+const stockBars = computed(() => {
+  const structure = stockStructure.value ?? {
+    available_qty: "0",
+    locked_qty: "0",
+    frozen_qty: "0",
+    pending_qty: "0",
+    defective_qty: "0",
+  };
+  const rows = [
+    { label: "可用", value: Number(structure.available_qty), status: "success" as const },
+    { label: "锁定", value: Number(structure.locked_qty), status: undefined },
+    { label: "冻结", value: Number(structure.frozen_qty), status: "warning" as const },
+    { label: "待检", value: Number(structure.pending_qty), status: undefined },
+    { label: "不良", value: Number(structure.defective_qty), status: "exception" as const },
+  ];
+  const total = rows.reduce((sum, item) => sum + item.value, 0) || 1;
+  return rows.map((item) => ({ ...item, percent: Math.round((item.value / total) * 100) }));
+});
+const trendBars = computed(() => {
+  const max = Math.max(...trends.value.map((item) => Number(item.quantity)), 0) || 1;
+  return trends.value.map((item) => ({ ...item, percent: Math.round((Number(item.quantity) / max) * 100) }));
+});
 
-async function loadSummary() {
+function flowTypeText(type: string) {
+  const map: Record<string, string> = {
+    receive_pending: "收货待检",
+    approve_to_available: "检验合格",
+    reject_to_defective: "检验不良",
+    lock: "库存锁定",
+    release_lock: "释放锁定",
+    ship: "出库扣减",
+    freeze: "冻结",
+    unfreeze: "解冻",
+    transfer_out: "调拨出库",
+    transfer_in: "调拨入库",
+    adjust_check: "盘点调整",
+  };
+  return map[type] ?? type;
+}
+
+async function loadDashboard() {
   loading.value = true;
   try {
-    const response = await WmsDashboardAPI.summary();
-    summary.value = response.data.data;
+    const [summaryResp, structureResp, trendResp, warningResp, flowResp] = await Promise.all([
+      WmsDashboardAPI.summary(),
+      WmsDashboardAPI.stockStructure(),
+      WmsDashboardAPI.trends(),
+      WmsDashboardAPI.warnings(),
+      WmsDashboardAPI.latestFlows(),
+    ]);
+    summary.value = summaryResp.data.data;
+    stockStructure.value = structureResp.data.data;
+    trends.value = trendResp.data.data;
+    warnings.value = warningResp.data.data;
+    flows.value = flowResp.data.data;
   } finally {
     loading.value = false;
   }
 }
 
 onMounted(() => {
-  void loadSummary();
+  void loadDashboard();
 });
 </script>
 
@@ -98,39 +198,29 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding: 16px;
 }
 
-.wms-dashboard__hero {
+.wms-dashboard__header {
   display: flex;
   gap: 24px;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  padding: 24px;
+  padding: 8px 0;
   background: var(--el-bg-color);
-  border: 1px solid var(--fa-card-border);
-  border-radius: 8px;
 
   h1 {
     margin: 0;
-    font-size: 28px;
+    font-size: 22px;
     line-height: 1.25;
     color: var(--el-text-color-primary);
   }
 
   p {
-    max-width: 780px;
-    margin: 10px 0 0;
+    margin: 6px 0 0;
     font-size: 14px;
-    line-height: 1.7;
     color: var(--el-text-color-secondary);
   }
-}
-
-.wms-dashboard__kicker {
-  margin: 0 0 8px !important;
-  font-size: 13px !important;
-  font-weight: 700;
-  color: var(--el-color-primary) !important;
 }
 
 .wms-dashboard__panel {
@@ -138,10 +228,25 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-.wms-dashboard__panel-title {
+.wms-dashboard__bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
+  flex-direction: column;
+  gap: 8px;
+
+  & + & {
+    margin-top: 14px;
+  }
+
+  div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  strong {
+    color: var(--el-text-color-primary);
+  }
 }
 </style>

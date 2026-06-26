@@ -9,6 +9,7 @@ from .issue.controller import IssueRouter
 from .master.controller import MasterRouter
 from .outbound.controller import OutboundRouter
 from .stock.controller import StockRouter
+from .trace.controller import TraceRouter
 from .transfer.controller import TransferRouter
 from .warning.controller import WarningRouter
 
@@ -25,3 +26,4 @@ wms_router.include_router(IssueRouter)
 wms_router.include_router(TransferRouter)
 wms_router.include_router(CheckRouter)
 wms_router.include_router(WarningRouter)
+wms_router.include_router(TraceRouter)

@@ -323,10 +323,10 @@ Local development already uses the WMS assembly. The WMS seed pack depends on `b
 - Create `frontend/web/src/views/module_wms/dashboard/`.
 - Create `frontend/web/src/views/module_wms/trace/`.
 
-- [ ] Test trace forward from material batch to production/outbound references.
-- [ ] Test trace backward from product batch to material sources when links exist.
-- [ ] Implement dashboard endpoints: `summary`, `tasks`, `stock-structure`, `trends`, `warnings`, `latest-flows`.
-- [ ] Build dashboard with existing `FaStatsCard`, chart cards, and `FaTimelineListCard`.
+- [x] Test trace forward from material batch to production/outbound references.
+- [x] Test trace backward from product batch to material sources when links exist.
+- [x] Implement dashboard endpoints: `summary`, `tasks`, `stock-structure`, `trends`, `warnings`, `latest-flows`.
+- [x] Build dashboard with existing `FaStatsCard`, chart cards, and `FaTimelineListCard`.
 - [ ] Commit: `feat: 增加WMS追溯与仓储驾驶舱`.
 
 ### Phase 7: Demo Data And AI-Enhanced Text
