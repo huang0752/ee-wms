@@ -126,6 +126,8 @@ def test_wms_assembly_cuts_demo_and_marketing_entries() -> None:
     assert assembly.is_plugin_enabled("module_ai")
     assert assembly.is_plugin_enabled("module_task")
     assert assembly.is_plugin_enabled("module_generator")
+    assert not assembly.is_route_group_enabled("ai-chat")
+    assert not assembly.is_route_group_enabled("module-task")
     assert not assembly.is_route_group_enabled("module-generator")
     assert not assembly.is_route_group_enabled("pricing")
     assert not assembly.is_route_group_enabled("article")
@@ -133,6 +135,7 @@ def test_wms_assembly_cuts_demo_and_marketing_entries() -> None:
     assert not assembly.is_route_group_enabled("changelog")
     assert assembly.is_route_group_enabled("module-wms")
     assert assembly.seed_packs == ["wms"]
+    assert assembly.frontend_summary()["featureFlags"]["aiAssistant"] is False
     assert assembly.frontend_summary()["featureFlags"]["demoContent"] is False
 
 
@@ -150,6 +153,11 @@ def test_assembly_filters_runtime_menu_tree_by_plugin_and_route_group() -> None:
             "title": "任务管理",
             "route_path": "/task",
             "children": [{"title": "业务任务", "route_path": "business/task"}],
+        },
+        {
+            "title": "AI管理",
+            "route_path": "/ai",
+            "children": [{"title": "AI对话", "route_path": "chat"}],
         },
         {
             "title": "案例管理",
@@ -215,7 +223,8 @@ def test_wms_assembly_filters_runtime_menu_tree() -> None:
 
     assert "系统管理" in titles
     assert "代码管理" not in titles
-    assert "任务管理" in titles
+    assert "任务管理" not in titles
+    assert "AI管理" not in titles
     assert "监控管理" not in titles
     assert "接口管理" not in titles
     assert "案例管理" not in titles

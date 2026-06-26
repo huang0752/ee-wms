@@ -5,8 +5,8 @@
         <p class="wms-kicker">EE WMS</p>
         <h1>电工装备智慧仓储系统</h1>
         <p class="wms-subtitle">
-          当前处于产品减法与基础模块建设阶段。系统已保留平台、系统、任务与 AI
-          能力，代码生成、示例与营销入口按 WMS 装配从前台隐藏。
+          当前处于产品减法与基础模块建设阶段。系统保留平台、系统与仓储业务入口，
+          AI、任务、代码生成、示例与营销入口按 WMS 装配从前台隐藏。
         </p>
       </div>
       <div class="wms-assembly">
@@ -98,7 +98,7 @@ const statusCards = [
   {
     title: "接口基座",
     value: "已保留",
-    description: "系统、平台、任务、AI 可用",
+    description: "系统、平台与业务接口可用",
     icon: "ri:server-line",
   },
   {
