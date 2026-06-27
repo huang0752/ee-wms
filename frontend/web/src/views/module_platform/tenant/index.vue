@@ -128,6 +128,16 @@
           <ElTabPane label="品牌标识" name="brand">
             <ElForm :model="formData" label-position="top">
               <ElRow :gutter="24">
+                <ElCol :span="24">
+                  <ElFormItem label="品牌简称">
+                    <ElInput
+                      v-model="formData.brand_name"
+                      maxlength="100"
+                      show-word-limit
+                      placeholder="用于左侧栏、登录页等品牌位置；为空时显示租户名称"
+                    />
+                  </ElFormItem>
+                </ElCol>
                 <ElCol :span="8">
                   <ElFormItem label="网站 Logo">
                     <FaUpload
@@ -460,6 +470,7 @@ const tenantDetailItems: import("@/components/others/fa-descriptions/index.vue")
     { label: "联系邮箱", prop: "contact_email" },
     { label: "域名", prop: "domain" },
     { label: "地址", prop: "address" },
+    { label: "品牌简称", prop: "brand_name" },
     { label: "Logo地址", prop: "logo_url", slot: "logo_url" },
     { label: "网站图标", prop: "favicon", slot: "favicon" },
     { label: "登录背景", prop: "login_bg", slot: "login_bg" },
@@ -487,6 +498,7 @@ const formData = ref<TenantForm>({
   contact_email: "",
   address: "",
   domain: "",
+  brand_name: "",
   logo_url: "",
   sort: 0,
   version: "",
@@ -542,6 +554,7 @@ const initialFormData: TenantForm = {
   contact_email: "",
   address: "",
   domain: "",
+  brand_name: "",
   logo_url: "",
   sort: 0,
   version: "",
@@ -832,6 +845,7 @@ async function handleSubmit() {
         contact_email: formData.value.contact_email,
         address: formData.value.address,
         domain: formData.value.domain,
+        brand_name: formData.value.brand_name,
         logo_url: formData.value.logo_url,
         favicon: formData.value.favicon,
         login_bg: formData.value.login_bg,
@@ -860,6 +874,7 @@ async function handleSubmit() {
         contact_email: formData.value.contact_email,
         address: formData.value.address,
         domain: formData.value.domain,
+        brand_name: formData.value.brand_name,
         logo_url: formData.value.logo_url,
         favicon: formData.value.favicon,
         login_bg: formData.value.login_bg,

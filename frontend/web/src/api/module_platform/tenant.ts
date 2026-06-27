@@ -147,6 +147,7 @@ export interface TenantTable extends BaseType {
   contact_email?: string;
   address?: string;
   domain?: string;
+  brand_name?: string;
   logo_url?: string;
   sort?: number;
   version?: string;
@@ -182,6 +183,7 @@ export interface TenantForm extends BaseFormType {
   contact_email?: string;
   address?: string;
   domain?: string;
+  brand_name?: string;
   logo_url?: string;
   sort?: number;
   version?: string;
@@ -208,6 +210,7 @@ export interface TenantCreateForm extends BaseFormType {
   contact_email?: string;
   address?: string;
   domain?: string;
+  brand_name?: string;
   logo_url?: string;
   sort?: number;
   version?: string;
@@ -234,6 +237,7 @@ export interface TenantUpdateForm extends BaseFormType {
   contact_email?: string;
   address?: string;
   domain?: string;
+  brand_name?: string;
   logo_url?: string;
   sort?: number;
   version?: string;

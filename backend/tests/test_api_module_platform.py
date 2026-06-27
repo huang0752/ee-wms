@@ -553,6 +553,30 @@ class TestSelfService:
     def test_self_workspace(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(test_client, "GET", "/platform/tenant/workspace", auth=auth_headers)
 
+    def test_self_brand_name_does_not_change_tenant_name(self, test_client: TestClient, auth_headers: dict) -> None:
+        detail_resp = test_client.get("/platform/tenant/detail/1", headers=auth_headers)
+        assert detail_resp.status_code == 200, detail_resp.text
+        original_name = detail_resp.json()["data"]["name"]
+
+        update_resp = test_client.put(
+            "/platform/tenant/brand/config",
+            headers=auth_headers,
+            json=[{"key": "tenant_name", "value": "品牌简称"}],
+        )
+        assert update_resp.status_code == 200, update_resp.text
+
+        config_resp = test_client.get("/platform/tenant/1/config/info")
+        assert config_resp.status_code == 200, config_resp.text
+        config_items = {
+            item["config_key"]: item["config_value"]
+            for item in config_resp.json()["data"]
+        }
+        assert config_items["tenant_name"] == "品牌简称"
+
+        detail_resp = test_client.get("/platform/tenant/detail/1", headers=auth_headers)
+        assert detail_resp.status_code == 200, detail_resp.text
+        assert detail_resp.json()["data"]["name"] == original_name
+
     def test_usage_certificate_preview_and_download(self, test_client: TestClient, auth_headers: dict) -> None:
         preview_resp = test_client.get("/platform/tenant/usage-certificate/preview", headers=auth_headers)
 

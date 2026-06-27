@@ -31,6 +31,7 @@ class TenantModel(ModelMixin):
     contact_email: Mapped[str | None] = mapped_column(String(128), nullable=True, default=None, comment="联系人邮箱")
     address: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None, comment="地址")
     domain: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None, comment="域名")
+    brand_name: Mapped[str | None] = mapped_column(String(100), nullable=True, default=None, comment="品牌显示名称")
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None, comment="Logo URL")
     sort: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="排序")
     package_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("platform_package.id", ondelete="SET NULL", onupdate="CASCADE"), nullable=True, default=None, index=True, comment="关联套餐ID")

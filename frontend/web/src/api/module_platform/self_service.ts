@@ -193,6 +193,7 @@ export interface TenantBrandConfigItem {
 }
 
 export interface TenantBrandForm {
+  tenant_name: string;
   tenant_logo: string;
   favicon: string;
   login_bg: string;

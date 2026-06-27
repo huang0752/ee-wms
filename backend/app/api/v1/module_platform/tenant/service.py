@@ -31,18 +31,18 @@ from .schema import (
 )
 
 TENANT_CONFIG_FIELDS = [
-    "name", "description", "version", "logo_url", "favicon",
+    "name", "brand_name", "description", "version", "logo_url", "favicon",
     "login_bg", "copyright", "keep_record", "help_doc", "privacy",
     "clause", "git_code",
 ]
 
 TENANT_SELF_BRAND_CONFIG_FIELDS = {
-    "logo_url", "favicon", "login_bg", "copyright",
+    "brand_name", "logo_url", "favicon", "login_bg", "copyright",
     "keep_record", "help_doc", "privacy", "clause",
 }
 
 TENANT_BRAND_CONFIG_ALIASES = {
-    "tenant_name": "name",
+    "tenant_name": "brand_name",
     "tenant_version": "version",
     "tenant_logo": "logo_url",
 }
@@ -722,6 +722,8 @@ class TenantService:
             if field not in config:
                 continue
             value = config.get(field)
+            if field == "brand_name" and not value:
+                value = config.get("name")
             items.append(TenantConfigOutSchema(config_key=alias, config_value=str(value) if value is not None else None))
         return items
 
@@ -879,12 +881,7 @@ class TenantService:
                 tenants = result.scalars().all()
 
                 for tenant in tenants:
-                    config_fields = [
-                        "name", "description", "version", "logo_url", "favicon",
-                        "login_bg", "copyright", "keep_record", "help_doc", "privacy",
-                        "clause", "git_code",
-                    ]
-                    config = {field: getattr(tenant, field, None) for field in config_fields}
+                    config = {field: getattr(tenant, field, None) for field in TENANT_CONFIG_FIELDS}
 
                     await TenantService._sync_configs_to_redis(redis, tenant.id, config)
                     logger.info(f"✅ 租户[{tenant.name}](id={tenant.id}) 配置已缓存到 Redis")

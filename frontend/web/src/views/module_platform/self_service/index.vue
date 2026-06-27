@@ -134,6 +134,16 @@
           <ElForm :model="brandForm" label-width="110px" class="brand-form">
             <ElRow :gutter="20">
               <ElCol :xs="24" :md="12">
+                <ElFormItem label="品牌简称" prop="tenant_name">
+                  <ElInput
+                    v-model="brandForm.tenant_name"
+                    maxlength="100"
+                    show-word-limit
+                    placeholder="用于左侧栏、登录页等品牌位置"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="12">
                 <ElFormItem label="备案号" prop="keep_record">
                   <ElInput v-model="brandForm.keep_record" maxlength="100" show-word-limit />
                 </ElFormItem>
@@ -483,6 +493,7 @@ async function loadWorkspace() {
 const brandLoading = ref(false);
 const brandSaving = ref(false);
 const brandForm = ref<TenantBrandForm>({
+  tenant_name: "",
   tenant_logo: "",
   favicon: "",
   login_bg: "",
@@ -496,6 +507,7 @@ const brandForm = ref<TenantBrandForm>({
 function applyBrandItems(items: Array<{ config_key?: string; config_value?: string | null }>) {
   const map = Object.fromEntries(items.map((item) => [item.config_key, item.config_value || ""]));
   brandForm.value = {
+    tenant_name: String(map.tenant_name ?? map.brand_name ?? map.name ?? ""),
     tenant_logo: String(map.tenant_logo ?? map.logo_url ?? ""),
     favicon: String(map.favicon ?? ""),
     login_bg: String(map.login_bg ?? ""),
