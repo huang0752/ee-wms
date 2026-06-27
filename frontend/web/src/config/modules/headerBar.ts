@@ -39,8 +39,8 @@ export const headerBarConfig: HeaderBarFeatureConfig = {
     description: "全屏切换功能",
   },
   notification: {
-    enabled: true,
-    description: "通知中心，显示系统通知和消息",
+    enabled: false,
+    description: "通知中心，WMS 第一版未接入真实业务事件前默认隐藏",
   },
   chat: {
     enabled: false,

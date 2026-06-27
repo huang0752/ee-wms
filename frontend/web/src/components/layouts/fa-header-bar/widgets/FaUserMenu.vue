@@ -64,6 +64,7 @@
               <span class="text-sm">{{ $t("topBar.user.userCenter") }}</span>
             </li>
             <li
+              v-if="canManageSystemConfig"
               class="flex items-center p-2 mb-3 select-none rounded-md cursor-pointer last:mb-0 hover:bg-(--fa-gray-200)"
               @click="openParamConfig"
             >
@@ -99,6 +100,7 @@ import { useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
 import { useUserStore } from "@stores";
 import { mittBus } from "@utils";
+import { hasPermissionInList } from "@/constants/permissions";
 
 defineOptions({ name: "FaUserMenu" });
 
@@ -123,6 +125,15 @@ const displayName = computed(
 );
 
 const displayEmail = computed(() => (userInfo.value as { email?: string })?.email || "");
+
+const canManageSystemConfig = computed(() => {
+  const basicInfo = userStore.basicInfo as Record<string, any>;
+  return (
+    Boolean(basicInfo?.is_superuser) ||
+    hasPermissionInList(userStore.prems, "module_system:config:update")
+  );
+});
+
 function openParamConfig(): void {
   closeUserMenu();
   paramDrawerVisible.value = true;

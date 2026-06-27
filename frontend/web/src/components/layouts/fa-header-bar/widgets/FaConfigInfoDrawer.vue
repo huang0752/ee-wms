@@ -2,7 +2,7 @@
 <template>
   <FaDrawer
     v-model="drawerVisible"
-    title="配置中心"
+    title="系统配置"
     :size="drawerSize"
     destroy-on-close
     @close="onDrawerClosed"
