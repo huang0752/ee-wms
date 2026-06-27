@@ -311,7 +311,7 @@
           <FaTableHeader
             v-model:columns="orderColumnChecks"
             :loading="orderLoading"
-            @refresh="getOrderData"
+            @refresh="loadOrders"
           />
 
           <FaTable
@@ -433,15 +433,15 @@ const router = useRouter();
 const configStore = useConfigStore();
 const assemblyStore = useAssemblyStore();
 const activeTab = ref(
-  assemblyStore.isFeatureEnabled("tenantWorkspaceOverview", true) ? "workspace" : "brand"
+  assemblyStore.isFeatureEnabled("tenantWorkspaceOverview", false) ? "workspace" : "brand"
 );
 
 // ─── 工作台 ───
 const workspace = ref<WorkspaceData | null>(null);
 const workspaceLoading = ref(false);
-const showTenantBilling = computed(() => assemblyStore.isFeatureEnabled("tenantBilling", true));
+const showTenantBilling = computed(() => assemblyStore.isFeatureEnabled("tenantBilling", false));
 const showWorkspaceOverview = computed(() =>
-  assemblyStore.isFeatureEnabled("tenantWorkspaceOverview", true)
+  assemblyStore.isFeatureEnabled("tenantWorkspaceOverview", false)
 );
 const showUsageCertificate = computed(() =>
   assemblyStore.isFeatureEnabled("tenantUsageCertificate", false)
@@ -573,6 +573,7 @@ const {
 } = useTable({
   core: {
     apiFn: SelfServiceAPI.listMyOrders,
+    immediate: false,
     apiParams: {
       page_no: 1,
       page_size: 20,
@@ -620,6 +621,11 @@ const {
   },
 });
 
+function loadOrders() {
+  if (!showTenantBilling.value) return;
+  getOrderData();
+}
+
 // ─── 操作弹窗 ───
 const actionDialogVisible = ref(false);
 const actionSubmitting = ref(false);
@@ -661,6 +667,7 @@ function actionTypeTag(
 
 // ─── 加载 ───
 async function loadPackages() {
+  if (!showTenantBilling.value) return;
   packagesLoading.value = true;
   try {
     const { data: res } = await SelfServiceAPI.getAvailablePackages();
@@ -678,11 +685,12 @@ function onTabChange(tab: TabPaneName) {
   else if (tab === "brand") loadBrandConfig();
   else if (tab === "usageCertificate" && showUsageCertificate.value) loadUsageCertificate();
   else if (showTenantBilling.value && tab === "packages") loadPackages();
-  else if (showTenantBilling.value && tab === "orders") getOrderData();
+  else if (tab === "orders") loadOrders();
 }
 
 // ─── 动作处理 ───
 async function handleAction(action: string, pkg: AvailablePackage) {
+  if (!showTenantBilling.value) return;
   currentAction.value = action;
   currentPackage.value = pkg;
   actionDialogTitle.value = `${actionLabel(action)} - ${pkg.name}`;
@@ -701,6 +709,7 @@ async function handleAction(action: string, pkg: AvailablePackage) {
 }
 
 async function confirmAction() {
+  if (!showTenantBilling.value) return;
   if (!currentPackage.value) return;
   actionSubmitting.value = true;
   try {
@@ -714,7 +723,7 @@ async function confirmAction() {
       router.push(`/payment/${orderData.order_id}`);
     } else {
       activeTab.value = "orders";
-      getOrderData();
+      loadOrders();
     }
   } catch {
     // ignore
