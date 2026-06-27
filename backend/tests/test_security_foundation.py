@@ -28,6 +28,12 @@ from app.core.discover import validate_dynamic_plugin_access
 from app.core.exceptions import CustomException
 from app.core.security import create_access_token
 
+PNG_1X1 = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\xff"
+    b"\xff?\x00\x05\xfe\x02\xfeA\xe2!\xbc\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
 
 def _unique(prefix: str) -> str:
     return f"{prefix[:12]}_{time.time_ns() % 1_000_000_000_000}"
@@ -409,12 +415,20 @@ def test_platform_tenant_create_adds_initial_admin_membership(
 
     login_data = _login(test_client, username=initial_admin["username"], password=initial_admin["password"])
     assert login_data["access_token"]
+    tenant_admin_headers = {"Authorization": f"Bearer {login_data['access_token']}"}
     if rbac["dashboard_menu_count"] > 0:
         dashboard_resp = test_client.get(
             "/wms/dashboard/summary",
-            headers={"Authorization": f"Bearer {login_data['access_token']}"},
+            headers=tenant_admin_headers,
         )
         assert dashboard_resp.status_code == 200, dashboard_resp.text
+
+    upload_resp = test_client.post(
+        "/common/file/upload?upload_type=tenant_logo",
+        headers=tenant_admin_headers,
+        files={"file": ("logo.png", PNG_1X1, "image/png")},
+    )
+    assert upload_resp.status_code == 200, upload_resp.text
 
 
 def test_oauth_unsupported_provider_does_not_redirect_to_untrusted_uri(test_client: TestClient) -> None:

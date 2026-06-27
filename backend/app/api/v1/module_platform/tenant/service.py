@@ -49,6 +49,11 @@ TENANT_BRAND_CONFIG_ALIASES = {
 
 TENANT_BRAND_CONFIG_FIELDS = {field: alias for alias, field in TENANT_BRAND_CONFIG_ALIASES.items()}
 
+TENANT_SELF_SERVICE_REQUIRED_PERMISSIONS = {
+    "module_platform:workspace:query",
+    "module_common:file:upload",
+}
+
 
 class TenantService:
     """
@@ -200,11 +205,49 @@ class TenantService:
         if not tenant or not tenant.package_id:
             return
 
+        await self._ensure_package_has_required_self_service_menus(tenant.package_id)
+
         pkg_menu_stmt = select(PackageMenuModel.menu_id).where(PackageMenuModel.package_id == tenant.package_id)
         pkg_menu_ids = (await self.auth.db.execute(pkg_menu_stmt)).scalars().all()
         for menu_id in pkg_menu_ids:
             self.auth.db.add(RoleMenusModel(role_id=owner_role.id, menu_id=menu_id))
 
+        await self.auth.db.flush()
+
+    async def _ensure_package_has_required_self_service_menus(self, package_id: int) -> None:
+        """补齐租户自助入口必需菜单，避免基础套餐缺少工作台与品牌上传能力。"""
+        from sqlalchemy import select
+
+        from app.api.v1.module_platform.menu.model import MenuModel
+        from app.api.v1.module_platform.package.model import PackageMenuModel
+
+        menu_ids = (
+            await self.auth.db.execute(
+                select(MenuModel.id).where(
+                    MenuModel.permission.in_(TENANT_SELF_SERVICE_REQUIRED_PERMISSIONS),
+                    MenuModel.status == 0,
+                    MenuModel.is_deleted.is_(False),
+                )
+            )
+        ).scalars().all()
+        if not menu_ids:
+            return
+
+        existing_ids = set(
+            (
+                await self.auth.db.execute(
+                    select(PackageMenuModel.menu_id).where(
+                        PackageMenuModel.package_id == package_id,
+                        PackageMenuModel.menu_id.in_(menu_ids),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for menu_id in menu_ids:
+            if menu_id not in existing_ids:
+                self.auth.db.add(PackageMenuModel(package_id=package_id, menu_id=menu_id))
         await self.auth.db.flush()
 
     @require_superadmin
