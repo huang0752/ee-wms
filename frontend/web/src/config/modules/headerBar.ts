@@ -47,8 +47,8 @@ export const headerBarConfig: HeaderBarFeatureConfig = {
     description: "框架演示聊天窗口，WMS 产品默认隐藏",
   },
   language: {
-    enabled: true,
-    description: "多语言切换功能",
+    enabled: false,
+    description: "多语言切换功能，WMS 第一版默认隐藏",
   },
   settings: {
     enabled: true,

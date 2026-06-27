@@ -50,24 +50,6 @@ const fastEnterConfig: FastEnterConfig = {
   // 快速链接
   quickLinks: [
     {
-      name: "登录",
-      enabled: false,
-      order: 1,
-      routeName: "Login",
-    },
-    {
-      name: "注册",
-      enabled: false,
-      order: 2,
-      routeName: "Login",
-    },
-    {
-      name: "忘记密码",
-      enabled: false,
-      order: 3,
-      routeName: "Login",
-    },
-    {
       name: "礼花效果",
       enabled: true,
       order: 4,
