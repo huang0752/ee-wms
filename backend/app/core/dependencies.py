@@ -338,7 +338,7 @@ async def _get_cached_tenant_menu_ids(auth: AuthSchema, tenant_id: int) -> list[
 
     from app.api.v1.module_platform.package.service import PackageService
 
-    result = await PackageService.get_tenant_available_menu_ids(auth, tenant_id)
+    result = await PackageService(auth).get_tenant_available_menu_ids(tenant_id)
     _package_menu_cache[tenant_id] = (time.time(), result)
     return result
 

@@ -108,7 +108,7 @@ class Permission:
             cached = getattr(self.auth, cache_attr, None)
             if cached is None:
                 from app.api.v1.module_platform.package.service import PackageService
-                allowed_ids = set(await PackageService.get_tenant_available_menu_ids(self.auth, self.auth.tenant_id))
+                allowed_ids = set(await PackageService(self.auth).get_tenant_available_menu_ids(self.auth.tenant_id))
                 object.__setattr__(self.auth, cache_attr, allowed_ids)
             else:
                 allowed_ids = cached

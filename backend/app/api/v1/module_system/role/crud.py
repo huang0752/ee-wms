@@ -31,7 +31,7 @@ class RoleCRUD(CRUDBase[RoleModel, RoleCreateSchema, RoleUpdateSchema]):
         from app.api.v1.module_platform.package.service import PackageService
 
         if self.auth.user and not self.auth.user.is_superuser and self.auth.tenant_id:
-            allowed_menu_ids = await PackageService.get_tenant_available_menu_ids(self.auth, self.auth.tenant_id)
+            allowed_menu_ids = await PackageService(self.auth).get_tenant_available_menu_ids(self.auth.tenant_id)
             allowed_set = set(allowed_menu_ids)
             for menu in menus:
                 if int(menu.id) not in allowed_set:

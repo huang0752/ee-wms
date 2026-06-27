@@ -98,6 +98,7 @@ class TenantService:
         if await TenantCRUD(self.auth).get(code=data.code):
             raise CustomException(msg="创建失败，编码已存在")
 
+        data = await self._with_default_package(data)
         tenant_obj = await TenantCRUD(self.auth).create(data=data)
         if not tenant_obj:
             raise CustomException(msg="创建租户失败")
@@ -136,6 +137,7 @@ class TenantService:
                 )
             )
             await self.auth.db.flush()
+            await self._create_owner_role_for_initial_admin(tenant_obj.id, user_obj.id)
         except CustomException:
             raise
         except Exception as e:
@@ -151,6 +153,59 @@ class TenantService:
         )
 
         return result
+
+    async def _with_default_package(self, data: TenantCreateSchema) -> TenantCreateSchema:
+        """平台新增租户未选套餐时，默认绑定第一个启用套餐。"""
+        if data.package_id:
+            return data
+
+        from sqlalchemy import select
+
+        from app.api.v1.module_platform.package.model import PackageModel
+
+        package_id = (
+            await self.auth.db.execute(
+                select(PackageModel.id)
+                .where(PackageModel.status == 0, PackageModel.is_deleted.is_(False))
+                .order_by(PackageModel.sort.asc(), PackageModel.id.asc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if not package_id:
+            return data
+        return data.model_copy(update={"package_id": package_id})
+
+    async def _create_owner_role_for_initial_admin(self, tenant_id: int, user_id: int) -> None:
+        """为平台创建的初始管理员补齐 RBAC owner 角色和套餐菜单权限。"""
+        from sqlalchemy import select
+
+        from app.api.v1.module_platform.package.model import PackageMenuModel
+        from app.api.v1.module_system.role.model import RoleMenusModel, RoleModel
+        from app.api.v1.module_system.user.model import UserRolesModel
+
+        owner_role = RoleModel(
+            name="租户管理员",
+            code="owner",
+            tenant_id=tenant_id,
+            order=1,
+            data_scope=4,
+            description="平台创建租户时自动生成的管理员角色",
+        )
+        self.auth.db.add(owner_role)
+        await self.auth.db.flush()
+
+        self.auth.db.add(UserRolesModel(user_id=user_id, role_id=owner_role.id))
+
+        tenant = await TenantCRUD(self.auth).get(id=tenant_id)
+        if not tenant or not tenant.package_id:
+            return
+
+        pkg_menu_stmt = select(PackageMenuModel.menu_id).where(PackageMenuModel.package_id == tenant.package_id)
+        pkg_menu_ids = (await self.auth.db.execute(pkg_menu_stmt)).scalars().all()
+        for menu_id in pkg_menu_ids:
+            self.auth.db.add(RoleMenusModel(role_id=owner_role.id, menu_id=menu_id))
+
+        await self.auth.db.flush()
 
     @require_superadmin
     async def update(self, id: int, data: TenantUpdateSchema) -> TenantOutSchema:

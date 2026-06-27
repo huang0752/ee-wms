@@ -12,13 +12,15 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from starlette.requests import Request
 
-from app.api.v1.module_platform.package.model import PackagePluginModel
+from app.api.v1.module_platform.menu.model import MenuModel
+from app.api.v1.module_platform.package.model import PackageMenuModel, PackagePluginModel
 from app.api.v1.module_platform.plugin.model import PluginModel, TenantPluginModel
-from app.api.v1.module_platform.tenant.model import TenantUserModel
-from app.api.v1.module_system.user.model import UserModel
+from app.api.v1.module_platform.tenant.model import TenantModel, TenantUserModel
+from app.api.v1.module_system.role.model import RoleMenusModel, RoleModel
+from app.api.v1.module_system.user.model import UserModel, UserRolesModel
 from app.config.setting import settings
 from app.core.base_schema import AuthSchema, JWTPayloadSchema
 from app.core.database import async_db_session
@@ -56,6 +58,76 @@ async def _get_membership(username: str, tenant_id: int) -> TenantUserModel | No
                 .limit(1)
             )
         ).scalar_one_or_none()
+
+
+async def _get_initial_admin_rbac_snapshot(username: str, tenant_id: int) -> dict:
+    async with async_db_session() as db:
+        user = (
+            await db.execute(
+                select(UserModel).where(UserModel.username == username).limit(1)
+            )
+        ).scalar_one_or_none()
+        role = (
+            await db.execute(
+                select(RoleModel)
+                .where(RoleModel.tenant_id == tenant_id, RoleModel.code == "owner")
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        package_menu_count = (
+            await db.execute(
+                select(func.count())
+                .select_from(PackageMenuModel)
+                .join(TenantModel, TenantModel.package_id == PackageMenuModel.package_id)
+                .where(TenantModel.id == tenant_id)
+            )
+        ).scalar() or 0
+        dashboard_menu_count = (
+            await db.execute(
+                select(func.count())
+                .select_from(MenuModel)
+                .where(MenuModel.permission == "module_wms:dashboard:query", MenuModel.status == 0)
+            )
+        ).scalar() or 0
+        user_role_count = 0
+        role_menu_count = 0
+        role_dashboard_count = 0
+        if user and role:
+            user_role_count = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(UserRolesModel)
+                    .where(UserRolesModel.user_id == user.id, UserRolesModel.role_id == role.id)
+                )
+            ).scalar() or 0
+            role_menu_count = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(RoleMenusModel)
+                    .where(RoleMenusModel.role_id == role.id)
+                )
+            ).scalar() or 0
+            role_dashboard_count = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(RoleMenusModel)
+                    .join(MenuModel, MenuModel.id == RoleMenusModel.menu_id)
+                    .where(
+                        RoleMenusModel.role_id == role.id,
+                        MenuModel.permission == "module_wms:dashboard:query",
+                    )
+                )
+            ).scalar() or 0
+        return {
+            "role_exists": role is not None,
+            "role_status": role.status if role else None,
+            "role_data_scope": role.data_scope if role else None,
+            "user_role_count": user_role_count,
+            "role_menu_count": role_menu_count,
+            "package_menu_count": package_menu_count,
+            "dashboard_menu_count": dashboard_menu_count,
+            "role_dashboard_count": role_dashboard_count,
+        }
 
 
 def _create_user(test_client: TestClient, auth_headers: dict[str, str], username: str, password: str, mobile: str | None = None) -> None:
@@ -325,8 +397,24 @@ def test_platform_tenant_create_adds_initial_admin_membership(
     assert membership.role == "owner"
     assert membership.is_default == 1
 
+    rbac = asyncio.run(_get_initial_admin_rbac_snapshot(initial_admin["username"], tenant_id))
+    assert rbac["role_exists"] is True
+    assert rbac["role_status"] == 0
+    assert rbac["role_data_scope"] == 4
+    assert rbac["user_role_count"] == 1
+    assert rbac["package_menu_count"] > 0
+    assert rbac["role_menu_count"] == rbac["package_menu_count"]
+    if rbac["dashboard_menu_count"] > 0:
+        assert rbac["role_dashboard_count"] == rbac["dashboard_menu_count"]
+
     login_data = _login(test_client, username=initial_admin["username"], password=initial_admin["password"])
     assert login_data["access_token"]
+    if rbac["dashboard_menu_count"] > 0:
+        dashboard_resp = test_client.get(
+            "/wms/dashboard/summary",
+            headers={"Authorization": f"Bearer {login_data['access_token']}"},
+        )
+        assert dashboard_resp.status_code == 200, dashboard_resp.text
 
 
 def test_oauth_unsupported_provider_does_not_redirect_to_untrusted_uri(test_client: TestClient) -> None:
