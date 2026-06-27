@@ -10,7 +10,7 @@ from app.core.cache_util import cache
 from app.core.dependencies import AuthPermission
 from app.core.router_class import OperationLogRoute
 
-from .schema import MenuCreateSchema, MenuOutSchema, MenuQueryParam, MenuUpdateSchema
+from .schema import MenuCreateSchema, MenuOutSchema, MenuQueryParam, MenuTreeOutSchema, MenuUpdateSchema
 from .service import MenuService
 
 MenuRouter = APIRouter(route_class=OperationLogRoute, prefix="/menu", tags=["平台管理", "菜单管理"])
@@ -21,7 +21,7 @@ _MENU_NS = "menu"
 @MenuRouter.get(
     "/tree",
     summary="查询菜单树",
-    response_model=ResponseSchema[list[MenuOutSchema]],
+    response_model=ResponseSchema[list[MenuTreeOutSchema]],
 )
 @cache(expire=300, namespace=_MENU_NS)
 async def get_menu_tree_controller(

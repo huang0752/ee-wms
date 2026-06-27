@@ -334,7 +334,11 @@ class TestMenu:
     """菜单管理接口。"""
 
     def test_menu_tree(self, test_client: TestClient, auth_headers: dict) -> None:
-        assert_route(test_client, "GET", "/platform/menu/tree", auth=auth_headers)
+        response = test_client.get("/platform/menu/tree", headers=auth_headers)
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["success"] is True
+        assert isinstance(body["data"], list)
 
     def test_menu_create(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(

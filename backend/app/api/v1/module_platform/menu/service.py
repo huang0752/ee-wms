@@ -16,7 +16,6 @@ from .schema import (
     MenuCreateSchema,
     MenuOutSchema,
     MenuQueryParam,
-    MenuTreeOutSchema,
     MenuUpdateSchema,
 )
 
@@ -74,7 +73,7 @@ class MenuService:
         order_by: list[dict] | None = None,
     ) -> list[dict]:
         menu_list = await MenuCRUD(self.auth).tree_list(search=vars(search) if search else None, order_by=order_by)
-        menu_dict_list = [MenuTreeOutSchema.model_validate(menu).model_dump() for menu in menu_list]
+        menu_dict_list = [MenuOutSchema.model_validate(menu).model_dump() for menu in menu_list]
         return traversal_to_tree(menu_dict_list)
 
     @require_superadmin
