@@ -53,13 +53,15 @@ class CurrentUserUpdateSchema(BaseModel):
     @field_validator("avatar")
     @classmethod
     def validate_avatar(cls, value: str | None):
-        """校验头像地址为合法的 HTTP/HTTPS URL"""
+        """校验头像地址为合法的 HTTP/HTTPS URL 或站内相对路径"""
         if not value:
+            return value
+        if value.startswith("/") and not value.startswith("//"):
             return value
         parsed = urlparse(value)
         if parsed.scheme in ("http", "https") and parsed.netloc:
             return value
-        raise ValueError("头像地址需为有效的 HTTP/HTTPS URL")
+        raise ValueError("头像地址需为有效的 HTTP/HTTPS URL 或站内相对路径")
 
     @model_validator(mode="after")
     def check_model(self):
