@@ -366,8 +366,6 @@ class UserService:
             raise CustomException(msg="账号或邮箱不匹配", status_code=status.HTTP_400_BAD_REQUEST)
         if user.status == 1:
             raise CustomException(msg="用户已停用", status_code=status.HTTP_400_BAD_REQUEST)
-        if user.is_superuser:
-            raise CustomException(msg="超级管理员密码不能通过邮箱重置", status_code=status.HTTP_400_BAD_REQUEST)
 
         if await redis_curd.exists(interval_key):
             raise CustomException(msg="验证码发送过于频繁，请 60 秒后再试", status_code=status.HTTP_400_BAD_REQUEST)
