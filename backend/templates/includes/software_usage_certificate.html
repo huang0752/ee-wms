@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>企业软件使用证明</title>
+  <style>
+    :root {
+      --paper: #fbfaf6;
+      --ink: #18202a;
+      --muted: #65717f;
+      --rule: #c7aa61;
+      --rule-dark: #7c5d1f;
+      --blue: #17395f;
+      --blue-soft: #e9eef3;
+      --line: rgba(24, 32, 42, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: #eef1f4;
+      font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "SimSun", serif;
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      padding: 14px;
+      background: rgba(238, 241, 244, 0.88);
+      border-bottom: 1px solid rgba(24, 32, 42, 0.08);
+      backdrop-filter: blur(12px);
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    .toolbar button {
+      height: 36px;
+      padding: 0 18px;
+      border: 1px solid #1d334d;
+      border-radius: 3px;
+      color: #fff;
+      background: #1d334d;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .toolbar span {
+      display: inline-flex;
+      align-items: center;
+      color: #5d6670;
+      font-size: 13px;
+    }
+
+    .page-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 34px 18px 56px;
+    }
+
+    .certificate {
+      position: relative;
+      width: 210mm;
+      height: 297mm;
+      padding: 17mm 17mm 15mm;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(199, 170, 97, 0.06) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(199, 170, 97, 0.055) 1px, transparent 1px),
+        repeating-linear-gradient(135deg, transparent 0 9px, rgba(23, 57, 95, 0.018) 9px 10px),
+        radial-gradient(circle at 50% 35%, rgba(23, 57, 95, 0.055), transparent 33%),
+        var(--paper);
+      background-size: 12mm 12mm, 12mm 12mm, auto, auto, auto;
+      box-shadow: 0 28px 70px rgba(17, 27, 39, 0.22);
+    }
+
+    .certificate::before {
+      content: "SOFTWARE USAGE";
+      position: absolute;
+      left: 50%;
+      top: 47%;
+      transform: translate(-50%, -50%) rotate(-26deg);
+      color: rgba(23, 57, 95, 0.046);
+      font-size: 70px;
+      font-weight: 700;
+      white-space: nowrap;
+      letter-spacing: 9px;
+      pointer-events: none;
+    }
+
+    .certificate::after {
+      content: "";
+      position: absolute;
+      inset: 9mm;
+      border: 1px solid rgba(124, 93, 31, 0.52);
+      pointer-events: none;
+    }
+
+    .inner-frame {
+      position: relative;
+      z-index: 1;
+      height: 265mm;
+      padding: 10mm 13mm 9mm;
+      border: 4px double rgba(124, 93, 31, 0.78);
+      background:
+        linear-gradient(135deg, transparent 0 22px, rgba(23, 57, 95, 0.72) 22px 23px, rgba(199, 170, 97, 0.8) 23px 25px, transparent 25px) left top / 62px 62px no-repeat,
+        linear-gradient(225deg, transparent 0 22px, rgba(23, 57, 95, 0.72) 22px 23px, rgba(199, 170, 97, 0.8) 23px 25px, transparent 25px) right top / 62px 62px no-repeat,
+        linear-gradient(45deg, transparent 0 22px, rgba(23, 57, 95, 0.72) 22px 23px, rgba(199, 170, 97, 0.8) 23px 25px, transparent 25px) left bottom / 62px 62px no-repeat,
+        linear-gradient(315deg, transparent 0 22px, rgba(23, 57, 95, 0.72) 22px 23px, rgba(199, 170, 97, 0.8) 23px 25px, transparent 25px) right bottom / 62px 62px no-repeat,
+        rgba(255, 255, 255, 0.46);
+    }
+
+    .microtext {
+      height: 20px;
+      margin-bottom: 11mm;
+      overflow: hidden;
+      border-top: 1px solid rgba(124, 93, 31, 0.34);
+      border-bottom: 1px solid rgba(124, 93, 31, 0.34);
+      color: rgba(23, 57, 95, 0.52);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 8px;
+      line-height: 18px;
+      letter-spacing: 2.2px;
+      text-align: center;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 11mm;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.8;
+    }
+
+    .topline strong {
+      color: var(--blue);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 13px;
+      letter-spacing: 0.6px;
+    }
+
+    .document-badge {
+      min-width: 156px;
+      padding: 8px 11px;
+      border: 1px solid rgba(23, 57, 95, 0.22);
+      border-left: 4px solid var(--blue);
+      background: rgba(233, 238, 243, 0.66);
+      text-align: left;
+    }
+
+    .document-badge span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .document-badge strong {
+      display: block;
+      margin-top: 2px;
+      color: var(--blue);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .title-block {
+      text-align: center;
+    }
+
+    .eyebrow {
+      color: var(--rule-dark);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 12px;
+      letter-spacing: 3.4px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 8px 0 10px;
+      color: #111821;
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      line-height: 1.2;
+    }
+
+    .title-rule {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: 0 auto 13mm;
+      color: var(--rule-dark);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 13px;
+    }
+
+    .title-rule::before,
+    .title-rule::after {
+      content: "";
+      width: 76px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--rule), transparent);
+    }
+
+    .lead {
+      margin: 0 0 7mm;
+      color: #26313d;
+      font-size: 18px;
+      line-height: 2.12;
+      text-align: justify;
+    }
+
+    .lead strong {
+      color: #102f50;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(16, 47, 80, 0.28);
+    }
+
+    .info-table {
+      width: 100%;
+      margin: 0 0 8mm;
+      border-collapse: collapse;
+      border: 1px solid rgba(124, 93, 31, 0.42);
+      background: rgba(255, 255, 255, 0.58);
+      font-size: 14px;
+    }
+
+    .info-table th,
+    .info-table td {
+      padding: 11px 13px;
+      border: 1px solid rgba(124, 93, 31, 0.28);
+      line-height: 1.55;
+      vertical-align: top;
+    }
+
+    .info-table th {
+      width: 21%;
+      color: #4d4021;
+      background: rgba(199, 170, 97, 0.14);
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .statement {
+      margin: 0 0 8mm;
+      color: #34404d;
+      font-size: 14px;
+      line-height: 2;
+      text-align: justify;
+    }
+
+    .statement span {
+      color: var(--blue);
+      font-weight: 700;
+    }
+
+    .bottom-code {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 5px 18px;
+      margin-top: 8mm;
+      border-top: 1px solid rgba(124, 93, 31, 0.26);
+      padding-top: 8px;
+      color: rgba(24, 32, 42, 0.52);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+
+    .bottom-code span:nth-child(even) {
+      text-align: right;
+    }
+
+    .bottom-code strong {
+      color: rgba(24, 32, 42, 0.68);
+      font-weight: 700;
+    }
+
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .toolbar {
+        display: none;
+      }
+
+      .page-wrap {
+        display: block;
+        padding: 0;
+      }
+
+      .certificate {
+        width: 210mm;
+        height: 297mm;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button type="button" onclick="window.print()">打印 / 保存 PDF</button>
+    <span>本证明由系统实时生成，企业名称来自租户主数据，系统版本来自服务端环境配置。</span>
+  </div>
+
+  <main class="page-wrap">
+    <article class="certificate" aria-label="企业软件使用证明">
+      <section class="inner-frame">
+        <div class="microtext">
+          EE WMS SOFTWARE USAGE CERTIFICATE · VERIFIED BY SYSTEM RUNTIME · EE WMS SOFTWARE USAGE CERTIFICATE · VERIFIED BY SYSTEM RUNTIME ·
+        </div>
+
+        <header class="topline">
+          <div>
+            <div>证书编号</div>
+            <strong>{{ certificate_no | e }}</strong>
+          </div>
+          <div class="document-badge">
+            <span>系统实时生成</span>
+            <strong>Software Usage</strong>
+          </div>
+        </header>
+
+        <section class="title-block">
+          <div class="eyebrow">Software Usage Certificate</div>
+          <h1>企业软件使用证明</h1>
+          <div class="title-rule">EE WMS</div>
+        </section>
+
+        <p class="lead">
+          兹证明：<strong>{{ enterprise_name | e }}</strong> 正在使用
+          <strong>{{ system_title | e }}</strong>，用于支撑电工装备场景下的智能仓储、
+          库存管理、批次追溯、MES 集成及相关经营管理工作。
+        </p>
+
+        <table class="info-table" aria-label="证明信息">
+          <tbody>
+            <tr>
+              <th>企业名称</th>
+              <td colspan="3">{{ enterprise_name | e }}</td>
+            </tr>
+            <tr>
+              <th>统一社会信用代码</th>
+              <td>{{ social_credit_code | e }}</td>
+              <th>所属行业</th>
+              <td>{{ industry | e }}</td>
+            </tr>
+            <tr>
+              <th>系统名称</th>
+              <td colspan="3">{{ system_name | e }}</td>
+            </tr>
+            <tr>
+              <th>系统版本</th>
+              <td>{{ system_version | e }}</td>
+              <th>当前用户</th>
+              <td>{{ user | e }}</td>
+            </tr>
+            <tr>
+              <th>覆盖范围</th>
+              <td colspan="3">{{ coverage_scope | e }}</td>
+            </tr>
+            <tr>
+              <th>用户 IP</th>
+              <td>{{ user_ip | e }}</td>
+              <th>生成时间</th>
+              <td>{{ generated_at | e }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="statement">
+          本证明由系统根据租户主数据、服务端环境配置及当前访问环境实时生成。上述 <span>用户 IP</span> 与
+          <span>生成时间</span> 为出具证明时的服务端采集信息，仅用于说明本次软件使用证明的生成环境。
+          系统版本由服务端环境变量固定配置。本证明不替代合同、验收报告或第三方认证文件。
+        </p>
+
+        <footer class="bottom-code">
+          <span><strong>ISSUER</strong> · EE WMS</span>
+          <span><strong>GENERATED</strong> · {{ generated_date | e }}</span>
+          <span><strong>METHOD</strong> · 服务端实时生成</span>
+          <span><strong>VERIFY</strong> · {{ certificate_no | e }}</span>
+        </footer>
+      </section>
+    </article>
+  </main>
+</body>
+</html>

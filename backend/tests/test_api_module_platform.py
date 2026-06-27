@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.api.v1.module_platform.order.model import OrderModel
 from app.api.v1.module_platform.tenant.controller import TenantRouter
 from app.api.v1.module_platform.tenant.model import TenantModel
+from app.config.setting import settings
 from app.core.database import async_db_session
 from app.core.dependencies import AuthPermission
 
@@ -556,8 +557,8 @@ class TestSelfService:
         assert data["certificate_no"].startswith("EE-WMS-")
         assert data["filename"].startswith("企业软件使用证明-")
         assert data["enterprise_name"]
-        assert data["system_name"] == "EE WMS 电工装备智慧仓储系统"
-        assert data["system_version"] == "0.1.0"
+        assert data["system_name"] == settings.USAGE_CERT_SYSTEM_NAME
+        assert data["system_version"] == settings.USAGE_CERT_SYSTEM_VERSION
         assert "企业软件使用证明" in data["html"]
         assert data["enterprise_name"] in data["html"]
         assert data["system_version"] in data["html"]

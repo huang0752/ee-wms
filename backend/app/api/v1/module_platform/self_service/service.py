@@ -1,7 +1,6 @@
 
 import re
 from datetime import datetime, timedelta
-from html import escape
 
 from sqlalchemy import func, select
 
@@ -28,6 +27,7 @@ from app.config.setting import settings
 from app.core.base_schema import AuthSchema
 from app.core.exceptions import CustomException
 from app.core.logger import logger
+from app.utils.email_util import render_template_file
 
 from .schema import (
     PackageAvailableItem,
@@ -91,157 +91,24 @@ class SelfService:
         generated_date = f"{now:%Y年%m月%d日}"
         filename = f"企业软件使用证明-{cls._safe_filename(enterprise_name)}.html"
 
-        def e(value: str | None) -> str:
-            return escape(str(value or "-"), quote=True)
-
-        html = f"""<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>企业软件使用证明</title>
-  <style>
-    @page {{ size: A4; margin: 16mm; }}
-    * {{ box-sizing: border-box; }}
-    body {{
-      margin: 0;
-      color: #1f2937;
-      background: #f3f6fb;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    }}
-    .toolbar {{
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 18px;
-      color: #475569;
-      background: rgba(255, 255, 255, .94);
-      border-bottom: 1px solid #dbe3ef;
-      backdrop-filter: blur(12px);
-    }}
-    .toolbar button {{
-      height: 34px;
-      padding: 0 14px;
-      color: #fff;
-      cursor: pointer;
-      background: #2563eb;
-      border: 0;
-      border-radius: 6px;
-    }}
-    .page {{ max-width: 960px; margin: 28px auto; padding: 0 18px; }}
-    .certificate {{
-      min-height: 1180px;
-      padding: 54px;
-      background: #fff;
-      border: 1px solid #d8e1ee;
-      box-shadow: 0 24px 80px rgba(15, 23, 42, .12);
-    }}
-    .topline {{
-      display: flex;
-      justify-content: space-between;
-      gap: 24px;
-      padding-bottom: 22px;
-      border-bottom: 2px solid #1d4ed8;
-    }}
-    .muted {{ color: #64748b; font-size: 13px; }}
-    .cert-no {{ margin-top: 4px; color: #0f172a; font-weight: 700; }}
-    .badge {{
-      min-width: 168px;
-      padding: 12px 16px;
-      text-align: center;
-      color: #1d4ed8;
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 8px;
-    }}
-    .title {{ margin: 70px 0 44px; text-align: center; }}
-    .title h1 {{ margin: 8px 0; font-size: 40px; letter-spacing: 0; }}
-    .title .en {{ color: #2563eb; font-size: 13px; font-weight: 700; text-transform: uppercase; }}
-    .lead {{ margin: 0 0 34px; font-size: 18px; line-height: 2; }}
-    .lead strong {{ color: #0f172a; }}
-    table {{ width: 100%; border-collapse: collapse; margin: 28px 0; }}
-    th, td {{ padding: 15px 16px; border: 1px solid #cbd5e1; line-height: 1.6; }}
-    th {{ width: 18%; color: #334155; text-align: left; background: #f8fafc; }}
-    td {{ color: #0f172a; }}
-    .statement {{ margin-top: 34px; color: #475569; font-size: 15px; line-height: 1.9; }}
-    .footer {{
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px 24px;
-      margin-top: 74px;
-      padding-top: 20px;
-      color: #475569;
-      font-size: 13px;
-      border-top: 1px solid #cbd5e1;
-    }}
-    .footer strong {{ color: #0f172a; }}
-    @media print {{
-      body {{ background: #fff; }}
-      .toolbar {{ display: none; }}
-      .page {{ margin: 0; padding: 0; max-width: none; }}
-      .certificate {{ min-height: auto; padding: 0; border: 0; box-shadow: none; }}
-    }}
-  </style>
-</head>
-<body>
-  <div class="toolbar">
-    <span>本证明由系统实时生成，企业名称来自租户主数据。</span>
-    <button type="button" onclick="window.print()">打印 / 另存 PDF</button>
-  </div>
-  <main class="page">
-    <article class="certificate" aria-label="企业软件使用证明">
-      <header class="topline">
-        <div>
-          <div class="muted">证书编号</div>
-          <div class="cert-no">{e(certificate_no)}</div>
-        </div>
-        <div class="badge">
-          <div>Software Usage</div>
-          <strong>系统实时生成</strong>
-        </div>
-      </header>
-
-      <section class="title">
-        <div class="en">Software Usage Certificate</div>
-        <h1>企业软件使用证明</h1>
-        <div class="muted">EE WMS</div>
-      </section>
-
-      <p class="lead">
-        兹证明：<strong>{e(enterprise_name)}</strong> 正在使用
-        <strong>{e(system_name)} {e(system_version)}</strong>，用于支撑电工装备场景下的智能仓储、
-        库存管理、批次追溯、MES 集成及相关经营管理工作。
-      </p>
-
-      <table aria-label="证明信息">
-        <tbody>
-          <tr><th>企业名称</th><td colspan="3">{e(enterprise_name)}</td></tr>
-          <tr><th>租户编码</th><td>{e(tenant_code)}</td><th>当前用户</th><td>{e(operator)}</td></tr>
-          <tr><th>系统名称</th><td colspan="3">{e(system_name)}</td></tr>
-          <tr><th>系统版本</th><td>{e(system_version)}</td><th>生成时间</th><td>{e(generated_at)}</td></tr>
-          <tr><th>覆盖范围</th><td colspan="3">{e(coverage_scope)}</td></tr>
-          <tr><th>用户 IP</th><td colspan="3">{e(user_ip or "127.0.0.1")}</td></tr>
-        </tbody>
-      </table>
-
-      <p class="statement">
-        本证明由系统根据租户主数据、环境配置及当前访问环境实时生成。企业名称不接受当前用户自助修改；
-        系统版本由服务端环境变量固定配置。本证明用于说明系统使用状态，不替代合同、验收报告或第三方认证文件。
-      </p>
-
-      <footer class="footer">
-        <span><strong>ISSUER</strong> · EE WMS</span>
-        <span><strong>GENERATED</strong> · {e(generated_date)}</span>
-        <span><strong>METHOD</strong> · 服务端实时生成</span>
-        <span><strong>VERIFY</strong> · {e(certificate_no)}</span>
-      </footer>
-    </article>
-  </main>
-</body>
-</html>"""
+        system_title = f"{system_name} {system_version}".strip()
+        html = render_template_file(
+            "includes/software_usage_certificate.html",
+            {
+                "certificate_no": certificate_no,
+                "enterprise_name": enterprise_name,
+                "social_credit_code": "-",
+                "industry": "电工装备智能仓储",
+                "system_name": system_name,
+                "system_version": system_version,
+                "system_title": system_title or "-",
+                "coverage_scope": coverage_scope,
+                "user": operator,
+                "user_ip": user_ip or "127.0.0.1",
+                "generated_at": generated_at,
+                "generated_date": generated_date,
+            },
+        )
 
         return UsageCertificatePreviewOut(
             certificate_no=certificate_no,
