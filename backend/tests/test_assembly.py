@@ -501,6 +501,74 @@ async def test_seed_identity_sync_sets_postgres_sequence_to_max_id(monkeypatch: 
     }
 
 
+@pytest.mark.asyncio
+async def test_wms_seed_backfills_package_and_owner_role_authorizations(test_client: TestClient) -> None:
+    old_file = settings.APP_ASSEMBLY_FILE
+    old_name = settings.APP_ASSEMBLY
+    settings.APP_ASSEMBLY_FILE = "app/assemblies/wms.toml"
+    settings.APP_ASSEMBLY = "wms"
+    reset_assembly_cache()
+
+    try:
+        from app.api.v1.module_platform.menu.model import MenuModel
+        from app.api.v1.module_platform.package.model import PackageMenuModel
+        from app.api.v1.module_system.role.model import RoleMenusModel, RoleModel
+        from app.core.database import async_db_session
+
+        async with async_db_session() as db:
+            dashboard_menu_id = (
+                await db.execute(
+                    select(MenuModel.id)
+                    .where(MenuModel.permission == "module_wms:dashboard:query", MenuModel.status == 0)
+                    .limit(1)
+                )
+            ).scalar_one()
+            owner_role_id = (
+                await db.execute(
+                    select(RoleModel.id)
+                    .where(RoleModel.tenant_id == 2, RoleModel.code == "TEST_ADMIN")
+                    .limit(1)
+                )
+            ).scalar_one()
+
+            await db.execute(delete(PackageMenuModel).where(PackageMenuModel.menu_id == dashboard_menu_id))
+            await db.execute(
+                delete(RoleMenusModel).where(
+                    RoleMenusModel.role_id == owner_role_id,
+                    RoleMenusModel.menu_id == dashboard_menu_id,
+                )
+            )
+            await db.commit()
+
+        await InitializeData().init_db()
+
+        async with async_db_session() as db:
+            package_count = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(PackageMenuModel)
+                    .where(PackageMenuModel.menu_id == dashboard_menu_id)
+                )
+            ).scalar_one()
+            role_count = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(RoleMenusModel)
+                    .where(
+                        RoleMenusModel.role_id == owner_role_id,
+                        RoleMenusModel.menu_id == dashboard_menu_id,
+                    )
+                )
+            ).scalar_one()
+
+        assert package_count > 0
+        assert role_count == 1
+    finally:
+        settings.APP_ASSEMBLY_FILE = old_file
+        settings.APP_ASSEMBLY = old_name
+        reset_assembly_cache()
+
+
 def _flatten_menu_seed(items: list[dict]) -> list[dict]:
     result: list[dict] = []
     for item in items:

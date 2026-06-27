@@ -12,7 +12,7 @@ import re
 from datetime import datetime, time
 from typing import Any
 
-from sqlalchemy import func, select, text
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.module_platform.email.model import EmailConfigModel, EmailTemplateModel
@@ -28,7 +28,7 @@ from app.api.v1.module_system.log.model import LoginLogModel, OperationLogModel
 from app.api.v1.module_system.notice.model import BusinessNotificationModel, NoticeModel, NoticeReadModel
 from app.api.v1.module_system.params.model import ParamsModel
 from app.api.v1.module_system.position.model import PositionModel
-from app.api.v1.module_system.role.model import RoleModel
+from app.api.v1.module_system.role.model import RoleMenusModel, RoleModel
 from app.api.v1.module_system.ticket.model import TicketModel
 from app.api.v1.module_system.user.model import UserModel, UserRolesModel
 from app.api.v1.module_wms.arrival.model import WmsArrivalLineModel, WmsArrivalOrderModel
@@ -321,6 +321,7 @@ class InitializeData:
 
         await self.__sync_seed_identity_sequences(db, init_models)
         await self.__backfill_tenant_memberships(db)
+        await self.__backfill_wms_product_authorizations(db)
         await self.__sync_seed_identity_sequences(db, init_models)
 
     async def __reset_identity_if_empty(self, db: AsyncSession, model: type) -> None:
@@ -459,6 +460,125 @@ class InitializeData:
         if added:
             await db.flush()
             logger.info(f"✅️ 已回填 {added} 条用户租户关系")
+
+    async def __backfill_wms_product_authorizations(self, db: AsyncSession) -> None:
+        """回填老库缺失的 WMS 套餐授权和租户 owner 角色菜单。
+
+        WMS 是产品装配内的核心业务菜单，不是可选插件。老库在新增 WMS 菜单前
+        已经有 platform_package_menu/sys_role_menus 数据时，普通初始化会跳过关
+        联表，导致租户首页请求 WMS API 时 403。
+        """
+        if self._assembly.name != "wms":
+            return
+
+        wms_menu_ids = set(
+            (
+                await db.execute(
+                    select(MenuModel.id).where(
+                        MenuModel.scope == "tenant",
+                        MenuModel.status == 0,
+                        MenuModel.is_deleted.is_(False),
+                        or_(
+                            MenuModel.permission.like("module_wms:%"),
+                            MenuModel.route_path.like("/module-wms%"),
+                            MenuModel.component_path.like("module_wms/%"),
+                        ),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not wms_menu_ids:
+            return
+
+        package_ids = set((await db.execute(select(PackageModel.id))).scalars().all())
+        existing_package_pairs = set(
+            (
+                await db.execute(
+                    select(PackageMenuModel.package_id, PackageMenuModel.menu_id).where(
+                        PackageMenuModel.package_id.in_(package_ids),
+                        PackageMenuModel.menu_id.in_(wms_menu_ids),
+                    )
+                )
+            ).all()
+        )
+
+        package_added = 0
+        for package_id in sorted(package_ids):
+            for menu_id in sorted(wms_menu_ids):
+                if (package_id, menu_id) in existing_package_pairs:
+                    continue
+                db.add(PackageMenuModel(package_id=package_id, menu_id=menu_id))
+                package_added += 1
+
+        owner_role_ids = set(
+            (
+                await db.execute(
+                    select(RoleModel.id)
+                    .join(UserRolesModel, UserRolesModel.role_id == RoleModel.id)
+                    .join(
+                        TenantUserModel,
+                        and_(
+                            TenantUserModel.user_id == UserRolesModel.user_id,
+                            TenantUserModel.tenant_id == RoleModel.tenant_id,
+                        ),
+                    )
+                    .where(
+                        TenantUserModel.role == "owner",
+                        RoleModel.tenant_id.is_not(None),
+                        RoleModel.status == 0,
+                        RoleModel.is_deleted.is_(False),
+                    )
+                    .distinct()
+                )
+            )
+            .scalars()
+            .all()
+        )
+        owner_role_ids.update(
+            (
+                await db.execute(
+                    select(RoleModel.id).where(
+                        RoleModel.code == "owner",
+                        RoleModel.tenant_id.is_not(None),
+                        RoleModel.status == 0,
+                        RoleModel.is_deleted.is_(False),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        existing_role_pairs = set()
+        if owner_role_ids:
+            existing_role_pairs = set(
+                (
+                    await db.execute(
+                        select(RoleMenusModel.role_id, RoleMenusModel.menu_id).where(
+                            RoleMenusModel.role_id.in_(owner_role_ids),
+                            RoleMenusModel.menu_id.in_(wms_menu_ids),
+                        )
+                    )
+                ).all()
+            )
+
+        role_added = 0
+        for role_id in sorted(owner_role_ids):
+            for menu_id in sorted(wms_menu_ids):
+                if (role_id, menu_id) in existing_role_pairs:
+                    continue
+                db.add(RoleMenusModel(role_id=role_id, menu_id=menu_id))
+                role_added += 1
+
+        if package_added or role_added:
+            await db.flush()
+            logger.info(
+                "✅️ 已回填 WMS 授权：套餐菜单 {} 条，租户 owner 角色菜单 {} 条",
+                package_added,
+                role_added,
+            )
 
     @staticmethod
     def __create_objects_with_children(data: list[dict], model_class: type) -> list:
