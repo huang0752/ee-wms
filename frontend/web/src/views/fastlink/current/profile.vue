@@ -303,7 +303,11 @@
 <script lang="ts" setup>
 import type { FormInstance, UploadRequestOptions, UploadFile } from "element-plus";
 import type { ElUpload } from "element-plus";
-import UserAPI, { type InfoFormState, type PasswordFormState } from "@/api/module_system/user";
+import UserAPI, {
+  type CurrentUserFormState,
+  type InfoFormState,
+  type PasswordFormState,
+} from "@/api/module_system/user";
 import { useUserStore, useDictStore } from "@stores";
 import { Camera } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
@@ -432,6 +436,16 @@ function normalizeGenderValue(v: string | number | undefined): number {
   if (v === undefined || v === null || v === "") return 1;
   const n = typeof v === "string" ? Number(v) : v;
   return Number.isFinite(n) ? n : 1;
+}
+
+function buildCurrentUserPayload(): CurrentUserFormState {
+  return {
+    name: infoFormState.name?.trim(),
+    gender: normalizeGenderValue(infoFormState.gender),
+    mobile: infoFormState.mobile?.trim(),
+    email: infoFormState.email?.trim(),
+    avatar: infoFormState.avatar?.trim(),
+  };
 }
 
 const initInfoForm = () => {
@@ -621,7 +635,7 @@ const handleSave = async () => {
     if (!valid) {
       return false;
     }
-    const response = await UserAPI.updateCurrentUserInfo({ ...infoFormState });
+    const response = await UserAPI.updateCurrentUserInfo(buildCurrentUserPayload());
     await userStore.setUserInfo(response.data.data);
     initInfoForm();
     ElMessage.success("个人资料已保存");

@@ -20,7 +20,7 @@ export const UserAPI = {
     });
   },
 
-  updateCurrentUserInfo(body: InfoFormState) {
+  updateCurrentUserInfo(body: CurrentUserFormState) {
     return request<ApiResponse<UserInfo>>({
       url: `${API_PATH}/current/info/update`,
       method: "put",

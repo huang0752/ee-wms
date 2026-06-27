@@ -42,11 +42,14 @@ class CurrentUserUpdateSchema(BaseModel):
             return value
         return email_validator(value)
 
-    @field_validator("gender")
+    @field_validator("gender", mode="before")
     @classmethod
-    def validate_gender(cls, value: str | None):
+    def validate_gender(cls, value: str | int | None):
         """校验性别：仅支持 0(男)、1(女)、2(未知)"""
-        if value and value not in {"0", "1", "2"}:
+        if value is None or value == "":
+            return None
+        value = str(value)
+        if value not in {"0", "1", "2"}:
             raise ValueError("性别仅支持 0(男)、1(女)、2(未知)")
         return value
 
@@ -340,6 +343,7 @@ class UserOutSchema(UserUpdateSchema, BaseSchema, UserBySchema, TenantBySchema):
     model_config = ConfigDict(arbitrary_types_allowed=True, from_attributes=True)
 
     username: str | None = Field(default=None, max_length=32, description="用户名")
+    password: str | None = Field(default=None, exclude=True, description="密码哈希不出参")
 
     tenant_id: int | None = Field(
         default=None,

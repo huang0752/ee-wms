@@ -246,8 +246,6 @@ class UserService:
         user = await UserCRUD(self.auth).get(id=self.auth.user.id)
         if not user:
             raise CustomException(msg="该数据不存在")
-        if user.is_superuser:
-            raise CustomException(msg="超级管理员不能修改个人信息")
         if data.mobile:
             exist_mobile_user = await UserCRUD(self.auth).get(mobile=data.mobile)
             if exist_mobile_user and exist_mobile_user.id != self.auth.user.id:
