@@ -1,4 +1,4 @@
-<!-- 参数配置 -->
+<!-- 系统配置 -->
 <template>
   <FaDrawer
     v-model="drawerVisible"

@@ -32,6 +32,7 @@ export const defaultAssemblySummary: AssemblySummary = {
     tenantPackage: true,
     demoContent: true,
     fastEnter: true,
+    systemConfig: true,
   },
 };
 

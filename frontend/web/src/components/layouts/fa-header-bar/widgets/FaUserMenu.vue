@@ -98,7 +98,7 @@
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
-import { useUserStore } from "@stores";
+import { useAssemblyStore, useUserStore } from "@stores";
 import { mittBus } from "@utils";
 import { hasPermissionInList } from "@/constants/permissions";
 
@@ -107,6 +107,7 @@ defineOptions({ name: "FaUserMenu" });
 const router = useRouter();
 const { t } = useI18n();
 const userStore = useUserStore();
+const assemblyStore = useAssemblyStore();
 
 const { info: userInfo } = storeToRefs(userStore);
 const userMenuPopover = ref();
@@ -128,9 +129,11 @@ const displayEmail = computed(() => (userInfo.value as { email?: string })?.emai
 
 const canManageSystemConfig = computed(() => {
   const basicInfo = userStore.basicInfo as Record<string, any>;
+  const featureEnabled = assemblyStore.isFeatureEnabled("systemConfig", true);
   return (
-    Boolean(basicInfo?.is_superuser) ||
-    hasPermissionInList(userStore.prems, "module_system:config:update")
+    featureEnabled &&
+    (Boolean(basicInfo?.is_superuser) ||
+      hasPermissionInList(userStore.prems, "module_system:config:update"))
   );
 });
 
