@@ -47,7 +47,7 @@ export const globalComponentsConfig: GlobalComponentConfig[] = [
     name: "聊天窗口",
     key: "chat-window",
     component: defineAsyncComponent(() => import("@/components/layouts/fa-chat-window/index.vue")),
-    enabled: true,
+    enabled: false,
   },
   {
     name: "礼花效果",

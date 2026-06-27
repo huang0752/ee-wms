@@ -54,7 +54,7 @@ const locale = computed(() => {
 const enableAiAssistant = computed(() => {
   const isEnabled = settingsStore.userEnableAi;
   const isLoggedIn = userStore.basicInfo && Object.keys(userStore.basicInfo).length > 0;
-  return isEnabled && isLoggedIn && assemblyStore.isFeatureEnabled("aiAssistant", true);
+  return isEnabled && isLoggedIn && assemblyStore.isFeatureEnabled("aiAssistant", false);
 });
 
 // 水印文字默认使用当前主题色（半透明），随主题色设置变化

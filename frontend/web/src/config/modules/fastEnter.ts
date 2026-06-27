@@ -24,7 +24,7 @@ const fastEnterConfig: FastEnterConfig = {
       description: "智能问答与业务辅助",
       icon: "ri:user-line",
       iconColor: "#13DEB9",
-      enabled: true,
+      enabled: false,
       order: 2,
       routeName: "FastlinkFachat",
     },
@@ -51,19 +51,19 @@ const fastEnterConfig: FastEnterConfig = {
   quickLinks: [
     {
       name: "登录",
-      enabled: true,
+      enabled: false,
       order: 1,
       routeName: "Login",
     },
     {
       name: "注册",
-      enabled: true,
+      enabled: false,
       order: 2,
       routeName: "Login",
     },
     {
       name: "忘记密码",
-      enabled: true,
+      enabled: false,
       order: 3,
       routeName: "Login",
     },
