@@ -19,7 +19,7 @@ const TenantAPI = {
   },
 
   createTenant(body: TenantCreateForm) {
-    return request<ApiResponse>({
+    return request<ApiResponse<TenantCreateResult>>({
       url: `${API_PATH}/create`,
       method: "post",
       data: body,
@@ -160,6 +160,15 @@ export interface TenantTable extends BaseType {
   git_code?: string;
   status?: number;
   description?: string;
+}
+
+export interface TenantInitialAdmin {
+  username: string;
+  password: string;
+}
+
+export interface TenantCreateResult extends TenantTable {
+  initial_admin: TenantInitialAdmin;
 }
 
 export interface TenantForm extends BaseFormType {

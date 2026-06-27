@@ -216,6 +216,7 @@ import { useTableSelection } from "@/hooks/core/useTableSelection";
 import { confirmDelete, confirmBatchDelete } from "@/hooks/core/useConfirm";
 import TenantAPI, {
   type TenantCreateForm,
+  type TenantInitialAdmin,
   type TenantForm,
   type TenantTable,
   type TenantUpdateForm,
@@ -228,7 +229,7 @@ import type { SearchFormItem } from "@/components/forms/fa-search-bar/index.vue"
 import type FaSearchBar from "@/components/forms/fa-search-bar/index.vue";
 import type { FormItem } from "@/components/forms/fa-form/index.vue";
 import type FaForm from "@/components/forms/fa-form/index.vue";
-import { ElMessage, ElTabs, ElTabPane, ElForm, ElFormItem, ElRow, ElCol } from "element-plus";
+import { ElMessage, ElMessageBox, ElTabs, ElTabPane, ElForm, ElFormItem, ElRow, ElCol } from "element-plus";
 import { h, ref, computed, onMounted } from "vue";
 
 defineOptions({
@@ -815,6 +816,7 @@ async function handleSubmit() {
   if (!valid) return;
   submitLoading.value = true;
   const id = formData.value.id as number | undefined;
+  let initialAdmin: TenantInitialAdmin | undefined;
   try {
     if (id) {
       const payload: TenantUpdateForm = {
@@ -870,18 +872,44 @@ async function handleSubmit() {
         sort: formData.value.sort,
         version: formData.value.version,
       };
-      await TenantAPI.createTenant(payload);
+      const createResp = await TenantAPI.createTenant(payload);
       await refreshCreate();
+      initialAdmin = createResp.data?.data?.initial_admin;
     }
     dialogVisible.visible = false;
     dataFormRef.value?.resetFields();
     dataFormRef.value?.clearValidate();
     formData.value = { ...initialFormData };
+    await showInitialAdminDialog(initialAdmin);
   } catch (error: unknown) {
     console.error(error);
   } finally {
     submitLoading.value = false;
   }
+}
+
+async function showInitialAdminDialog(initialAdmin?: TenantInitialAdmin) {
+  if (!initialAdmin?.username || !initialAdmin.password) return;
+  await ElMessageBox.alert(
+    h("div", { class: "tenant-initial-admin" }, [
+      h("p", { class: "tenant-initial-admin__tips" }, "请保存以下初始管理员账号和临时密码，关闭后将不再展示。"),
+      h("div", { class: "tenant-initial-admin__row" }, [
+        h("span", { class: "tenant-initial-admin__label" }, "账号"),
+        h("code", { class: "tenant-initial-admin__value" }, initialAdmin.username),
+      ]),
+      h("div", { class: "tenant-initial-admin__row" }, [
+        h("span", { class: "tenant-initial-admin__label" }, "临时密码"),
+        h("code", { class: "tenant-initial-admin__value" }, initialAdmin.password),
+      ]),
+    ]),
+    "租户创建成功",
+    {
+      confirmButtonText: "我已保存",
+      closeOnClickModal: false,
+      closeOnPressEscape: false,
+      showClose: false,
+    }
+  );
 }
 
 async function handleBatchDelete() {
@@ -919,5 +947,37 @@ async function handleBatchDelete() {
 .detail-favicon {
   max-width: 48px;
   max-height: 48px;
+}
+
+.tenant-initial-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tenant-initial-admin__tips {
+  margin: 0 0 4px;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+}
+
+.tenant-initial-admin__row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.tenant-initial-admin__label {
+  color: var(--el-text-color-secondary);
+}
+
+.tenant-initial-admin__value {
+  min-width: 0;
+  padding: 6px 8px;
+  overflow-wrap: anywhere;
+  color: var(--el-color-primary);
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
 }
 </style>

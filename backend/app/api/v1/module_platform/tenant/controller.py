@@ -23,6 +23,7 @@ from .schema import (
     PackageChangePreviewOut,
     TenantConfigItem,
     TenantConfigOutSchema,
+    TenantCreateOutSchema,
     TenantCreateSchema,
     TenantOutSchema,
     TenantQueryParam,
@@ -74,7 +75,7 @@ async def get_obj_list_controller(
 @TenantRouter.post(
     "/create",
     summary="创建租户",
-    response_model=ResponseSchema[TenantOutSchema],
+    response_model=ResponseSchema[TenantCreateOutSchema],
 )
 async def create_obj_controller(
     data: TenantCreateSchema,

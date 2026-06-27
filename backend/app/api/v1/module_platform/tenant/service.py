@@ -20,7 +20,9 @@ from .schema import (
     PackageChangePreviewOut,
     TenantConfigItem,
     TenantConfigOutSchema,
+    TenantCreateOutSchema,
     TenantCreateSchema,
+    TenantInitialAdminOutSchema,
     TenantOutSchema,
     TenantQueryParam,
     TenantUpdateSchema,
@@ -90,7 +92,7 @@ class TenantService:
         )
 
     @require_superadmin
-    async def create(self, data: TenantCreateSchema) -> TenantOutSchema:
+    async def create(self, data: TenantCreateSchema) -> TenantCreateOutSchema:
         if await TenantCRUD(self.auth).get(name=data.name):
             raise CustomException(msg="创建失败，名称已存在")
         if await TenantCRUD(self.auth).get(code=data.code):
@@ -140,10 +142,13 @@ class TenantService:
             logger.error(f"为租户[{tenant_obj.name}]创建初始管理员失败: {e!s}")
             raise CustomException(msg="创建租户初始管理员失败") from e
 
-        logger.info(f"为租户[{tenant_obj.name}]创建初始管理员成功，用户名: {username}，临时密码: {password}")
+        logger.info(f"为租户[{tenant_obj.name}]创建初始管理员成功，用户名: {username}")
 
         await self.auth.db.refresh(tenant_obj)
-        result = TenantOutSchema.model_validate(tenant_obj)
+        result = TenantCreateOutSchema(
+            **TenantOutSchema.model_validate(tenant_obj).model_dump(),
+            initial_admin=TenantInitialAdminOutSchema(username=username, password=password),
+        )
 
         return result
 

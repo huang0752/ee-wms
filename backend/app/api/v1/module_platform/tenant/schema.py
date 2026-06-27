@@ -151,6 +151,19 @@ class TenantOutSchema(TenantCreateSchema, BaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TenantInitialAdminOutSchema(BaseModel):
+    """租户初始管理员一次性凭据响应"""
+
+    username: str = Field(..., description="初始管理员用户名")
+    password: str = Field(..., description="初始管理员临时密码")
+
+
+class TenantCreateOutSchema(TenantOutSchema):
+    """创建租户响应"""
+
+    initial_admin: TenantInitialAdminOutSchema = Field(..., description="初始管理员一次性凭据")
+
+
 @dataclass
 class TenantQueryParam(BaseQueryParam):
     """租户查询参数"""

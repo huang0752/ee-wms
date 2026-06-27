@@ -309,7 +309,13 @@ def test_platform_tenant_create_adds_initial_admin_membership(
         json={"name": f"租户{suffix}", "code": code},
     )
     assert resp.status_code == 200, resp.text
-    tenant_id = resp.json()["data"]["id"]
+    data = resp.json()["data"]
+    tenant_id = data["id"]
+
+    initial_admin = data["initial_admin"]
+    assert initial_admin["username"] == f"{code}_admin"
+    assert isinstance(initial_admin["password"], str)
+    assert len(initial_admin["password"]) >= 12
 
     import asyncio
 
@@ -318,6 +324,9 @@ def test_platform_tenant_create_adds_initial_admin_membership(
     assert membership is not None
     assert membership.role == "owner"
     assert membership.is_default == 1
+
+    login_data = _login(test_client, username=initial_admin["username"], password=initial_admin["password"])
+    assert login_data["access_token"]
 
 
 def test_oauth_unsupported_provider_does_not_redirect_to_untrusted_uri(test_client: TestClient) -> None:
