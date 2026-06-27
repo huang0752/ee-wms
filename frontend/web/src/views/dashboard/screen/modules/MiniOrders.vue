@@ -1,21 +1,25 @@
 <template>
   <div class="mini-chart-panel">
-    <div class="mc-hd">已完成订单</div>
-    <div class="mc-value" style="color: #7c3aed">{{ val }}</div>
+    <div class="mc-hd">待处理单据</div>
+    <div class="mc-value" style="color: #7c3aed">{{ displayValue }}</div>
     <div ref="chartRef" class="mc-chart" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import * as echarts from "echarts";
 
 defineOptions({ name: "MiniOrders" });
 
+const props = defineProps<{
+  value?: number;
+}>();
+
 const chartRef = ref<HTMLDivElement>();
 let chart: echarts.ECharts | null = null;
-let timer = 0;
-const val = ref(3856);
+const val = ref(props.value ?? 0);
+const displayValue = computed(() => Math.round(val.value).toLocaleString());
 
 function initChart(dom: HTMLDivElement) {
   chart = echarts.init(dom);
@@ -29,31 +33,43 @@ function initChart(dom: HTMLDivElement) {
         label: { show: false },
         itemStyle: { borderColor: "#060b24", borderWidth: 1 },
         data: [
-          { value: 3856, name: "已完成", itemStyle: { color: "#7c3aed" } },
-          { value: 843, name: "处理中", itemStyle: { color: "#a78bfa" } },
-          { value: 213, name: "待付款", itemStyle: { color: "#1a2050" } },
+          { value: val.value, name: "待处理", itemStyle: { color: "#7c3aed" } },
+          { value: 0, name: "处理中", itemStyle: { color: "#a78bfa" } },
+          { value: 0, name: "待复核", itemStyle: { color: "#1a2050" } },
         ],
       },
     ],
   });
 }
 
+function syncValue(value: number) {
+  val.value = value;
+  if (chart && !chart.isDisposed()) {
+    chart.setOption({
+      series: [
+        {
+          data: [
+            { value },
+            { value: 0 },
+            { value: 0 },
+          ],
+        },
+      ],
+    });
+  }
+}
+
 function tick() {
   if (!chart || chart.isDisposed()) return;
-  const n = Math.round(3000 + Math.random() * 2000);
-  val.value = n;
-  chart.setOption({
-    series: [
-      {
-        data: [
-          { value: n },
-          { value: Math.round(500 + Math.random() * 600) },
-          { value: Math.round(100 + Math.random() * 200) },
-        ],
-      },
-    ],
-  });
+  syncValue(props.value ?? 0);
 }
+
+watch(
+  () => props.value,
+  (value) => {
+    if (value !== undefined) syncValue(value);
+  }
+);
 
 onMounted(() => {
   const el = chartRef.value;
@@ -64,13 +80,11 @@ onMounted(() => {
     if (entry && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
       observer.disconnect();
       initChart(el);
-      timer = window.setInterval(tick, 5000);
     }
   });
   observer.observe(el);
 });
 onUnmounted(() => {
-  clearInterval(timer);
   chart?.dispose();
 });
 </script>

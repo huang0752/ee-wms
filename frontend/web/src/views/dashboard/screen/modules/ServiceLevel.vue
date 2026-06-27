@@ -1,58 +1,65 @@
 <template>
   <div class="panel p1">
-    <div class="panel-hd"><span class="dot green" />API 响应时长(均值)</div>
+    <div class="panel-hd"><span class="dot green" />库存流水时段趋势</div>
     <div ref="chartRef" class="chart-box" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import * as echarts from "echarts";
 
 defineOptions({ name: "ServiceLevel" });
 
+interface FlowHourSeries {
+  labels: string[];
+  inbound: number[];
+  outbound: number[];
+}
+
+const props = withDefaults(
+  defineProps<{
+    series?: FlowHourSeries;
+  }>(),
+  {
+    series: () => ({ labels: [], inbound: [], outbound: [] }),
+  }
+);
+
 const chartRef = ref<HTMLDivElement>();
 let chart: echarts.ECharts | null = null;
-let timer = 0;
 
 const textStyle = { color: "#94a3b8" };
-const xData = [
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-];
+const hasData = computed(() => props.series.labels.length > 0);
+const yMax = computed(() => {
+  const max = Math.max(...props.series.inbound, ...props.series.outbound, 0);
+  return Math.max(10, Math.ceil(max / 10) * 10);
+});
 
 function initChart(dom: HTMLDivElement) {
   chart = echarts.init(dom);
   chart.setOption({
+    graphic: emptyGraphic(),
     grid: { top: 20, right: 25, bottom: 25, left: 45 },
     xAxis: {
       type: "category",
-      data: xData,
+      data: props.series.labels,
       boundaryGap: false,
       axisLine: { lineStyle: { color: "#1a2050" } },
       axisLabel: { ...textStyle, rotate: 30 },
     },
     yAxis: {
       type: "value",
-      name: "ms",
+      name: "件",
       nameTextStyle: { color: "#94a3b8", fontSize: 10 },
-      min: 20,
-      max: 80,
-      interval: 15,
+      min: 0,
+      max: yMax.value,
       splitLine: { lineStyle: { color: "#1a2050", type: "dashed" } },
       axisLabel: textStyle,
     },
     tooltip: {
       trigger: "axis" as const,
-      valueFormatter: (v: any) => v + "ms",
+      valueFormatter: (v: any) => v + "件",
       backgroundColor: "#0f143c",
       borderColor: "#1a2050",
       textStyle: { color: "#e0e6ff" },
@@ -71,16 +78,18 @@ function initChart(dom: HTMLDivElement) {
             { offset: 1, color: "rgba(16,185,129,0)" },
           ]),
         },
-        data: [52, 48, 55, 42, 65, 38, 45, 51, 58, 44],
+        name: "入库",
+        data: props.series.inbound,
       },
       {
+        name: "出库",
         type: "line",
         smooth: true,
         symbol: "diamond",
         symbolSize: 3,
         lineStyle: { color: "#f59e0b", width: 1.5, type: "dashed" },
         itemStyle: { color: "#f59e0b" },
-        data: [60, 55, 62, 50, 70, 45, 52, 58, 65, 50],
+        data: props.series.outbound,
       },
     ],
   });
@@ -90,12 +99,30 @@ function handleResize() {
   if (chart && !chart.isDisposed()) chart.resize();
 }
 
-function tick() {
+function syncChart() {
   if (!chart || chart.isDisposed()) return;
-  const d1 = xData.map(() => Math.round(35 + Math.random() * 35));
-  const d2 = xData.map(() => Math.round(42 + Math.random() * 30));
-  chart.setOption({ series: [{ data: d1 }, { data: d2 }] });
+  chart.setOption({
+    graphic: emptyGraphic(),
+    xAxis: { data: props.series.labels },
+    yAxis: { max: yMax.value },
+    series: [{ data: props.series.inbound }, { data: props.series.outbound }],
+  });
 }
+
+function emptyGraphic() {
+  return hasData.value
+    ? []
+    : [
+        {
+          type: "text",
+          left: "center",
+          top: "middle",
+          style: { text: "暂无库存流水", fill: "#94a3b8", fontSize: 12 },
+        },
+      ];
+}
+
+watch(() => props.series, syncChart, { deep: true });
 
 onMounted(() => {
   const el = chartRef.value;
@@ -106,7 +133,6 @@ onMounted(() => {
     if (entry && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
       observer.disconnect();
       initChart(el);
-      timer = window.setInterval(tick, 4000);
     }
   });
   observer.observe(el);
@@ -114,7 +140,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  clearInterval(timer);
   window.removeEventListener("resize", handleResize);
   chart?.dispose();
 });

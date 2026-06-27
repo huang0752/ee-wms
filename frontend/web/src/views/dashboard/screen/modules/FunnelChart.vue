@@ -1,54 +1,62 @@
 <template>
   <div class="panel p1">
-    <div class="panel-hd"><span class="dot purple" />用户转化漏斗</div>
+    <div class="panel-hd"><span class="dot purple" />待办作业闭环</div>
     <div class="funnel-list">
       <div v-for="(item, i) in data" :key="item.label" class="fn-item">
         <div class="fn-row">
           <span class="fn-idx" :style="{ background: colors[i] }">{{ i + 1 }}</span>
           <span class="fn-label">{{ item.label }}</span>
           <span class="fn-val">{{ item.value }}</span>
-          <span class="fn-rate" :style="{ color: colors[i] }">转化率 {{ item.rate }}%</span>
+          <span class="fn-rate" :style="{ color: colors[i] }">占比 {{ item.rate }}%</span>
         </div>
         <div class="fn-bar-wrap">
           <div class="fn-bar" :style="{ width: item.pct + '%', background: colors[i] }" />
         </div>
       </div>
+      <div v-if="data.length === 0" class="fn-empty">暂无待办任务</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted, onUnmounted } from "vue";
+import { computed } from "vue";
 
 defineOptions({ name: "FunnelChart" });
 
-const colors = ["#00d4ff", "#7c3aed", "#10b981", "#f59e0b"];
-
-const data = reactive([
-  { label: "曝光", value: "12,850", rate: 100, pct: 100 },
-  { label: "点击", value: "4,320", rate: 34, pct: 34 },
-  { label: "下单", value: "1,845", rate: 14, pct: 14 },
-  { label: "支付", value: "963", rate: 8, pct: 8 },
-]);
-
-let timer = 0;
-
-function tick() {
-  const bases = [12850, 4320, 1845, 963];
-  const vals = bases.map((b, i) => Math.round(b + (Math.random() - 0.5) * b * 0.08 * (4 - i)));
-  const max = vals[0]!;
-  data.forEach((item, i) => {
-    item.value = vals[i]!.toLocaleString();
-    item.rate = Math.round((vals[i]! / max) * 100);
-    item.pct = (vals[i]! / max) * 100;
-  });
+interface DashboardTask {
+  title: string;
+  status: string;
+  time: string;
 }
 
-onMounted(() => {
-  tick();
-  timer = window.setInterval(tick, 5000);
+const props = withDefaults(
+  defineProps<{
+    tasks?: DashboardTask[];
+  }>(),
+  {
+    tasks: () => [],
+  }
+);
+
+const colors = ["#00d4ff", "#7c3aed", "#10b981", "#f59e0b"];
+const data = computed(() => {
+  const values = props.tasks.slice(0, 4).map((item) => ({
+    label: item.title.replace(/^处理/, "").slice(0, 6),
+    rawValue: parseTaskValue(item.time),
+  }));
+  const max = Math.max(...values.map((item) => item.rawValue), 0);
+  return values.map((item) => ({
+    label: item.label,
+    value: item.rawValue.toLocaleString(),
+    rate: max ? Math.round((item.rawValue / max) * 100) : 0,
+    pct: max ? (item.rawValue / max) * 100 : 0,
+  }));
 });
-onUnmounted(() => clearInterval(timer));
+
+function parseTaskValue(value: string) {
+  const match = value.match(/\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : 0;
+}
 </script>
 
 <style scoped>
@@ -87,7 +95,7 @@ onUnmounted(() => clearInterval(timer));
 
 .fn-label {
   flex-shrink: 0;
-  width: 28px;
+  width: 64px;
   opacity: 0.5;
 }
 
@@ -117,5 +125,14 @@ onUnmounted(() => clearInterval(timer));
   height: 100%;
   border-radius: 2px;
   transition: width 0.8s;
+}
+
+.fn-empty {
+  display: grid;
+  flex: 1;
+  font-size: 12px;
+  color: #94a3b8;
+  place-items: center;
+  opacity: 0.65;
 }
 </style>

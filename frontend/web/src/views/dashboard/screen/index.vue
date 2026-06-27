@@ -13,7 +13,7 @@
         <div class="stat-label">{{ s.label }}</div>
         <div class="stat-sub">
           <span :class="s.up ? 'up' : 'down'">{{ s.up ? "▲" : "▼" }} {{ s.change }}</span>
-          <span class="stat-vs">较昨日</span>
+          <span class="stat-vs">{{ s.hint }}</span>
         </div>
       </div>
     </div>
@@ -21,12 +21,12 @@
     <!-- 主体布局 -->
     <div class="screen-grid">
       <!-- 左列 -->
-      <ServiceLevel class="gp-r1 gp-c1-3" />
-      <TargetReality class="gp-r2 gp-c1-3" />
+      <ServiceLevel class="gp-r1 gp-c1-3" :series="flowHourSeries" />
+      <TargetReality class="gp-r2 gp-c1-3" :items="warehouseFlowItems" />
 
       <!-- 中间左 -->
-      <LiveMetrics class="gp-r1 gp-c3-5" />
-      <FunnelChart class="gp-r2 gp-c3-5" />
+      <LiveMetrics class="gp-r1 gp-c3-5" :metrics="dashboardSummary?.metrics || []" />
+      <FunnelChart class="gp-r2 gp-c3-5" :tasks="dashboardSummary?.tasks || []" />
 
       <!-- 中国地图 -->
       <div class="panel p1 map-panel gp-r1 gp-c5-9" style="grid-row: 1 / 3">
@@ -34,22 +34,22 @@
       </div>
 
       <!-- 中间右 -->
-      <ChannelDonut class="gp-r1 gp-c9-11" />
-      <UserProfile class="gp-r2 gp-c9-11" />
+      <ChannelDonut class="gp-r1 gp-c9-11" :items="stockPieItems" />
+      <UserProfile class="gp-r2 gp-c9-11" :scores="stockRadarScores" />
 
       <!-- 右列 -->
-      <ProductBar class="gp-r1 gp-c11-13" />
-      <RealtimeMessages class="gp-r2 gp-c11-13" />
+      <ProductBar class="gp-r1 gp-c11-13" :items="trendBarItems" />
+      <RealtimeMessages class="gp-r2 gp-c11-13" :messages="screenMessages" />
     </div>
 
     <!-- 大卡片行 x6 统计图 -->
     <div class="card-row">
-      <MiniRevenue />
-      <MiniOrders />
-      <MiniTraffic />
-      <MiniRefund />
-      <MiniInventory />
-      <MiniRating />
+      <MiniRevenue :value="stockTotalValue" />
+      <MiniOrders :value="pendingDocumentValue" />
+      <MiniTraffic :value="flowQuantityValue" />
+      <MiniRefund :value="warningClosureRate" />
+      <MiniInventory :value="availableStockRate" />
+      <MiniRating :value="stockHealthScore" :scores="stockRadarScores" />
     </div>
 
     <!-- 底部状态栏 -->
@@ -73,6 +73,7 @@
 
 <script setup lang="ts">
 import {
+  computed,
   defineAsyncComponent,
   onMounted,
   onUnmounted,
@@ -81,6 +82,15 @@ import {
   ref,
   shallowRef,
 } from "vue";
+import {
+  WmsDashboardAPI,
+  type WmsDashboardFlow,
+  type WmsDashboardMetric,
+  type WmsDashboardStockStructure,
+  type WmsDashboardSummary,
+  type WmsDashboardTrendItem,
+  type WmsDashboardWarning,
+} from "@/api/module_wms/dashboard";
 import ScreenHeader from "./modules/ScreenHeader.vue";
 import ServiceLevel from "./modules/ServiceLevel.vue";
 import TargetReality from "./modules/TargetReality.vue";
@@ -105,70 +115,382 @@ const containerRef = ref<HTMLDivElement>();
 const canvasRef = ref<HTMLCanvasElement>();
 const isFullscreen = ref(false);
 const updateTime = ref("");
-const tickerItems = ref([
-  "交易引擎: 23%",
-  "消息队列: 58%",
-  "缓存命中: 94.1%",
-  "网关吞吐: 128Mbps",
-  "QPS: 3.2K",
-  "P99 延迟: 12ms",
-]);
+const tickerItems = ref(["WMS 数据加载中"]);
 const animFrame = shallowRef(0);
 let statsTimer = 0;
+let timeTimer = 0;
+let dashboardTimer = 0;
 
-const stats = reactive([
-  { label: "总交易额", value: "¥128.6万", change: "12.5%", up: true, color: "cyan" as const },
-  { label: "订单总量", value: "8,350", change: "8.2%", up: true, color: "purple" as const },
-  { label: "活跃商户", value: "1,286", change: "3.1%", up: true, color: "green" as const },
-  { label: "售后工单", value: "356", change: "5.7%", up: false, color: "warn" as const },
-  { label: "平均客单价", value: "¥468", change: "2.3%", up: true, color: "teal" as const },
-  { label: "支付转化率", value: "38.2%", change: "1.8%", up: true, color: "rose" as const },
+type StatColor = "cyan" | "purple" | "green" | "warn" | "teal" | "rose";
+
+interface StatCard {
+  label: string;
+  value: string;
+  change: string;
+  hint: string;
+  up: boolean;
+  color: StatColor;
+}
+
+interface ScreenChartItem {
+  name: string;
+  value: number;
+  color?: string;
+}
+
+interface ScreenMessage {
+  time: string;
+  tag: string;
+  tagText: string;
+  text: string;
+}
+
+const stats = reactive<StatCard[]>([
+  { label: "库存总量", value: "--", change: "加载中", hint: "库存结构", up: true, color: "cyan" },
+  { label: "仓库", value: "--", change: "加载中", hint: "基础档案", up: true, color: "purple" },
+  { label: "物料", value: "--", change: "加载中", hint: "主数据", up: true, color: "green" },
+  { label: "待处理单据", value: "--", change: "加载中", hint: "作业队列", up: true, color: "warn" },
+  { label: "库存批次", value: "--", change: "加载中", hint: "批次台账", up: true, color: "teal" },
+  { label: "未关闭预警", value: "--", change: "加载中", hint: "预警中心", up: true, color: "rose" },
 ]);
 
 const structItems = reactive([
-  { label: "交易节点", value: "128", cls: "cyan" },
-  { label: "主数据库", value: "运行中", cls: "green" },
-  { label: "缓存集群", value: "94.1%", cls: "purple" },
-  { label: "带宽使用", value: "1.2G", cls: "warn" },
-  { label: "存储容量", value: "2.4T", cls: "cyan" },
-  { label: "工作节点", value: "32", cls: "green" },
-  { label: "API 网关", value: "99.9%", cls: "purple" },
-  { label: "日志服务", value: "运行中", cls: "cyan" },
+  { label: "WMS 数据", value: "加载中", cls: "cyan" },
 ]);
 
-function fmt(n: number): string {
-  return n >= 10000 ? (n / 10000).toFixed(1) + "万" : n.toLocaleString();
-}
-function randFloat(base: number, pct: number): number {
-  return base * (1 + (Math.random() - 0.5) * pct * 2);
-}
-function randPct(): string {
-  return (Math.random() * 15 - 3).toFixed(1) + "%";
-}
+const dashboardSummary = ref<WmsDashboardSummary>();
+const stockStructure = ref<WmsDashboardStockStructure>();
+const trends = ref<WmsDashboardTrendItem[]>([]);
+const warnings = ref<WmsDashboardWarning[]>([]);
+const flows = ref<WmsDashboardFlow[]>([]);
+const hasDashboardData = ref(false);
+
+const stockTotalValue = computed(() => {
+  const structure = stockStructure.value;
+  if (!structure) return 0;
+  return (
+    toNumber(structure.available_qty) +
+    toNumber(structure.locked_qty) +
+    toNumber(structure.frozen_qty) +
+    toNumber(structure.pending_qty) +
+    toNumber(structure.defective_qty)
+  );
+});
+
+const pendingDocumentValue = computed(() => Number(metricByLabel("待处理单据")?.value ?? 0) || 0);
+const openWarningValue = computed(() => Number(metricByLabel("未关闭预警")?.value ?? warnings.value.length) || 0);
+const flowQuantityValue = computed(() => {
+  const trendTotal = trends.value.reduce((sum, item) => sum + toNumber(item.quantity), 0);
+  const latestFlowTotal = flows.value.reduce((sum, item) => sum + toNumber(item.quantity), 0);
+  return trendTotal || latestFlowTotal;
+});
+const warningClosureRate = computed(() => {
+  if (!hasDashboardData.value) return 0;
+  return Math.max(0, Math.min(100, 100 - openWarningValue.value * 4));
+});
+const availableStockRate = computed(() => {
+  const total = stockTotalValue.value;
+  if (!total || !stockStructure.value) return 0;
+  return (toNumber(stockStructure.value.available_qty) / total) * 100;
+});
+const stockHealthScore = computed(() => {
+  if (!stockStructure.value || !hasDashboardData.value) return 0;
+  const scores = stockRadarScores.value;
+  return scores.length ? Math.round(scores.reduce((sum, item) => sum + item, 0) / scores.length) : 0;
+});
+
+const stockPieItems = computed<ScreenChartItem[]>(() => {
+  const structure = stockStructure.value;
+  if (!structure) return [];
+  return [
+    { name: "可用库存", value: toNumber(structure.available_qty), color: "#00d4ff" },
+    { name: "锁定库存", value: toNumber(structure.locked_qty), color: "#7c3aed" },
+    { name: "待检库存", value: toNumber(structure.pending_qty), color: "#10b981" },
+    { name: "冻结库存", value: toNumber(structure.frozen_qty), color: "#f59e0b" },
+    { name: "不良库存", value: toNumber(structure.defective_qty), color: "#ef4444" },
+  ].filter((item) => item.value > 0);
+});
+
+const trendBarItems = computed<ScreenChartItem[]>(() =>
+  trends.value
+    .map((item) => ({ name: flowTypeText(item.flow_type), value: toNumber(item.quantity) }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6)
+);
+const warehouseFlowItems = computed<ScreenChartItem[]>(() => {
+  const groups = new Map<number, number>();
+  flows.value.forEach((item) => {
+    groups.set(item.warehouse_id, (groups.get(item.warehouse_id) ?? 0) + toNumber(item.quantity));
+  });
+  return Array.from(groups.entries())
+    .map(([warehouseId, value]) => ({ name: `仓库${warehouseId}`, value }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 4);
+});
+const flowHourSeries = computed(() => {
+  const buckets = new Map<string, { inbound: number; outbound: number }>();
+  flows.value.forEach((item) => {
+    const label = hourText(item.created_time);
+    if (!buckets.has(label)) buckets.set(label, { inbound: 0, outbound: 0 });
+    const bucket = buckets.get(label)!;
+    if (isInboundFlow(item)) {
+      bucket.inbound += toNumber(item.quantity);
+    } else {
+      bucket.outbound += toNumber(item.quantity);
+    }
+  });
+  const labels = Array.from(buckets.keys()).sort().slice(-10);
+  return {
+    labels,
+    inbound: labels.map((label) => buckets.get(label)?.inbound ?? 0),
+    outbound: labels.map((label) => buckets.get(label)?.outbound ?? 0),
+  };
+});
+const stockRadarScores = computed(() => {
+  const structure = stockStructure.value;
+  const total = stockTotalValue.value;
+  if (!structure || !total || !hasDashboardData.value) return [];
+  const lockedRate = (toNumber(structure.locked_qty) / total) * 100;
+  const frozenRate = (toNumber(structure.frozen_qty) / total) * 100;
+  const pendingRate = (toNumber(structure.pending_qty) / total) * 100;
+  return [
+    clamp(availableStockRate.value, 0, 100),
+    clamp(100 - lockedRate, 0, 100),
+    clamp(100 - frozenRate, 0, 100),
+    clamp(warningClosureRate.value, 0, 100),
+    clamp(100 - pendingRate, 0, 100),
+  ];
+});
+
+const screenMessages = computed<ScreenMessage[]>(() => {
+  const warningMessages = warnings.value.slice(0, 4).map((item) => ({
+    time: timeText(item.created_time),
+    tag: "alarm",
+    tagText: "预警",
+    text: `${warningTypeText(item.warning_type)} ${item.warning_no} 当前库存 ${formatNumber(toNumber(item.current_qty))}`,
+  }));
+  const flowMessages = flows.value.slice(0, 8).map((item) => ({
+    time: timeText(item.created_time),
+    tag: flowMessageTag(item.direction),
+    tagText: flowMessageText(item.direction),
+    text: `${flowTypeText(item.flow_type)} ${item.flow_no} 批次 ${item.batch_no || "-"} 数量 ${formatNumber(
+      toNumber(item.quantity)
+    )}`,
+  }));
+  return [...warningMessages, ...flowMessages].slice(0, 8);
+});
 
 function updateStats() {
-  const t = randFloat(1286000, 0.05);
-  const o = randFloat(8350, 0.04);
-  const m = randFloat(1286, 0.03);
-  const w = randFloat(356, 0.08);
-  stats[0]!.value = "¥" + fmt(Math.round(t));
-  stats[1]!.value = fmt(Math.round(o));
-  stats[2]!.value = fmt(Math.round(m));
-  stats[3]!.value = fmt(Math.round(w));
-  stats[4]!.value = "¥" + Math.round(randFloat(468, 0.03));
-  stats[5]!.value = randFloat(38.2, 0.06).toFixed(1) + "%";
-  stats[0]!.change = randPct();
-  stats[0]!.up = Math.random() > 0.3;
-  stats[1]!.change = randPct();
-  stats[1]!.up = Math.random() > 0.4;
-  stats[2]!.change = randPct();
-  stats[2]!.up = Math.random() > 0.5;
-  stats[3]!.change = randPct();
-  stats[3]!.up = Math.random() > 0.6;
-  stats[4]!.change = randPct();
-  stats[4]!.up = Math.random() > 0.3;
-  stats[5]!.change = randPct();
-  stats[5]!.up = Math.random() > 0.4;
+  if (hasDashboardData.value) {
+    applyWmsDashboardData();
+    return;
+  }
+  stats.forEach((item) => {
+    item.value = "--";
+    item.change = "加载中";
+    item.up = true;
+  });
+  tickerItems.value = ["WMS 数据加载中"];
+  structItems.splice(0, structItems.length, { label: "WMS 数据", value: "加载中", cls: "cyan" });
+}
+
+function toNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatNumber(value: number): string {
+  return value >= 10000 ? `${(value / 10000).toFixed(1)}万` : Math.round(value).toLocaleString();
+}
+
+function metricByLabel(label: string): WmsDashboardMetric | undefined {
+  return dashboardSummary.value?.metrics.find((item) => item.label === label);
+}
+
+function statusText(status?: string): string {
+  const map: Record<string, string> = {
+    normal: "正常",
+    pending: "待处理",
+    warning: "预警",
+  };
+  return status ? (map[status] ?? status) : "实时";
+}
+
+function metricValue(label: string, fallback: number | string = "--"): string {
+  const metric = metricByLabel(label);
+  const value = metric?.value ?? fallback;
+  const unit = metric?.unit ?? "";
+  const n = Number(value);
+  return Number.isFinite(n) ? `${formatNumber(n)}${unit}` : `${value}${unit}`;
+}
+
+function applyStat(index: number, patch: Partial<StatCard>) {
+  Object.assign(stats[index]!, patch);
+}
+
+function applyWmsDashboardData() {
+  const warningCount = openWarningValue.value;
+  applyStat(0, {
+    label: "库存总量",
+    value: formatNumber(stockTotalValue.value),
+    change: "实时",
+    hint: "库存结构",
+    up: true,
+  });
+  applyStat(1, {
+    label: "仓库",
+    value: metricValue("仓库"),
+    change: statusText(metricByLabel("仓库")?.status),
+    hint: "基础档案",
+    up: metricByLabel("仓库")?.status !== "warning",
+  });
+  applyStat(2, {
+    label: "物料",
+    value: metricValue("物料"),
+    change: statusText(metricByLabel("物料")?.status),
+    hint: "主数据",
+    up: metricByLabel("物料")?.status !== "warning",
+  });
+  applyStat(3, {
+    label: "待处理单据",
+    value: metricValue("待处理单据"),
+    change: pendingDocumentValue.value > 0 ? "待闭环" : "正常",
+    hint: "作业队列",
+    up: pendingDocumentValue.value === 0,
+  });
+  applyStat(4, {
+    label: "库存批次",
+    value: metricValue("库存批次"),
+    change: statusText(metricByLabel("库存批次")?.status),
+    hint: "批次台账",
+    up: metricByLabel("库存批次")?.status !== "warning",
+  });
+  applyStat(5, {
+    label: "未关闭预警",
+    value: metricValue("未关闭预警", warningCount),
+    change: warningCount > 0 ? "需关注" : "正常",
+    hint: "预警中心",
+    up: warningCount === 0,
+  });
+  updateTickerItems();
+  updateStructItems();
+}
+
+function updateTickerItems() {
+  tickerItems.value = [
+    `仓库: ${metricValue("仓库")}`,
+    `物料: ${metricValue("物料")}`,
+    `库存批次: ${metricValue("库存批次")}`,
+    `待处理单据: ${metricValue("待处理单据")}`,
+    `未关闭预警: ${metricValue("未关闭预警", openWarningValue.value)}`,
+    `最近流水: ${flows.value.length} 条`,
+  ];
+}
+
+function updateStructItems() {
+  const structure = stockStructure.value;
+  if (!structure) return;
+  const nextItems = [
+    { label: "装配", value: dashboardSummary.value?.assembly || "wms", cls: "cyan" },
+    { label: "阶段", value: dashboardSummary.value?.phase || "running", cls: "green" },
+    { label: "可用库存", value: formatNumber(toNumber(structure.available_qty)), cls: "purple" },
+    { label: "待检库存", value: formatNumber(toNumber(structure.pending_qty)), cls: "warn" },
+    { label: "冻结库存", value: formatNumber(toNumber(structure.frozen_qty)), cls: "cyan" },
+    { label: "锁定库存", value: formatNumber(toNumber(structure.locked_qty)), cls: "green" },
+    { label: "不良库存", value: formatNumber(toNumber(structure.defective_qty)), cls: "purple" },
+    { label: "最新流水", value: `${flows.value.length}条`, cls: "cyan" },
+  ];
+  structItems.splice(0, structItems.length, ...nextItems);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function flowTypeText(type: string) {
+  const map: Record<string, string> = {
+    receive_pending: "收货待检",
+    approve_to_available: "检验合格",
+    reject_to_defective: "检验不良",
+    lock: "库存锁定",
+    release_lock: "释放锁定",
+    ship: "出库扣减",
+    freeze: "冻结",
+    unfreeze: "解冻",
+    transfer_out: "调拨出库",
+    transfer_in: "调拨入库",
+    adjust_check: "盘点调整",
+  };
+  return map[type] ?? type;
+}
+
+function warningTypeText(type: string) {
+  const map: Record<string, string> = {
+    safety_stock: "安全库存",
+    shortage: "缺料预警",
+    expiry: "效期预警",
+    stagnant: "呆滞预警",
+  };
+  return map[type] ?? type;
+}
+
+function flowMessageTag(direction: string) {
+  if (direction === "out" || direction === "outbound") return "order";
+  if (direction === "in" || direction === "inbound") return "audit";
+  return "system";
+}
+
+function flowMessageText(direction: string) {
+  if (direction === "out" || direction === "outbound") return "出库";
+  if (direction === "in" || direction === "inbound") return "入库";
+  return "流水";
+}
+
+function isInboundFlow(item: WmsDashboardFlow) {
+  return (
+    item.direction === "in" ||
+    item.direction === "inbound" ||
+    item.flow_type === "receive_pending" ||
+    item.flow_type === "approve_to_available" ||
+    item.flow_type === "transfer_in"
+  );
+}
+
+function hourText(value?: string) {
+  if (!value) return "--:00";
+  const time = new Date(value);
+  if (Number.isNaN(time.getTime())) return value.slice(0, 2).padStart(2, "0") + ":00";
+  return time.toLocaleTimeString("zh-CN", { hour: "2-digit", hour12: false }) + ":00";
+}
+
+function timeText(value?: string) {
+  if (!value) return updateTime.value || "--:--";
+  const time = new Date(value);
+  if (Number.isNaN(time.getTime())) return value.slice(0, 5);
+  return time.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+async function loadWmsDashboard() {
+  try {
+    const [summaryResp, structureResp, trendResp, warningResp, flowResp] = await Promise.all([
+      WmsDashboardAPI.summary(),
+      WmsDashboardAPI.stockStructure(),
+      WmsDashboardAPI.trends(),
+      WmsDashboardAPI.warnings(),
+      WmsDashboardAPI.latestFlows(),
+    ]);
+    dashboardSummary.value = summaryResp.data.data;
+    stockStructure.value = structureResp.data.data;
+    trends.value = trendResp.data.data;
+    warnings.value = warningResp.data.data;
+    flows.value = flowResp.data.data;
+    hasDashboardData.value = true;
+    applyWmsDashboardData();
+  } catch {
+    hasDashboardData.value = false;
+  }
 }
 
 async function toggleFullscreen() {
@@ -287,24 +609,30 @@ onMounted(() => {
     updateTime.value = new Date().toLocaleTimeString("zh-CN", { hour12: false });
   };
   timeTick();
-  window.setInterval(timeTick, 1000);
+  timeTimer = window.setInterval(timeTick, 1000);
   initParticles();
   statsTimer = window.setInterval(updateStats, 3000);
+  dashboardTimer = window.setInterval(loadWmsDashboard, 30000);
   updateStats();
-  window.addEventListener("resize", () => {
-    resizeCanvas();
-    spawnParticles();
-  });
+  void loadWmsDashboard();
+  window.addEventListener("resize", handleWindowResize);
 });
 
 onUnmounted(() => {
   cancelAnimationFrame(animFrame.value);
   clearInterval(statsTimer);
-  document.removeEventListener("fullscreenchange", onFullscreenChange);
+  clearInterval(timeTimer);
+  clearInterval(dashboardTimer);
+  window.removeEventListener("resize", handleWindowResize);
   if (document.fullscreenElement) {
     document.exitFullscreen().catch(() => {});
   }
 });
+
+function handleWindowResize() {
+  resizeCanvas();
+  spawnParticles();
+}
 </script>
 
 <style scoped>

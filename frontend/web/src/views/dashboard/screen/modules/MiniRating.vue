@@ -1,28 +1,38 @@
 <template>
   <div class="mini-chart-panel">
-    <div class="mc-hd">用户综合评分</div>
-    <div class="mc-value" style="color: #f43f5e">{{ val }}<span class="mc-unit">分</span></div>
+    <div class="mc-hd">库存健康评分</div>
+    <div class="mc-value" style="color: #f43f5e">{{ displayValue }}<span class="mc-unit">分</span></div>
     <div ref="chartRef" class="mc-chart" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import * as echarts from "echarts";
 
 defineOptions({ name: "MiniRating" });
 
+const props = withDefaults(
+  defineProps<{
+    value?: number;
+    scores?: number[];
+  }>(),
+  {
+    value: 0,
+    scores: () => [],
+  }
+);
+
 const chartRef = ref<HTMLDivElement>();
 let chart: echarts.ECharts | null = null;
-let timer = 0;
-const val = ref(92);
+const displayValue = computed(() => Math.round(props.value));
 
 const indicators = [
-  { name: "商品质量", max: 100 },
-  { name: "服务态度", max: 100 },
-  { name: "物流速度", max: 100 },
-  { name: "性价比", max: 100 },
-  { name: "包装完好", max: 100 },
+  { name: "可用", max: 100 },
+  { name: "未锁", max: 100 },
+  { name: "未冻", max: 100 },
+  { name: "闭环", max: 100 },
+  { name: "待检", max: 100 },
 ];
 
 function initChart(dom: HTMLDivElement) {
@@ -43,19 +53,22 @@ function initChart(dom: HTMLDivElement) {
         symbol: "none",
         lineStyle: { color: "#f43f5e", width: 1.5 },
         areaStyle: { color: "rgba(244,63,94,0.1)" },
-        data: [{ value: [96, 91, 88, 85, 94] }],
+        data: [{ value: normalizedScores() }],
       },
     ],
   });
 }
 
-function tick() {
+function syncChart() {
   if (!chart || chart.isDisposed()) return;
-  const v = indicators.map(() => Math.round(80 + Math.random() * 20));
-  const avg = Math.round(v.reduce((a, b) => a + b, 0) / v.length);
-  val.value = avg;
-  chart.setOption({ series: [{ data: [{ value: v }] }] });
+  chart.setOption({ series: [{ data: [{ value: normalizedScores() }] }] });
 }
+
+function normalizedScores() {
+  return indicators.map((_, index) => Math.round(props.scores[index] ?? 0));
+}
+
+watch(() => props.scores, syncChart, { deep: true });
 
 onMounted(() => {
   const el = chartRef.value;
@@ -66,13 +79,11 @@ onMounted(() => {
     if (entry && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
       observer.disconnect();
       initChart(el);
-      timer = window.setInterval(tick, 5000);
     }
   });
   observer.observe(el);
 });
 onUnmounted(() => {
-  clearInterval(timer);
   chart?.dispose();
 });
 </script>

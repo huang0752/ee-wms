@@ -1,21 +1,24 @@
 <template>
   <div class="mini-chart-panel">
-    <div class="mc-hd">售后退款率</div>
+    <div class="mc-hd">异常闭环率</div>
     <div class="mc-value" style="color: #f59e0b">{{ val }}<span class="mc-unit">%</span></div>
     <div ref="chartRef" class="mc-chart" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, watch } from "vue";
 import * as echarts from "echarts";
 
 defineOptions({ name: "MiniRefund" });
 
+const props = defineProps<{
+  value?: number;
+}>();
+
 const chartRef = ref<HTMLDivElement>();
 let chart: echarts.ECharts | null = null;
-let timer = 0;
-const val = ref(2.1);
+const val = ref(props.value ?? 0);
 
 function initChart(dom: HTMLDivElement) {
   chart = echarts.init(dom);
@@ -26,7 +29,7 @@ function initChart(dom: HTMLDivElement) {
       show: false,
       data: ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
     },
-    yAxis: { type: "value", show: false, min: 0, max: 4 },
+    yAxis: { type: "value", show: false, min: 0, max: 100 },
     series: [
       {
         type: "bar",
@@ -36,22 +39,34 @@ function initChart(dom: HTMLDivElement) {
           borderRadius: [2, 2, 0, 0],
           color: (p: any) => (p.dataIndex < 5 ? "#f59e0b" : "#ef4444"),
         },
-        data: [2.4, 2.2, 2.5, 2.1, 2.3, 2.0, 2.1],
+        data: [0, 0, 0, 0, 0, 0, val.value],
       },
     ],
   });
 }
 
+function syncValue(value: number) {
+  val.value = +value.toFixed(1);
+  if (chart && !chart.isDisposed()) {
+    const d = chart.getOption() as { series: [{ data: number[] }] };
+    const arr = d.series[0].data;
+    arr.push(val.value);
+    arr.shift();
+    chart.setOption({ series: [{ data: arr }] });
+  }
+}
+
 function tick() {
   if (!chart || chart.isDisposed()) return;
-  const n = +(1.5 + Math.random() * 1.5).toFixed(1);
-  val.value = n;
-  const d = chart.getOption() as { series: [{ data: number[] }] };
-  const arr = d.series[0].data;
-  arr.push(n);
-  arr.shift();
-  chart.setOption({ series: [{ data: arr }] });
+  syncValue(props.value ?? 0);
 }
+
+watch(
+  () => props.value,
+  (value) => {
+    if (value !== undefined) syncValue(value);
+  }
+);
 
 onMounted(() => {
   const el = chartRef.value;
@@ -62,13 +77,11 @@ onMounted(() => {
     if (entry && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
       observer.disconnect();
       initChart(el);
-      timer = window.setInterval(tick, 5000);
     }
   });
   observer.observe(el);
 });
 onUnmounted(() => {
-  clearInterval(timer);
   chart?.dispose();
 });
 </script>

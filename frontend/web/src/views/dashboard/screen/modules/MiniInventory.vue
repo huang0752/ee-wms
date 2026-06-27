@@ -1,7 +1,7 @@
 <template>
   <div class="mini-chart-panel">
-    <div class="mc-hd">库存周转天数</div>
-    <div class="mc-value" style="color: #14b8a6">{{ val }}<span class="mc-unit">天</span></div>
+    <div class="mc-hd">可用库存占比</div>
+    <div class="mc-value" style="color: #14b8a6">{{ displayValue }}<span class="mc-unit">%</span></div>
     <div class="progress-wrap">
       <div class="progress-track">
         <div
@@ -10,32 +10,23 @@
         />
       </div>
       <div class="progress-markers">
-        <span>0</span><span>5</span><span>10</span><span>15</span><span>20</span>
+        <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { computed } from "vue";
 
 defineOptions({ name: "MiniInventory" });
 
-const val = ref(8.5);
-const pct = ref(42.5);
-let timer = 0;
+const props = defineProps<{
+  value?: number;
+}>();
 
-function tick() {
-  const n = +(6 + Math.random() * 6).toFixed(1);
-  val.value = n;
-  pct.value = (n / 20) * 100;
-}
-
-onMounted(() => {
-  tick();
-  timer = window.setInterval(tick, 4000);
-});
-onUnmounted(() => clearInterval(timer));
+const pct = computed(() => Math.max(0, Math.min(100, props.value ?? 0)));
+const displayValue = computed(() => pct.value.toFixed(1));
 </script>
 
 <style scoped>

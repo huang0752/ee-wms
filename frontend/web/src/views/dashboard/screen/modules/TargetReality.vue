@@ -1,66 +1,66 @@
 <template>
   <div class="panel p1">
-    <div class="panel-hd"><span class="dot purple" />业绩目标达成率</div>
+    <div class="panel-hd"><span class="dot purple" />仓库流水分布</div>
     <div ref="chartRef" class="chart-box" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import * as echarts from "echarts";
 
 defineOptions({ name: "TargetReality" });
 
+interface BarItem {
+  name: string;
+  value: number;
+}
+
+const props = withDefaults(
+  defineProps<{
+    items?: BarItem[];
+  }>(),
+  {
+    items: () => [],
+  }
+);
+
 const chartRef = ref<HTMLDivElement>();
 let chart: echarts.ECharts | null = null;
-let timer = 0;
 
-const categories = ["华东区", "华南区", "华北区", "西南区"];
 const textStyle = { color: "#94a3b8", fontSize: 10 };
+const labels = computed(() => props.items.map((item) => item.name));
+const values = computed(() => props.items.map((item) => item.value));
+const xMax = computed(() => {
+  const max = Math.max(...values.value, 0);
+  return Math.max(10, Math.ceil(max / 10) * 10);
+});
 
 function initChart(dom: HTMLDivElement) {
   chart = echarts.init(dom);
   chart.setOption({
+    graphic: emptyGraphic(),
     grid: { top: 5, right: 30, bottom: 10, left: 10, containLabel: true },
     xAxis: {
       type: "value",
-      max: 150,
+      max: xMax.value,
       splitLine: { lineStyle: { color: "#1a2050" } },
       axisLabel: textStyle,
     },
     yAxis: {
       type: "category",
-      data: categories,
+      data: labels.value,
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: textStyle,
     },
-    legend: {
-      textStyle: { color: "#94a3b8", fontSize: 10 },
-      top: 0,
-      right: 0,
-      itemWidth: 10,
-      itemHeight: 8,
-    },
     series: [
       {
-        name: "目标",
-        type: "bar",
-        barWidth: 8,
-        itemStyle: {
-          borderRadius: [0, 2, 2, 0],
-          color: "rgba(0,212,255,0.35)",
-          borderColor: "#00d4ff",
-          borderWidth: 1,
-        },
-        data: [120, 100, 80, 60],
-      },
-      {
-        name: "已完成",
+        name: "流水数",
         type: "bar",
         barWidth: 8,
         itemStyle: { borderRadius: [0, 2, 2, 0], color: "#7c3aed" },
-        data: [112, 88, 75, 52],
+        data: values.value,
       },
     ],
   });
@@ -70,12 +70,30 @@ function handleResize() {
   if (chart && !chart.isDisposed()) chart.resize();
 }
 
-function tick() {
+function syncChart() {
   if (!chart || chart.isDisposed()) return;
-  const targets = [120, 100, 80, 60];
-  const actual = targets.map((t) => Math.round(t * (0.7 + Math.random() * 0.25)));
-  chart.setOption({ series: [{}, { data: actual }] });
+  chart.setOption({
+    graphic: emptyGraphic(),
+    xAxis: { max: xMax.value },
+    yAxis: { data: labels.value },
+    series: [{ data: values.value }],
+  });
 }
+
+function emptyGraphic() {
+  return props.items.length
+    ? []
+    : [
+        {
+          type: "text",
+          left: "center",
+          top: "middle",
+          style: { text: "暂无仓库流水", fill: "#94a3b8", fontSize: 12 },
+        },
+      ];
+}
+
+watch(() => props.items, syncChart, { deep: true });
 
 onMounted(() => {
   const el = chartRef.value;
@@ -86,7 +104,6 @@ onMounted(() => {
     if (entry && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
       observer.disconnect();
       initChart(el);
-      timer = window.setInterval(tick, 5000);
     }
   });
   observer.observe(el);
@@ -94,7 +111,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  clearInterval(timer);
   window.removeEventListener("resize", handleResize);
   chart?.dispose();
 });

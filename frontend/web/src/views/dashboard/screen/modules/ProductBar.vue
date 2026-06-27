@@ -1,31 +1,52 @@
 <template>
   <div class="panel p1">
-    <div class="panel-hd"><span class="dot green" />热销品类排行 TOP6</div>
+    <div class="panel-hd"><span class="dot green" />库存流水排行 TOP6</div>
     <div ref="chartRef" class="chart-box" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import * as echarts from "echarts";
 
 defineOptions({ name: "ProductBar" });
 
+interface BarItem {
+  name: string;
+  value: number;
+}
+
+const props = withDefaults(
+  defineProps<{
+    items?: BarItem[];
+  }>(),
+  {
+    items: () => [],
+  }
+);
+
 const chartRef = ref<HTMLDivElement>();
 let chart: echarts.ECharts | null = null;
-let timer = 0;
-
-const products = ["手机数码", "电脑办公", "家用电器", "美妆护肤", "服饰鞋包", "食品生鲜"];
+const chartItems = computed(() => props.items.slice(0, 6));
 const textStyle = { color: "#94a3b8", fontSize: 10 };
+
+function labels() {
+  return chartItems.value.map((item) => item.name);
+}
+
+function values() {
+  return chartItems.value.map((item) => item.value);
+}
 
 function initChart(dom: HTMLDivElement) {
   chart = echarts.init(dom);
   chart.setOption({
+    graphic: emptyGraphic(),
     grid: { top: 5, right: 40, bottom: 10, left: 10, containLabel: true },
     xAxis: { type: "value", splitLine: { lineStyle: { color: "#1a2050" } }, axisLabel: textStyle },
     yAxis: {
       type: "category",
-      data: products,
+      data: labels(),
       inverse: true,
       axisLine: { show: false },
       axisTick: { show: false },
@@ -45,9 +66,9 @@ function initChart(dom: HTMLDivElement) {
           position: "right",
           color: "#94a3b8",
           fontSize: 10,
-          formatter: "{c}单",
+          formatter: "{c}",
         },
-        data: [892, 651, 534, 412, 298, 187],
+        data: values(),
       },
     ],
   });
@@ -59,9 +80,31 @@ function handleResize() {
 
 function tick() {
   if (!chart || chart.isDisposed()) return;
-  const data = products.map(() => Math.round(120 + Math.random() * 800));
-  chart.setOption({ series: [{ data }] });
+  chart.setOption({ graphic: emptyGraphic(), yAxis: { data: labels() }, series: [{ data: values() }] });
 }
+
+function emptyGraphic() {
+  return chartItems.value.length
+    ? []
+    : [
+        {
+          type: "text",
+          left: "center",
+          top: "middle",
+          style: { text: "暂无库存流水", fill: "#94a3b8", fontSize: 12 },
+        },
+      ];
+}
+
+watch(
+  () => props.items,
+  () => {
+    if (chart && !chart.isDisposed()) {
+      tick();
+    }
+  },
+  { deep: true }
+);
 
 onMounted(() => {
   const el = chartRef.value;
@@ -72,7 +115,6 @@ onMounted(() => {
     if (entry && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
       observer.disconnect();
       initChart(el);
-      timer = window.setInterval(tick, 4000);
     }
   });
   observer.observe(el);
@@ -80,7 +122,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  clearInterval(timer);
   window.removeEventListener("resize", handleResize);
   chart?.dispose();
 });

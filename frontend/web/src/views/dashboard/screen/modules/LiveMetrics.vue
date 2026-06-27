@@ -1,8 +1,8 @@
 <template>
   <div class="panel p1">
-    <div class="panel-hd"><span class="dot warn" />服务健康度</div>
+    <div class="panel-hd"><span class="dot warn" />仓储运行健康</div>
     <div class="metric-list">
-      <div v-for="m in metrics" :key="m.label" class="metric-row">
+      <div v-for="m in displayMetrics" :key="m.label" class="metric-row">
         <div class="mr-label">{{ m.label }}</div>
         <div class="mr-value" :style="{ color: m.color }">
           {{ m.value }}<span class="mr-unit">{{ m.unit }}</span>
@@ -11,44 +11,55 @@
           <div ref="barRefs" class="mr-bar" :style="{ width: m.pct + '%', background: m.color }" />
         </div>
       </div>
+      <div v-if="displayMetrics.length === 0" class="metric-empty">暂无运行指标</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted, onUnmounted } from "vue";
+import { computed } from "vue";
 
 defineOptions({ name: "LiveMetrics" });
 
-const metrics = reactive([
-  { label: "QPS(每秒请求)", value: "3.2", unit: "K", color: "#00d4ff", pct: 0, base: 3200 },
-  { label: "P99 耗时", value: "12", unit: "ms", color: "#7c3aed", pct: 0, base: 12 },
-  { label: "错误率", value: "0.03", unit: "%", color: "#ef4444", pct: 0, base: 0.03 },
-  { label: "服务可用率", value: "99.99", unit: "%", color: "#10b981", pct: 0, base: 99.99 },
-]);
-
-let timer = 0;
-
-function tick() {
-  metrics[0]!.base = Math.round(2800 + Math.random() * 800);
-  metrics[1]!.base = Math.round(8 + Math.random() * 20);
-  metrics[2]!.base = +(0.01 + Math.random() * 0.08).toFixed(2);
-  metrics[3]!.base = +(99.95 + Math.random() * 0.05).toFixed(2);
-  metrics[0]!.value = (metrics[0]!.base / 1000).toFixed(1);
-  metrics[1]!.value = String(metrics[1]!.base);
-  metrics[2]!.value = String(metrics[2]!.base);
-  metrics[3]!.value = String(metrics[3]!.base);
-  metrics[0]!.pct = (metrics[0]!.base / 4000) * 100;
-  metrics[1]!.pct = (metrics[1]!.base / 30) * 100;
-  metrics[2]!.pct = (metrics[2]!.base / 0.1) * 100;
-  metrics[3]!.pct = (+(metrics[3]!.base - 99.9) / 0.1) * 100;
+interface DashboardMetric {
+  label: string;
+  value: number | string;
+  unit?: string | null;
+  status: string;
 }
 
-onMounted(() => {
-  tick();
-  timer = window.setInterval(tick, 3000);
+const props = withDefaults(
+  defineProps<{
+    metrics?: DashboardMetric[];
+  }>(),
+  {
+    metrics: () => [],
+  }
+);
+
+const colors = ["#00d4ff", "#7c3aed", "#10b981", "#f59e0b", "#ef4444"];
+const displayMetrics = computed(() => {
+  const rows = props.metrics.slice(0, 4);
+  const max = Math.max(...rows.map((item) => toNumber(item.value)), 0);
+  return rows.map((item, index) => ({
+    label: item.label,
+    value: formatValue(item.value),
+    unit: item.unit || "",
+    color: item.status === "warning" ? "#ef4444" : colors[index % colors.length],
+    pct: max ? Math.max(4, (toNumber(item.value) / max) * 100) : 0,
+  }));
 });
-onUnmounted(() => clearInterval(timer));
+
+function toNumber(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatValue(value: number | string) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  return n >= 10000 ? `${(n / 10000).toFixed(1)}万` : n.toLocaleString();
+}
 </script>
 
 <style scoped>
@@ -95,5 +106,14 @@ onUnmounted(() => clearInterval(timer));
   height: 100%;
   border-radius: 1px;
   transition: width 0.8s;
+}
+
+.metric-empty {
+  display: grid;
+  flex: 1;
+  font-size: 12px;
+  color: #94a3b8;
+  place-items: center;
+  opacity: 0.65;
 }
 </style>

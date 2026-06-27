@@ -1,21 +1,25 @@
 <template>
   <div class="mini-chart-panel">
-    <div class="mc-hd">当日交易额</div>
-    <div class="mc-value" style="color: #00d4ff">¥{{ val }}<span class="mc-unit">万</span></div>
+    <div class="mc-hd">库存总量</div>
+    <div class="mc-value" style="color: #00d4ff">{{ displayValue }}<span class="mc-unit">件</span></div>
     <div ref="chartRef" class="mc-chart" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import * as echarts from "echarts";
 
 defineOptions({ name: "MiniRevenue" });
 
+const props = defineProps<{
+  value?: number;
+}>();
+
 const chartRef = ref<HTMLDivElement>();
 let chart: echarts.ECharts | null = null;
-let timer = 0;
-const val = ref(128.6);
+const val = ref(props.value ?? 0);
+const displayValue = computed(() => Math.round(val.value).toLocaleString());
 
 function initChart(dom: HTMLDivElement) {
   chart = echarts.init(dom);
@@ -28,7 +32,7 @@ function initChart(dom: HTMLDivElement) {
         center: ["50%", "58%"],
         radius: "78%",
         min: 0,
-        max: 200,
+        max: 200000,
         axisLine: {
           lineStyle: {
             width: 6,
@@ -51,18 +55,30 @@ function initChart(dom: HTMLDivElement) {
           offsetCenter: [0, "42%"],
           formatter: "",
         },
-        data: [{ value: 128.6 }],
+        data: [{ value: val.value }],
       },
     ],
   });
 }
 
+function syncValue(value: number) {
+  val.value = value;
+  if (chart && !chart.isDisposed()) {
+    chart.setOption({ series: [{ data: [{ value }] }] });
+  }
+}
+
 function tick() {
   if (!chart || chart.isDisposed()) return;
-  const n = +(105 + Math.random() * 50).toFixed(1);
-  val.value = n;
-  chart.setOption({ series: [{ data: [{ value: n }] }] });
+  syncValue(props.value ?? 0);
 }
+
+watch(
+  () => props.value,
+  (value) => {
+    if (value !== undefined) syncValue(value);
+  }
+);
 
 onMounted(() => {
   const el = chartRef.value;
@@ -73,13 +89,11 @@ onMounted(() => {
     if (entry && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
       observer.disconnect();
       initChart(el);
-      timer = window.setInterval(tick, 5000);
     }
   });
   observer.observe(el);
 });
 onUnmounted(() => {
-  clearInterval(timer);
   chart?.dispose();
 });
 </script>

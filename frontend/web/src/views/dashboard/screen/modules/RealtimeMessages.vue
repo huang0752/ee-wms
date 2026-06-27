@@ -5,47 +5,42 @@
       <span class="msg-count">NEW</span>
     </div>
     <div class="msg-scroll">
-      <div class="msg-inner">
+      <div v-if="messagesDuplicated.length > 0" class="msg-inner">
         <div v-for="(m, i) in messagesDuplicated" :key="i" class="msg-row">
           <span class="msg-time">{{ m.time }}</span>
           <span class="msg-tag" :class="m.tag">{{ m.tagText }}</span>
           <span>{{ m.text }}</span>
         </div>
       </div>
+      <div v-else class="msg-empty">暂无实时库存流水</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
+
 defineOptions({ name: "RealtimeMessages" });
 
-const messages = [
-  {
-    time: "22:30",
-    tag: "order",
-    tagText: "交易",
-    text: "商户「星辰科技」完成大额订单支付 ¥86,400",
-  },
-  { time: "22:15", tag: "system", tagText: "系统", text: "数据备份定时任务执行完成，耗时 12.3s" },
-  { time: "21:52", tag: "audit", tagText: "审计", text: "运营主管 zhangsan 导出本月交易报表" },
-  { time: "21:30", tag: "deploy", tagText: "部署", text: "v3.2.1 版本灰度发布至华东区节点" },
-  { time: "21:05", tag: "notice", tagText: "公告", text: "系统公告: 6月1日进行数据库扩容维护" },
-  {
-    time: "20:40",
-    tag: "alarm",
-    tagText: "告警",
-    text: "[已恢复] 华南区 API 网关延迟突增至 320ms",
-  },
-  { time: "20:15", tag: "order", tagText: "交易", text: "退款工单 #TK-2024-08921 已自动处理完成" },
-  {
-    time: "19:52",
-    tag: "system",
-    tagText: "系统",
-    text: "缓存集群节点 node-07 内存使用率降至 62%",
-  },
-];
+interface ScreenMessage {
+  time: string;
+  tag: string;
+  tagText: string;
+  text: string;
+}
 
-const messagesDuplicated = [...messages, ...messages];
+const props = withDefaults(
+  defineProps<{
+    messages?: ScreenMessage[];
+  }>(),
+  {
+    messages: () => [],
+  }
+);
+
+const messagesDuplicated = computed(() => {
+  return props.messages.length > 0 ? [...props.messages, ...props.messages] : [];
+});
 </script>
 
 <style scoped>
@@ -59,6 +54,15 @@ const messagesDuplicated = [...messages, ...messages];
 .msg-inner {
   width: 100%;
   animation: scrollUp 28s linear infinite;
+}
+
+.msg-empty {
+  display: grid;
+  height: 100%;
+  font-size: 12px;
+  color: #94a3b8;
+  place-items: center;
+  opacity: 0.65;
 }
 
 .msg-row {
