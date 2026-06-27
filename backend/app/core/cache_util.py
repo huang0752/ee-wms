@@ -10,7 +10,7 @@ from starlette.responses import Response
 
 _ENABLE: bool = True
 _EXPIRE: int = 300
-_PREFIX: str = "fastapi-admin-cache"
+_PREFIX: str = "ee-wms-cache"
 _REDIS: Redis | None = None
 
 

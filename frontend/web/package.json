@@ -1,7 +1,7 @@
 {
-  "name": "fastapiadmin",
-  "description": "Vue3 + Vite + TypeScript + Element-Plus 的后台管理模板",
-  "version": "3.0.0",
+  "name": "ee-wms",
+  "description": "电工装备智慧仓储 WMS 前端工程",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -199,14 +199,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://gitee.com/fastapiadmin/FastapiAdmin.git"
+    "url": ""
   },
   "bugs": {
-    "url": "https://gitee.com/fastapiadmin/FastapiAdmin/issues"
+    "url": ""
   },
-  "author": "fastapiadmin <948080782@qq.com>",
+  "author": "EE WMS Team",
   "license": "MIT",
-  "homepage": "https://gitee.com/fastapiadmin/FastapiAdmin",
+  "homepage": "",
   "browserslist": [
     "Chrome >= 84",
     "Firefox >= 83",

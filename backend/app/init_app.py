@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[Any, Any]:
         await SchedulerUtil.init_scheduler(redis=app.state.redis)
         logger.info("✅ 定时任务调度器初始化完成")
         await cache_util.init(redis=app.state.redis)
-        logger.info("✅ fastapi-admin-cache 初始化完成")
+        logger.info("✅ ee-wms-cache 初始化完成")
         await FastAPILimiter.init(
             redis=app.state.redis,
             prefix=settings.REQUEST_LIMITER_REDIS_PREFIX,
@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[Any, Any]:
         await SchedulerUtil.shutdown(wait=True)
         logger.info("✅ 定时任务调度器已关闭")
         await cache_util.clear()
-        logger.info("✅ fastapi-admin-cache 已关闭")
+        logger.info("✅ ee-wms-cache 已关闭")
         await FastAPILimiter.close()
         logger.info("✅ 请求限制器已关闭")
         await import_modules_async(modules=settings.EVENT_LIST, desc="全局事件", app=app, status=False)

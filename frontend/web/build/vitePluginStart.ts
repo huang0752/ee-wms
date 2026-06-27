@@ -20,7 +20,11 @@ function printBanner(env: Record<string, string>, mode: string) {
       "",
       `  ${dim("┌")}${line}${dim("┐")}`,
       row(""),
-      row(`${bold(cyan("fastapiadmin"))}  ${bold(magenta(`v${env.VITE_VERSION || "3.0.0"}`))}`),
+      row(
+        `${bold(cyan(env.VITE_APP_TITLE || "电工装备智慧仓储WMS系统"))}  ${bold(
+          magenta(`v${env.VITE_VERSION || "2.0.0"}`)
+        )}`
+      ),
       row(""),
       ...BANNER_LINES.map((l) => row(green(l))),
       row(""),
