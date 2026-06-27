@@ -104,6 +104,7 @@ class TenantService:
             raise CustomException(msg="创建失败，编码已存在")
 
         data = await self._with_default_package(data)
+        data = await self._with_default_brand_config(data)
         tenant_obj = await TenantCRUD(self.auth).create(data=data)
         if not tenant_obj:
             raise CustomException(msg="创建租户失败")
@@ -179,6 +180,24 @@ class TenantService:
         if not package_id:
             return data
         return data.model_copy(update={"package_id": package_id})
+
+    async def _with_default_brand_config(self, data: TenantCreateSchema) -> TenantCreateSchema:
+        """新租户未传品牌字段时，继承系统租户的默认品牌配置。"""
+        system_tenant = await TenantCRUD(self.auth).get(id=1)
+        if not system_tenant:
+            return data
+
+        updates = {}
+        for field in TENANT_SELF_BRAND_CONFIG_FIELDS:
+            if getattr(data, field, None) is not None:
+                continue
+            default_value = getattr(system_tenant, field, None)
+            if default_value is not None:
+                updates[field] = default_value
+        if data.version is None and system_tenant.version is not None:
+            updates["version"] = system_tenant.version
+
+        return data.model_copy(update=updates) if updates else data
 
     async def _create_owner_role_for_initial_admin(self, tenant_id: int, user_id: int) -> None:
         """为平台创建的初始管理员补齐 RBAC owner 角色和套餐菜单权限。"""

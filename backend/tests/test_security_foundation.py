@@ -136,6 +136,21 @@ async def _get_initial_admin_rbac_snapshot(username: str, tenant_id: int) -> dic
         }
 
 
+async def _get_tenant_brand_snapshot(tenant_id: int) -> dict:
+    async with async_db_session() as db:
+        tenant = (
+            await db.execute(
+                select(TenantModel).where(TenantModel.id == tenant_id).limit(1)
+            )
+        ).scalar_one()
+        return {
+            "logo_url": tenant.logo_url,
+            "favicon": tenant.favicon,
+            "copyright": tenant.copyright,
+            "version": tenant.version,
+        }
+
+
 def _create_user(test_client: TestClient, auth_headers: dict[str, str], username: str, password: str, mobile: str | None = None) -> None:
     payload = {
         "username": username,
@@ -389,6 +404,10 @@ def test_platform_tenant_create_adds_initial_admin_membership(
     assert resp.status_code == 200, resp.text
     data = resp.json()["data"]
     tenant_id = data["id"]
+    assert data["logo_url"] == "/api/v1/static/image/logo.png"
+    assert data["favicon"] == "/api/v1/static/image/wms-favicon.ico"
+    assert data["copyright"] == "Copyright © 2026 电工装备智慧仓储WMS系统 版权所有"
+    assert data["version"] == "2.0.0"
 
     initial_admin = data["initial_admin"]
     assert initial_admin["username"] == f"{code}_admin"
@@ -402,6 +421,12 @@ def test_platform_tenant_create_adds_initial_admin_membership(
     assert membership is not None
     assert membership.role == "owner"
     assert membership.is_default == 1
+
+    brand = asyncio.run(_get_tenant_brand_snapshot(tenant_id))
+    assert brand["logo_url"] == "/api/v1/static/image/logo.png"
+    assert brand["favicon"] == "/api/v1/static/image/wms-favicon.ico"
+    assert brand["copyright"] == "Copyright © 2026 电工装备智慧仓储WMS系统 版权所有"
+    assert brand["version"] == "2.0.0"
 
     rbac = asyncio.run(_get_initial_admin_rbac_snapshot(initial_admin["username"], tenant_id))
     assert rbac["role_exists"] is True
