@@ -29,7 +29,7 @@
       {
         "name": "运营看板",
         "type": 1,
-        "icon": "ri:dashboard-3-line",
+        "icon": "ri:bar-chart-grouped-line",
         "order": 1,
         "permission": null,
         "route_name": "WmsOps",
@@ -56,7 +56,7 @@
           {
             "name": "仓储驾驶舱",
             "type": 2,
-            "icon": "ri:dashboard-3-line",
+            "icon": "ri:dashboard-horizontal-line",
             "order": 1,
             "permission": "module_wms:dashboard:query",
             "route_name": "WmsDashboard",

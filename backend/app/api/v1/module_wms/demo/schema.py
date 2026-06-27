@@ -56,6 +56,13 @@ class WmsDemoInitSchema(BaseModel):
     quality_requirements: str | None = Field(default=None, max_length=1000, description="质量要求")
     generation_instructions: str | None = Field(default=None, max_length=1500, description="生成要求")
     use_ai_enrichment: bool = Field(default=True, description="是否启用AI增强")
+    batch_policy: Literal["reject_if_exists", "append", "clean_rebuild"] = Field(default="reject_if_exists", description="批次策略")
+
+
+class WmsDemoScenarioSummaryOut(BaseModel):
+    title: str = Field(default="", description="场景标题")
+    summary: str = Field(default="", description="场景摘要")
+    highlights: list[str] = Field(default_factory=list, description="场景亮点")
 
 
 class WmsDemoPreviewOut(BaseModel):
@@ -66,6 +73,8 @@ class WmsDemoPreviewOut(BaseModel):
     workflow_coverage: list[str] = Field(default_factory=list, description="流程覆盖")
     warnings: list[str] = Field(default_factory=list, description="预览警告")
     preview_names: dict[str, list[str]] = Field(default_factory=dict, description="预览名称")
+    enrichment_source: str = Field(default="rule_fallback", description="增强来源")
+    scenario_summary: WmsDemoScenarioSummaryOut | None = Field(default=None, description="AI增强场景摘要")
 
 
 class WmsDemoBatchOut(BaseModel):

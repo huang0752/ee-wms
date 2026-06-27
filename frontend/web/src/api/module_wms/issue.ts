@@ -46,7 +46,10 @@ export interface WmsIssueForm extends BaseFormType {
   work_order_no?: string;
   warehouse_id?: number;
   external_source?: string;
+  external_id?: string;
   external_no?: string;
+  sync_status?: string;
+  workflow_instance_id?: string;
   remark?: string;
   lines: WmsIssueLineForm[];
 }
@@ -60,7 +63,13 @@ export interface WmsIssueOrder extends BaseType {
   reviewed_time?: string;
   confirmed_time?: string;
   external_source: string;
+  external_id?: string;
   external_no?: string;
+  sync_status: string;
+  workflow_instance_id?: string;
+  remark?: string;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export interface WmsIssueLine extends BaseType {
@@ -74,6 +83,9 @@ export interface WmsIssueLine extends BaseType {
   shipped_qty: string;
   stock_lock_id?: number;
   status: string;
+  remark?: string;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export default WmsIssueAPI;

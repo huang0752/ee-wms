@@ -43,6 +43,7 @@ def _standard_payload() -> dict:
         "quality_requirements": "覆盖电工装备关键物资，编号体现租户短码。",
         "generation_instructions": "规格、批次、供应商保持丰富。",
         "use_ai_enrichment": True,
+        "batch_policy": "clean_rebuild",
         "product_directions": [],
     }
 

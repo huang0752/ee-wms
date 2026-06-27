@@ -1,5 +1,6 @@
 [
   {
+    "id": 1,
     "name": "代码生成器",
     "code": "code_generator",
     "description": "自动生成CRUD代码，支持多种模板",
@@ -13,6 +14,7 @@
     "sort": 1
   },
   {
+    "id": 2,
     "name": "AI助手",
     "code": "ai_assistant",
     "description": "集成AI对话助手，支持智能问答",
@@ -26,6 +28,7 @@
     "sort": 2
   },
   {
+    "id": 3,
     "name": "系统监控",
     "code": "system_monitor",
     "description": "实时监控系统运行状态，CPU、内存、磁盘等",
@@ -39,6 +42,7 @@
     "sort": 3
   },
   {
+    "id": 4,
     "name": "工作流引擎",
     "code": "workflow_engine",
     "description": "可视化工作流设计器，支持审批流程",
@@ -52,6 +56,7 @@
     "sort": 4
   },
   {
+    "id": 5,
     "name": "数据大屏",
     "code": "data_dashboard",
     "description": "可视化数据大屏，支持多种图表",

@@ -1,5 +1,6 @@
 [
   {
+    "id": 1,
     "name": "集团总公司",
     "code": "GROUP",
     "order": 1,
@@ -12,6 +13,7 @@
     "tenant_id": 1,
     "children": [
       {
+        "id": 2,
         "name": "技术研发部",
         "code": "TECH",
         "order": 1,
@@ -24,6 +26,7 @@
         "tenant_id": 1,
         "children": [
           {
+            "id": 3,
             "name": "后端开发组",
             "code": "BACKEND",
             "order": 1,
@@ -37,6 +40,7 @@
             "children": []
           },
           {
+            "id": 4,
             "name": "前端开发组",
             "code": "FRONTEND",
             "order": 2,
@@ -52,6 +56,7 @@
         ]
       },
       {
+        "id": 5,
         "name": "产品运营部",
         "code": "PRODUCT",
         "order": 2,
@@ -65,6 +70,7 @@
         "children": []
       },
       {
+        "id": 6,
         "name": "人力资源部",
         "code": "HR",
         "order": 3,
@@ -80,6 +86,7 @@
     ]
   },
   {
+    "id": 7,
     "name": "测试租户技术部",
     "code": "TEST_TECH",
     "order": 1,

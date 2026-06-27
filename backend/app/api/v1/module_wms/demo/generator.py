@@ -26,6 +26,7 @@ from ..outbound.model import WmsOutboundLineModel, WmsOutboundOrderModel
 from ..stock.model import WmsStockBalanceModel, WmsStockBatchModel, WmsStockFlowModel, WmsStockLockModel, WmsTraceLinkModel
 from ..transfer.model import WmsTransferLineModel, WmsTransferOrderModel
 from ..warning.model import WmsStockWarningModel
+from .enrichment_service import WmsDemoEnrichmentService
 from .planner import WmsDemoPlanner
 from .quality import WmsDemoQualityService
 from .schema import WmsDemoBatchOut, WmsDemoCleanOut, WmsDemoInitSchema
@@ -40,8 +41,10 @@ class WmsDemoGenerator:
         self.db = auth.db
 
     async def generate(self, data: WmsDemoInitSchema) -> WmsDemoBatchOut:
+        await self._handle_batch_policy(data)
         demo_batch_id = f"demo_wms_{uuid4().hex[:12]}"
         plan = await WmsDemoPlanner(self.auth).build(data, demo_batch_id=demo_batch_id)
+        plan.enrichment = await WmsDemoEnrichmentService(self.auth).enrich(data, plan.product_mix)
         preview_snapshot = plan.preview().model_dump(mode="json")
         task = await BusinessTaskService(self.auth).create(
             BusinessTaskCreateSchema(
@@ -94,6 +97,11 @@ class WmsDemoGenerator:
             raise
 
     async def clean(self, demo_batch_id: str) -> WmsDemoCleanOut:
+        counts = await self._delete_demo_rows(demo_batch_id)
+        await self.db.commit()
+        return WmsDemoCleanOut(demo_batch_id=demo_batch_id, counts=counts)
+
+    async def _delete_demo_rows(self, demo_batch_id: str) -> dict[str, int]:
         counts: dict[str, int] = {}
         for label, model in self._delete_order():
             stmt = (
@@ -107,13 +115,37 @@ class WmsDemoGenerator:
             )
             result = await self.db.execute(stmt)
             counts[label] = result.rowcount or 0
-        await self.db.commit()
-        return WmsDemoCleanOut(demo_batch_id=demo_batch_id, counts=counts)
+        return counts
 
     def _tenant_id(self) -> int:
         return self.auth.tenant_id or 1
 
-    def _delete_order(self) -> list[tuple[str, type]]:
+    async def _handle_batch_policy(self, data: WmsDemoInitSchema) -> None:
+        existing = await self._latest_demo_batch_id()
+        if not existing or data.batch_policy == "append":
+            return
+        if data.batch_policy == "reject_if_exists":
+            raise CustomException(msg=f"已存在试用数据批次 {existing}，请先清理或选择覆盖重建", status_code=400)
+        await self._delete_demo_rows(existing)
+
+    async def _latest_demo_batch_id(self) -> str | None:
+        stmt = (
+            select(BusinessTaskModel.demo_batch_id)
+            .where(
+                BusinessTaskModel.module == "wms",
+                BusinessTaskModel.biz_type == "demo_batch_init",
+                BusinessTaskModel.tenant_id == self._tenant_id(),
+                BusinessTaskModel.is_demo.is_(True),
+                BusinessTaskModel.demo_batch_id.is_not(None),
+                BusinessTaskModel.is_deleted.is_(False),
+            )
+            .order_by(BusinessTaskModel.created_time.desc())
+            .limit(1)
+        )
+        return (await self.db.execute(stmt)).scalars().first()
+
+    @staticmethod
+    def _delete_order() -> list[tuple[str, type]]:
         return [
             ("warning", WmsStockWarningModel),
             ("trace_link", WmsTraceLinkModel),
@@ -121,13 +153,13 @@ class WmsDemoGenerator:
             ("stock_check_order", WmsStockCheckOrderModel),
             ("transfer_line", WmsTransferLineModel),
             ("transfer_order", WmsTransferOrderModel),
-            ("stock_lock", WmsStockLockModel),
+            ("outbound_line", WmsOutboundLineModel),
+            ("issue_line", WmsIssueLineModel),
             ("stock_flow", WmsStockFlowModel),
+            ("stock_lock", WmsStockLockModel),
             ("stock_balance", WmsStockBalanceModel),
             ("stock_batch", WmsStockBatchModel),
-            ("outbound_line", WmsOutboundLineModel),
             ("outbound_order", WmsOutboundOrderModel),
-            ("issue_line", WmsIssueLineModel),
             ("issue_order", WmsIssueOrderModel),
             ("inbound_line", WmsInboundLineModel),
             ("inbound_order", WmsInboundOrderModel),

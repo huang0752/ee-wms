@@ -4,6 +4,7 @@ from datetime import datetime
 
 from app.core.base_schema import AuthSchema
 
+from .codecs import compact_parent_code
 from .schema import WmsDemoNumberingProfile
 
 DEFAULT_PREFIXES: dict[str, str] = {
@@ -45,17 +46,19 @@ class WmsDemoNumbering:
         if object_type == "warehouse":
             value = f"{self.tenant_short_code}-{prefix}-{seq}"
         elif object_type == "zone":
-            value = f"{parent_code or self.tenant_short_code}-{prefix}{seq}"
+            parent = compact_parent_code(parent_code) or self.tenant_short_code
+            value = f"{parent}-{prefix}{seq}"
         elif object_type == "location":
+            parent = compact_parent_code(parent_code) or self.tenant_short_code
             row = ((int(seq) - 1) // 100) + 1
             col = (((int(seq) - 1) // 5) % 20) + 1
             level = ((int(seq) - 1) % 5) + 1
-            value = f"{parent_code or self.tenant_short_code}-{row:02d}-{col:02d}-{level:02d}"
+            value = f"{parent}-{row:02d}{col:02d}{level:02d}"
         elif object_type == "material":
             value = f"{self.tenant_short_code}-{prefix}-{category_short or 'GEN'}-{seq}"
         else:
             value = f"{self.tenant_short_code}-{prefix}-{seq}"
-        return f"{value}-{suffix}" if suffix and object_type not in {"location"} else value
+        return f"{value}-{suffix}" if suffix else value
 
     def document_no(self, object_type: str) -> str:
         prefix = self._prefix(object_type)

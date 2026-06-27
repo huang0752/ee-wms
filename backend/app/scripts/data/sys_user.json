@@ -1,5 +1,6 @@
 [
   {
+    "id": 1,
     "tenant_id": 1,
     "username": "super",
     "password": "$pbkdf2-sha256$600000$XX20aO1v73xS0JnoewXNtw==$PEaVHV1N5L7PfYQw2lCAQOc4hAEyCiwsGR48/jgVBjU=",
@@ -21,6 +22,7 @@
     "updated_id": null
   },
   {
+    "id": 2,
     "tenant_id": 1,
     "username": "admin",
     "password": "$pbkdf2-sha256$600000$XX20aO1v73xS0JnoewXNtw==$PEaVHV1N5L7PfYQw2lCAQOc4hAEyCiwsGR48/jgVBjU=",
@@ -38,10 +40,11 @@
     "dept_id": 2,
     "status": 0,
     "description": "技术部门管理员",
-    "created_id": 1,
+    "created_id": null,
     "updated_id": null
   },
   {
+    "id": 3,
     "tenant_id": 1,
     "username": "user",
     "password": "$pbkdf2-sha256$600000$XX20aO1v73xS0JnoewXNtw==$PEaVHV1N5L7PfYQw2lCAQOc4hAEyCiwsGR48/jgVBjU=",
@@ -59,27 +62,29 @@
     "dept_id": 3,
     "status": 0,
     "description": "后端开发工程师",
-    "created_id": 1,
+    "created_id": null,
     "updated_id": null
   },
   {
+    "id": 4,
     "tenant_id": 2,
     "username": "test_admin",
     "password": "$pbkdf2-sha256$600000$E8jfd18sWu7N9DWsx/nYKg==$9DNKCv+dm1QDvYXwpQlZH6e7trYp1WCPdsvSyzXwuo0=",
     "name": "测试管理员",
     "mobile": "13800138001",
-    "email": "test@ee-wms.local",
+    "email": "test@fastapiadmin.com",
     "status": 0,
     "is_superuser": false,
     "description": "测试租户管理员"
   },
   {
+    "id": 5,
     "tenant_id": 2,
     "username": "test_user",
     "password": "$pbkdf2-sha256$600000$E8jfd18sWu7N9DWsx/nYKg==$9DNKCv+dm1QDvYXwpQlZH6e7trYp1WCPdsvSyzXwuo0=",
     "name": "测试用户",
     "mobile": "13800138002",
-    "email": "test2@ee-wms.local",
+    "email": "test2@fastapiadmin.com",
     "status": 0,
     "is_superuser": false,
     "description": "测试租户普通用户"

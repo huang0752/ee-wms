@@ -39,6 +39,8 @@ class WmsStockLockSchema(BaseModel):
     document_type: str | None = Field(default=None, max_length=32, description="单据类型")
     document_no: str | None = Field(default=None, max_length=128, description="单据号")
     remark: str | None = Field(default=None, max_length=255, description="备注")
+    is_demo: bool = Field(default=False, description="是否试用数据")
+    demo_batch_id: str | None = Field(default=None, max_length=64, description="试用批次")
 
 
 class WmsStockAdjustSchema(WmsStockMutationSchema):

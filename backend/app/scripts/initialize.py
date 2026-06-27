@@ -12,7 +12,7 @@ import re
 from datetime import datetime, time
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.module_platform.email.model import EmailConfigModel, EmailTemplateModel
@@ -58,6 +58,7 @@ from app.api.v1.module_wms.stock.model import (
 from app.api.v1.module_wms.transfer.model import WmsTransferLineModel, WmsTransferOrderModel
 from app.api.v1.module_wms.warning.model import WmsStockWarningModel
 from app.config.path_conf import SCRIPT_DIR
+from app.config.setting import settings
 from app.core.assembly import get_assembly, known_plugin_module_codes, plugin_code_candidates
 from app.core.database import async_db_session, create_tables
 from app.core.logger import logger
@@ -200,6 +201,8 @@ class InitializeData:
                 continue
 
             try:
+                await self.__reset_identity_if_empty(db, model)
+
                 # 树形表（platform_menu / sys_dept）：递归创建含 children 的对象
                 if table_name in self._RECURSIVE_TABLES:
                     count = await db.execute(select(func.count()).select_from(model))
@@ -275,6 +278,32 @@ class InitializeData:
                         logger.info(f"⏭️  跳过 {table_name} 表数据初始化（无缺失模板）")
                     continue
 
+                if table_name == "platform_package_menu":
+                    count = await db.execute(select(func.count()).select_from(model))
+                    if count.scalar():
+                        logger.info(f"⏭️  跳过 {table_name} 表数据初始化（表已有数据）")
+                        continue
+                    data = await self.__filter_existing_relation_seed(
+                        db, data, PackageModel, "package_id", MenuModel, "menu_id"
+                    )
+                    if not data:
+                        data = await self.__build_default_package_menu_seed(db)
+                    if not data:
+                        logger.info(f"⏭️  跳过 {table_name} 表数据初始化（无有效菜单授权）")
+                        continue
+
+                if table_name == "platform_package_plugin":
+                    count = await db.execute(select(func.count()).select_from(model))
+                    if count.scalar():
+                        logger.info(f"⏭️  跳过 {table_name} 表数据初始化（表已有数据）")
+                        continue
+                    data = await self.__filter_existing_relation_seed(
+                        db, data, PackageModel, "package_id", PluginModel, "plugin_id"
+                    )
+                    if not data:
+                        logger.info(f"⏭️  跳过 {table_name} 表数据初始化（无有效插件授权）")
+                        continue
+
                 # 普通表：空表时插入，已有数据跳过
                 count = await db.execute(select(func.count()).select_from(model))
                 if count.scalar():
@@ -290,6 +319,70 @@ class InitializeData:
                 raise
 
         await self.__backfill_tenant_memberships(db)
+
+    async def __reset_identity_if_empty(self, db: AsyncSession, model: type) -> None:
+        """Reset PostgreSQL identity sequence for empty seed tables after failed retries."""
+        if settings.DATABASE_TYPE not in {"postgres", "postgresql"}:
+            return
+        count = await db.execute(select(func.count()).select_from(model))
+        if count.scalar():
+            return
+        sequence_name = (
+            await db.execute(
+                text("SELECT pg_get_serial_sequence(:table_name, 'id')"),
+                {"table_name": model.__tablename__},
+            )
+        ).scalar_one_or_none()
+        if sequence_name:
+            await db.execute(
+                text("SELECT setval(CAST(:sequence_name AS regclass), 1, false)"),
+                {"sequence_name": sequence_name},
+            )
+
+    async def __filter_existing_relation_seed(
+        self,
+        db: AsyncSession,
+        data: list[dict],
+        left_model: type,
+        left_key: str,
+        right_model: type,
+        right_key: str,
+    ) -> list[dict]:
+        left_ids = set((await db.execute(select(left_model.id))).scalars().all())
+        right_ids = set((await db.execute(select(right_model.id))).scalars().all())
+        filtered = [
+            item
+            for item in data
+            if item.get(left_key) in left_ids and item.get(right_key) in right_ids
+        ]
+        skipped = len(data) - len(filtered)
+        if skipped:
+            logger.warning(f"⚠️  跳过 {skipped} 条无效关系 seed: {left_key}/{right_key}")
+        return filtered
+
+    async def __build_default_package_menu_seed(self, db: AsyncSession) -> list[dict]:
+        """Use current tenant-visible menus when legacy package-menu ids are stale."""
+        package_ids = set((await db.execute(select(PackageModel.id))).scalars().all())
+        menu_ids = set(
+            (
+                await db.execute(
+                    select(MenuModel.id).where(
+                        MenuModel.scope == "tenant",
+                        MenuModel.status == 0,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not package_ids or not menu_ids:
+            return []
+        logger.warning("⚠️  套餐菜单 seed 固定 ID 已失效，按当前租户菜单生成默认套餐授权")
+        return [
+            {"package_id": package_id, "menu_id": menu_id}
+            for package_id in sorted(package_ids)
+            for menu_id in sorted(menu_ids)
+        ]
 
     async def __backfill_tenant_memberships(self, db: AsyncSession) -> None:
         """回填历史用户的租户关系，保证会话租户校验不会误杀旧数据。"""

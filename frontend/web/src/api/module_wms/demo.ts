@@ -1,6 +1,7 @@
 import { request } from "@utils";
 
 const API_PATH = "/wms/demo";
+const AI_DEMO_REQUEST_TIMEOUT = 120000;
 
 export const WmsDemoAPI = {
   preview(body: WmsDemoInitForm) {
@@ -8,6 +9,7 @@ export const WmsDemoAPI = {
       url: `${API_PATH}/preview`,
       method: "post",
       data: body,
+      timeout: body.use_ai_enrichment ? AI_DEMO_REQUEST_TIMEOUT : undefined,
     });
   },
 
@@ -16,6 +18,7 @@ export const WmsDemoAPI = {
       url: `${API_PATH}/init`,
       method: "post",
       data: body,
+      timeout: body.use_ai_enrichment ? AI_DEMO_REQUEST_TIMEOUT : undefined,
     });
   },
 
@@ -125,6 +128,13 @@ export interface WmsDemoInitForm {
   quality_requirements?: string;
   generation_instructions?: string;
   use_ai_enrichment: boolean;
+  batch_policy: "reject_if_exists" | "append" | "clean_rebuild";
+}
+
+export interface WmsDemoScenarioSummary {
+  title: string;
+  summary: string;
+  highlights: string[];
 }
 
 export interface WmsDemoPreview {
@@ -135,6 +145,8 @@ export interface WmsDemoPreview {
   workflow_coverage: string[];
   warnings: string[];
   preview_names: Record<string, string[]>;
+  enrichment_source: string;
+  scenario_summary?: WmsDemoScenarioSummary;
 }
 
 export interface WmsDemoBatch {

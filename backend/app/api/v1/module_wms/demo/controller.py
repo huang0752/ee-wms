@@ -10,6 +10,7 @@ from app.core.dependencies import AuthPermission
 from app.core.router_class import OperationLogRoute
 from app.plugin.module_task.business.task.model import BusinessTaskModel
 
+from .enrichment_service import WmsDemoEnrichmentService
 from .generator import WmsDemoGenerator
 from .planner import WmsDemoPlanner
 from .pool_schema import WmsDemoSampleItemOut, WmsDemoSampleItemUpdate, WmsDemoSamplePoolOut, WmsDemoSamplePoolUpdate
@@ -26,6 +27,7 @@ async def preview_wms_demo_controller(
     auth: Annotated[AuthSchema, Depends(AuthPermission(["module_wms:demo:init"]))],
 ) -> JSONResponse:
     plan = await WmsDemoPlanner(auth).build(data)
+    plan.enrichment = await WmsDemoEnrichmentService(auth).enrich(data, plan.product_mix)
     preview = plan.preview()
     preview.warnings.extend(WmsDemoQualityService.preview_report(plan).get("warnings", []))
     return SuccessResponse(data=preview, msg="预览成功")

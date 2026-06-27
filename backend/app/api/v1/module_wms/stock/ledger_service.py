@@ -100,6 +100,8 @@ class WmsStockLedgerService:
                 status="active",
                 document_type=data.document_type,
                 document_no=data.document_no,
+                is_demo=data.is_demo,
+                demo_batch_id=data.demo_batch_id,
                 created_id=self._user_id(),
                 updated_id=self._user_id(),
             )
@@ -426,8 +428,8 @@ class WmsStockLedgerService:
             document_type=data.document_type,
             document_no=data.document_no,
             remark=data.remark,
-            is_demo=balance.is_demo,
-            demo_batch_id=balance.demo_batch_id,
+            is_demo=data.is_demo or balance.is_demo,
+            demo_batch_id=data.demo_batch_id or balance.demo_batch_id,
         )
 
     def _mutation_from_lock(self, lock: WmsStockLockModel, quantity: Decimal) -> WmsStockMutationSchema:

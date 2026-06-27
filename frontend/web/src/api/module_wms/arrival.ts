@@ -47,8 +47,12 @@ export interface WmsArrivalForm extends BaseFormType {
   order_no?: string;
   supplier_id?: number;
   warehouse_id?: number;
+  expected_time?: string;
   external_source?: string;
+  external_id?: string;
   external_no?: string;
+  sync_status?: string;
+  workflow_instance_id?: string;
   remark?: string;
   lines: WmsArrivalLineForm[];
 }
@@ -58,10 +62,16 @@ export interface WmsArrivalOrder extends BaseType {
   supplier_id?: number;
   warehouse_id: number;
   status: string;
+  expected_time?: string;
   received_time?: string;
   external_source: string;
+  external_id?: string;
   external_no?: string;
+  sync_status: string;
+  workflow_instance_id?: string;
   remark?: string;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export interface WmsArrivalLine extends BaseType {
@@ -74,6 +84,9 @@ export interface WmsArrivalLine extends BaseType {
   rejected_qty: string;
   batch_no: string;
   status: string;
+  remark?: string;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export interface WmsInspectionTask extends BaseType {

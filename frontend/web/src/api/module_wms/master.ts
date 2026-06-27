@@ -60,21 +60,30 @@ export interface WmsMasterTable extends BaseType {
   name: string;
   status: number;
   description?: string;
+  dept_id?: number;
   warehouse_id?: number;
   zone_id?: number;
   type?: string;
   manager?: string;
   usage?: string;
+  capacity?: string;
+  category_constraints?: string[];
+  mix_rule?: string;
   spec?: string;
   unit?: string;
   category?: string;
   batch_flag?: boolean;
   sn_flag?: boolean;
+  safety_stock?: string;
   contact?: string;
   phone?: string;
+  email?: string;
   address?: string;
   object_type?: string;
   prefix?: string;
+  segment_strategy?: Record<string, unknown>;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export interface WmsMasterForm extends BaseFormType {
@@ -82,21 +91,30 @@ export interface WmsMasterForm extends BaseFormType {
   name?: string;
   status?: number;
   description?: string;
+  dept_id?: number;
   warehouse_id?: number;
   zone_id?: number;
   type?: string;
   manager?: string;
   usage?: string;
+  capacity?: number;
+  category_constraints?: string[];
+  mix_rule?: string;
   spec?: string;
   unit?: string;
   category?: string;
   batch_flag?: boolean;
   sn_flag?: boolean;
+  safety_stock?: number;
   contact?: string;
   phone?: string;
+  email?: string;
   address?: string;
   object_type?: string;
   prefix?: string;
+  segment_strategy?: Record<string, unknown>;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export default WmsMasterAPI;

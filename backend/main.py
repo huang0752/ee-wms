@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import Annotated
 
 import typer
@@ -12,6 +13,16 @@ from app.utils.banner import worship
 
 wms_cli = typer.Typer()
 alembic_cfg = Config("alembic.ini")
+
+
+async def _ensure_tables_for_empty_database() -> None:
+    """Create current ORM tables before Alembic runs product-only migrations."""
+    from app.core.base_model import MappedBase
+    from app.core.database import create_tables
+    from app.utils.import_util import ImportUtil
+
+    ImportUtil.find_models(MappedBase)
+    await create_tables()
 
 
 def create_app() -> FastAPI:
@@ -133,6 +144,7 @@ def upgrade(
     from app.config.setting import get_settings
 
     get_settings.cache_clear()
+    asyncio.run(_ensure_tables_for_empty_database())
     command.upgrade(alembic_cfg, "head")
     typer.echo("所有迁移已应用。")
 

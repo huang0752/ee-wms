@@ -1,5 +1,6 @@
 [
   {
+    "id": 1,
     "name": "基础版",
     "code": "basic",
     "status": 0,
@@ -15,6 +16,7 @@
     "rate_limit": 30
   },
   {
+    "id": 2,
     "name": "标准版",
     "code": "standard",
     "status": 0,
@@ -30,6 +32,7 @@
     "rate_limit": 60
   },
   {
+    "id": 3,
     "name": "专业版",
     "code": "pro",
     "status": 0,
@@ -45,6 +48,7 @@
     "rate_limit": 120
   },
   {
+    "id": 4,
     "name": "企业版",
     "code": "enterprise",
     "status": 0,

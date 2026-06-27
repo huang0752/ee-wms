@@ -19,8 +19,7 @@ export const WmsCheckAPI = {
 
 export interface WmsCheckQuery extends PageQuery { order_no?: string; status?: string }
 export interface WmsCheckLineForm { material_id?: number; location_id?: number; batch_no?: string; system_qty?: number; counted_qty?: number }
-export interface WmsCheckForm extends BaseFormType { order_no?: string; warehouse_id?: number; lines: WmsCheckLineForm[] }
-export interface WmsCheckOrder extends BaseType { order_no: string; warehouse_id: number; status: string; audited_time?: string }
-export interface WmsCheckLine extends BaseType { material_id: number; batch_no: string; system_qty: string; counted_qty: string; diff_qty: string; status: string }
+export interface WmsCheckForm extends BaseFormType { order_no?: string; warehouse_id?: number; remark?: string; lines: WmsCheckLineForm[] }
+export interface WmsCheckOrder extends BaseType { order_no: string; warehouse_id: number; status: string; audited_time?: string; remark?: string }
+export interface WmsCheckLine extends BaseType { material_id: number; warehouse_id?: number; location_id?: number; batch_no: string; system_qty: string; counted_qty: string; diff_qty: string; status: string; remark?: string }
 export default WmsCheckAPI;
-

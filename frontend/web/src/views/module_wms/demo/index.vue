@@ -1,10 +1,33 @@
 <template>
   <div class="wms-demo">
+    <section class="wms-demo__overview">
+      <div>
+        <span>TRIAL DATA STUDIO</span>
+        <h2>试用数据编排台</h2>
+        <p>按电工装备仓储真实链路生成主数据、库存余额、批次追溯、出入库、领料、调拨、盘点和预警数据。</p>
+      </div>
+      <div class="wms-demo__overview-actions">
+        <ElButton :icon="View" :loading="previewing" @click="previewDemo">预览数据</ElButton>
+        <ElButton type="primary" :icon="Plus" :loading="initializing" @click="initDemo">生成丰富数据</ElButton>
+      </div>
+    </section>
+
+    <div class="wms-demo__metrics">
+      <article v-for="item in metricCards" :key="item.label">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+        <small>{{ item.hint }}</small>
+      </article>
+    </div>
+
     <ElTabs v-model="activeTab" class="wms-demo__tabs">
       <ElTabPane label="生成配置" name="config">
         <div class="wms-demo__grid">
           <section class="wms-demo__panel">
-            <div class="wms-demo__panel-title">企业与编号</div>
+            <div class="wms-demo__panel-head">
+              <div class="wms-demo__panel-title">企业与编号</div>
+              <ElSegmented v-model="presetMode" :options="presetOptions" @change="applyPreset" />
+            </div>
             <ElForm :model="form" label-width="108px">
               <ElRow :gutter="16">
                 <ElCol :xs="24" :md="12">
@@ -33,6 +56,16 @@
                   </ElFormItem>
                 </ElCol>
                 <ElCol :xs="24" :md="8">
+                  <ElFormItem label="增强方式">
+                    <ElSwitch
+                      v-model="form.use_ai_enrichment"
+                      active-text="AI增强"
+                      inactive-text="规则增强"
+                      inline-prompt
+                    />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :xs="24" :md="8">
                   <ElFormItem label="时间范围">
                     <ElInputNumber
                       v-model="form.time_range_days"
@@ -40,6 +73,15 @@
                       :max="180"
                       controls-position="right"
                     />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :xs="24" :md="8">
+                  <ElFormItem label="批次策略">
+                    <ElSelect v-model="form.batch_policy">
+                      <ElOption label="覆盖重建" value="clean_rebuild" />
+                      <ElOption label="阻止重复" value="reject_if_exists" />
+                      <ElOption label="追加生成" value="append" />
+                    </ElSelect>
                   </ElFormItem>
                 </ElCol>
                 <ElCol :xs="24" :md="8">
@@ -237,7 +279,19 @@
             <ElDescriptionsItem label="样本池">{{ preview.sample_pool_name }}</ElDescriptionsItem>
             <ElDescriptionsItem label="模式">{{ preview.scale_mode }}</ElDescriptionsItem>
             <ElDescriptionsItem label="产品数">{{ preview.product_mix.length }}</ElDescriptionsItem>
+            <ElDescriptionsItem label="增强来源">{{
+              preview.enrichment_source === "ai" ? "AI" : "规则兜底"
+            }}</ElDescriptionsItem>
           </ElDescriptions>
+          <ElAlert
+            v-if="preview?.scenario_summary"
+            :title="preview.scenario_summary.title"
+            :description="preview.scenario_summary.summary"
+            type="success"
+            show-icon
+            :closable="false"
+            class="wms-demo__alert"
+          />
           <ElTable :data="previewCountRows" border class="wms-demo__table">
             <ElTableColumn prop="name" label="对象" />
             <ElTableColumn prop="count" label="预计数量" width="140" />
@@ -314,6 +368,7 @@ import WmsDemoAPI, {
 defineOptions({ name: "WmsDemo", inheritAttrs: false });
 
 const activeTab = ref("config");
+const presetMode = ref("rich");
 const previewing = ref(false);
 const initializing = ref(false);
 const cleaning = ref(false);
@@ -336,16 +391,21 @@ const quantityFields = [
   { key: "business_doc_count", label: "业务单据", min: 20, max: 1500 },
   { key: "warning_count", label: "预警", min: 0, max: 200 },
 ] as const;
+const presetOptions = [
+  { label: "标准", value: "standard" },
+  { label: "丰富", value: "rich" },
+  { label: "实战", value: "field" },
+];
 
 const form = reactive<WmsDemoInitForm>({
   profile: {
-    company_name: "华南智能制造有限公司",
+    company_name: "国网电工装备供应链中心",
     industry: "电工装备",
-    company_size: "medium",
-    scenario: "starter",
+    company_size: "large",
+    scenario: "field_operation",
   },
   numbering: {
-    tenant_short_code: "EE",
+    tenant_short_code: "SG",
     numbering_style: "tenant",
     date_format: "yyyyMMdd",
     sequence_digits: 4,
@@ -357,9 +417,9 @@ const form = reactive<WmsDemoInitForm>({
     {
       name: "油浸式变压器",
       category: "变压器",
-      voltage_level: "10kV",
-      spec_examples: ["S13-M", "S20-M"],
-      storage_traits: ["重型库位", "防潮"],
+      voltage_level: "110kV",
+      spec_examples: ["110kV SZ11", "220kV ODFS", "35kV SCB"],
+      storage_traits: ["重型库位", "防潮", "需检"],
       weight: 4,
     },
     {
@@ -370,24 +430,57 @@ const form = reactive<WmsDemoInitForm>({
       storage_traits: ["成品区", "防碰撞"],
       weight: 3,
     },
+    {
+      name: "GIS组合电器",
+      category: "组合电器",
+      voltage_level: "220kV",
+      spec_examples: ["220kV GIS", "126kV HGIS", "110kV GIS"],
+      storage_traits: ["成套件", "防尘", "防碰撞"],
+      weight: 3,
+    },
+    {
+      name: "中压电力电缆",
+      category: "线缆",
+      voltage_level: "35kV",
+      spec_examples: ["YJV-26/35kV", "ZC-YJV22-8.7/15kV", "WDZ-YJY-10kV"],
+      storage_traits: ["盘具", "批次管理", "防潮"],
+      weight: 4,
+    },
+    {
+      name: "继保安稳装置",
+      category: "二次设备",
+      voltage_level: "110kV",
+      spec_examples: ["PCS-931", "RCS-978", "CSC-326"],
+      storage_traits: ["电子件", "防静电", "SN预留"],
+      weight: 3,
+    },
   ],
-  warehouse_scenarios: ["原材料入库", "质检入库", "销售出库", "生产领料", "调拨盘点"],
-  scale_mode: "standard",
+  warehouse_scenarios: ["采购到货", "IQC检验", "合格入库", "销售出库", "生产领料", "跨仓调拨", "循环盘点", "库存预警"],
+  scale_mode: "rich",
   quantity_targets: {
-    warehouse_count: 3,
-    location_count: 100,
-    material_count: 80,
-    stock_flow_count: 300,
-    business_doc_count: 160,
-    warning_count: 8,
+    warehouse_count: 5,
+    location_count: 240,
+    material_count: 180,
+    stock_flow_count: 1200,
+    business_doc_count: 520,
+    warning_count: 24,
   },
-  time_range_days: 90,
+  time_range_days: 120,
   naming_style: "industrial",
   quality_requirements:
-    "覆盖到货、检验、入库、出库、领料、调拨、盘点、库存预警；产品和批次编号体现租户短码。",
-  generation_instructions: "产品围绕电工装备供应商物资范围生成，供应商、规格、批次不要重复单一。",
-  use_ai_enrichment: true,
+    "覆盖采购到货、IQC检验、合格入库、库存锁定、销售出库、生产领料、跨仓调拨、循环盘点、库存预警和批次追溯；质量结果需要包含合格、让步接收和不良隔离。",
+  generation_instructions: "数据要像真实电工装备制造现场：供应商、客户、规格、电压等级、批次、来源系统、同步状态、预警原因都要有分布，不要重复单一。",
+  use_ai_enrichment: false,
+  batch_policy: "clean_rebuild",
 });
+
+const metricCards = computed(() => [
+  { label: "仓库/库位", value: `${form.quantity_targets.warehouse_count ?? 0}/${form.quantity_targets.location_count ?? 0}`, hint: "多仓多库区" },
+  { label: "物料档案", value: form.quantity_targets.material_count ?? 0, hint: "覆盖电压等级与品类" },
+  { label: "业务单据", value: form.quantity_targets.business_doc_count ?? 0, hint: "入出调盘全流程" },
+  { label: "库存流水", value: form.quantity_targets.stock_flow_count ?? 0, hint: "批次追溯基础" },
+  { label: "预警事件", value: form.quantity_targets.warning_count ?? 0, hint: "未闭环与已关闭混合" },
+]);
 
 const previewCountRows = computed(() =>
   Object.entries(preview.value?.estimated_counts ?? {}).map(([name, count]) => ({ name, count }))
@@ -416,6 +509,35 @@ function addProduct() {
 
 function removeProduct(index: number) {
   form.custom_products.splice(index, 1);
+}
+
+function applyPreset(value: string | number | boolean) {
+  const preset = String(value);
+  const presets = {
+    standard: {
+      scale_mode: "standard",
+      company_size: "medium",
+      time_range_days: 90,
+      targets: { warehouse_count: 3, location_count: 100, material_count: 80, stock_flow_count: 360, business_doc_count: 180, warning_count: 10 },
+    },
+    rich: {
+      scale_mode: "rich",
+      company_size: "large",
+      time_range_days: 120,
+      targets: { warehouse_count: 5, location_count: 240, material_count: 180, stock_flow_count: 1200, business_doc_count: 520, warning_count: 24 },
+    },
+    field: {
+      scale_mode: "rich",
+      company_size: "large",
+      time_range_days: 180,
+      targets: { warehouse_count: 6, location_count: 360, material_count: 260, stock_flow_count: 1800, business_doc_count: 760, warning_count: 36 },
+    },
+  } as const;
+  const selected = presets[preset as keyof typeof presets] ?? presets.rich;
+  form.scale_mode = selected.scale_mode;
+  form.profile.company_size = selected.company_size;
+  form.time_range_days = selected.time_range_days;
+  Object.assign(form.quantity_targets, selected.targets);
 }
 
 async function loadPools() {
@@ -513,6 +635,75 @@ async function cleanDemo() {
   padding: 16px;
 }
 
+.wms-demo__overview {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 18px;
+  margin-bottom: 14px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--fa-card-border);
+  border-radius: 8px;
+}
+
+.wms-demo__overview span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--el-color-primary);
+}
+
+.wms-demo__overview h2 {
+  margin: 6px 0 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.wms-demo__overview p {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+  line-height: 1.6;
+}
+
+.wms-demo__overview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.wms-demo__metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.wms-demo__metrics article {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 13px 14px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--fa-card-border);
+  border-radius: 8px;
+}
+
+.wms-demo__metrics span,
+.wms-demo__metrics small {
+  overflow: hidden;
+  color: var(--el-text-color-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wms-demo__metrics strong {
+  font-size: 22px;
+  line-height: 1.2;
+  color: var(--el-text-color-primary);
+}
+
 .wms-demo__tabs {
   --el-tabs-header-height: 42px;
 }
@@ -573,6 +764,19 @@ async function cleanDemo() {
 }
 
 @media (width <= 900px) {
+  .wms-demo__overview {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .wms-demo__overview-actions {
+    justify-content: flex-start;
+  }
+
+  .wms-demo__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .wms-demo__grid {
     grid-template-columns: 1fr;
   }
@@ -585,6 +789,12 @@ async function cleanDemo() {
   .wms-demo__pool-select,
   .wms-demo__batch-input {
     width: 100%;
+  }
+}
+
+@media (width <= 560px) {
+  .wms-demo__metrics {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -15,5 +15,5 @@ export const WmsWarningAPI = {
 };
 
 export interface WmsWarningQuery extends PageQuery { warning_type?: string; status?: string }
-export interface WmsWarning extends BaseType { warning_no: string; warning_type: string; material_id: number; warehouse_id?: number; current_qty: string; threshold_qty?: string; status: string; handled_time?: string }
+export interface WmsWarning extends BaseType { warning_no: string; warning_type: string; material_id: number; warehouse_id?: number; batch_no?: string; current_qty: string; threshold_qty?: string; status: string; handled_time?: string; remark?: string }
 export default WmsWarningAPI;

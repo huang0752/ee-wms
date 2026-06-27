@@ -45,7 +45,10 @@ export interface WmsOutboundForm extends BaseFormType {
   customer_id?: number;
   warehouse_id?: number;
   external_source?: string;
+  external_id?: string;
   external_no?: string;
+  sync_status?: string;
+  workflow_instance_id?: string;
   remark?: string;
   lines: WmsOutboundLineForm[];
 }
@@ -59,7 +62,13 @@ export interface WmsOutboundOrder extends BaseType {
   reviewed_time?: string;
   confirmed_time?: string;
   external_source: string;
+  external_id?: string;
   external_no?: string;
+  sync_status: string;
+  workflow_instance_id?: string;
+  remark?: string;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export interface WmsOutboundLine extends BaseType {
@@ -73,6 +82,9 @@ export interface WmsOutboundLine extends BaseType {
   shipped_qty: string;
   stock_lock_id?: number;
   status: string;
+  remark?: string;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export default WmsOutboundAPI;

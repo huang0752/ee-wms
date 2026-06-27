@@ -11,8 +11,17 @@ import { watch } from "vue";
 import { useConfigStore } from "@stores";
 
 const updateFavicon = (url: string) => {
-  const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-  if (link) link.href = url;
+  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    link.type = "image/x-icon";
+    document.head.appendChild(link);
+  }
+  link.href = url;
+
+  const shortcutLink = document.querySelector<HTMLLinkElement>('link[rel="shortcut icon"]');
+  if (shortcutLink) shortcutLink.href = url;
 };
 
 const syncFromConfig = () => {

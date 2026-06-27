@@ -4,9 +4,12 @@ from dataclasses import dataclass
 
 from app.core.base_schema import AuthSchema
 
+from .codecs import safe_category_code
+from .enrichment_schema import WmsDemoAiEnrichmentOut
+from .fact_plan import WmsDemoFactPlan, WmsDemoFactPlanner
 from .numbering import WmsDemoNumbering
 from .pool_service import WmsDemoSamplePoolService
-from .schema import WmsDemoInitSchema, WmsDemoPreviewOut
+from .schema import WmsDemoInitSchema, WmsDemoPreviewOut, WmsDemoScenarioSummaryOut
 
 MODE_TARGETS = {
     "quick": {"warehouse": 2, "location": 30, "material": 30, "stock_flow": 90, "business_doc": 40, "warning": 3},
@@ -24,9 +27,14 @@ class DemoPlan:
     workflow_coverage: list[str]
     warnings: list[str]
     preview_names: dict[str, list[str]]
+    fact_plan: WmsDemoFactPlan | None = None
+    enrichment: WmsDemoAiEnrichmentOut | None = None
     legacy_mode: bool = False
 
     def preview(self) -> WmsDemoPreviewOut:
+        scenario_summary = None
+        if self.enrichment:
+            scenario_summary = WmsDemoScenarioSummaryOut.model_validate(self.enrichment.scenario.model_dump())
         return WmsDemoPreviewOut(
             sample_pool_name=self.sample_pool_name,
             scale_mode=self.request.scale_mode,
@@ -35,6 +43,8 @@ class DemoPlan:
             workflow_coverage=self.workflow_coverage,
             warnings=self.warnings,
             preview_names=self.preview_names,
+            enrichment_source=self.enrichment.source if self.enrichment else "rule_fallback",
+            scenario_summary=scenario_summary,
         )
 
 
@@ -47,7 +57,8 @@ class WmsDemoPlanner:
         pool = await pool_service.get_pool(data.sample_pool_id)
         items = [item for item in pool.items if item.enabled]
         legacy_mode = self._legacy_mode(data)
-        counts = self._counts(data, legacy_mode)
+        fact_plan = None if legacy_mode else WmsDemoFactPlanner().build(data)
+        counts = self._counts(data, legacy_mode, fact_plan)
         rng = self._rng(data, demo_batch_id or "preview")
         product_mix = self._product_mix(data, items, counts["material"], rng)
         numbering = WmsDemoNumbering(self.auth, data.numbering, demo_batch_id)
@@ -68,13 +79,14 @@ class WmsDemoPlanner:
             workflow_coverage=workflows,
             warnings=warnings,
             preview_names=preview_names,
+            fact_plan=fact_plan,
             legacy_mode=legacy_mode,
         )
 
     @staticmethod
     def _legacy_mode(data: WmsDemoInitSchema) -> bool:
         fields_set = set(getattr(data, "model_fields_set", set()))
-        if fields_set and fields_set <= {"profile"}:
+        if fields_set and fields_set <= {"profile", "batch_policy", "use_ai_enrichment"}:
             return True
         targets = data.quantity_targets
         has_targets = any(
@@ -91,7 +103,7 @@ class WmsDemoPlanner:
         return bool((data.profile.warehouse_count or data.profile.material_count) and not has_targets and not data.custom_products and not data.product_directions)
 
     @staticmethod
-    def _counts(data: WmsDemoInitSchema, legacy_mode: bool) -> dict[str, int]:
+    def _counts(data: WmsDemoInitSchema, legacy_mode: bool, fact_plan: WmsDemoFactPlan | None = None) -> dict[str, int]:
         if legacy_mode:
             material = data.profile.material_count or 3
             warehouse = data.profile.warehouse_count or 1
@@ -107,6 +119,8 @@ class WmsDemoPlanner:
                 "business_doc": 4,
                 "warning": 1,
             }
+        if fact_plan:
+            return fact_plan.counts.copy()
         base = dict(MODE_TARGETS.get(data.scale_mode, MODE_TARGETS["standard"]))
         targets = data.quantity_targets
         if targets.warehouse_count is not None:
@@ -189,7 +203,7 @@ class WmsDemoPlanner:
     @staticmethod
     def _preview_names(numbering: WmsDemoNumbering, product_mix: list[dict]) -> dict[str, list[str]]:
         first = product_mix[0]
-        material_code = numbering.code("material", category_short=str(first.get("category") or "GEN")[:2].upper())
+        material_code = numbering.code("material", category_short=safe_category_code(str(first.get("category") or "GEN")))
         return {
             "warehouse_codes": [numbering.code("warehouse")],
             "material_codes": [material_code],

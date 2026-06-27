@@ -57,8 +57,13 @@ export interface WmsInboundOrder extends BaseType {
   status: string;
   confirmed_time?: string;
   external_source: string;
+  external_id?: string;
   external_no?: string;
+  sync_status: string;
+  workflow_instance_id?: string;
   remark?: string;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export interface WmsInboundLine extends BaseType {
@@ -71,6 +76,9 @@ export interface WmsInboundLine extends BaseType {
   quantity: string;
   stock_status: string;
   status: string;
+  remark?: string;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export interface WmsLocationRecommend {

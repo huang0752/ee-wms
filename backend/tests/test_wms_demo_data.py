@@ -13,7 +13,8 @@ async def test_wms_demo_init_creates_task_and_demo_rows(test_client: TestClient,
                 "warehouse_count": 1,
                 "material_count": 3,
                 "scenario": "starter",
-            }
+            },
+            "batch_policy": "clean_rebuild",
         },
     )
     assert response.status_code == 200, response.text
@@ -60,7 +61,11 @@ async def test_wms_demo_init_creates_task_and_demo_rows(test_client: TestClient,
 
 
 async def test_wms_demo_clean_only_deletes_demo_rows_for_batch(test_client: TestClient, auth_headers: dict[str, str]) -> None:
-    init_resp = test_client.post("/wms/demo/init", headers=auth_headers, json={"profile": {"company_name": "清理测试有限公司"}})
+    init_resp = test_client.post(
+        "/wms/demo/init",
+        headers=auth_headers,
+        json={"profile": {"company_name": "清理测试有限公司"}, "batch_policy": "append"},
+    )
     assert init_resp.status_code == 200, init_resp.text
     demo_batch_id = init_resp.json()["data"]["demo_batch_id"]
 

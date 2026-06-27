@@ -37,7 +37,13 @@ export interface WmsInspectionTask extends BaseType {
   arrival_no: string;
   status: string;
   result?: string;
+  inspector_id?: number;
   inspected_time?: string;
+  attachment_refs?: string;
+  external_quality_id?: string;
+  remark?: string;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export interface WmsInspectionLine extends BaseType {
@@ -50,6 +56,9 @@ export interface WmsInspectionLine extends BaseType {
   rejected_qty: string;
   result?: string;
   status: string;
+  remark?: string;
+  is_demo?: boolean;
+  demo_batch_id?: string;
 }
 
 export interface WmsInspectionJudgeLineForm {
