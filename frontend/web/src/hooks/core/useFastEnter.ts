@@ -17,7 +17,7 @@
 
 import { computed } from "vue";
 import appConfig from "@/config";
-import { useAssemblyStore } from "@stores";
+import { useAssemblyStore, useConfigStore } from "@stores";
 import { fastEnterRouteGroupMap } from "@/config/assembly/routeGroups";
 import type { FastEnterApplication, FastEnterQuickLink } from "@/types/config";
 
@@ -34,8 +34,13 @@ function routeEntryEnabled(
 
 export function useFastEnter() {
   const assemblyStore = useAssemblyStore();
+  const configStore = useConfigStore();
   // 获取快速入口配置
   const fastEnterConfig = computed(() => appConfig.fastEnter);
+
+  const tenantHelpDocLink = computed(() => {
+    return configStore.configData.help_doc?.config_value?.trim() || "";
+  });
 
   // 获取启用的应用列表（按排序权重排序）
   const enabledApplications = computed<FastEnterApplication[]>(() => {
@@ -52,7 +57,17 @@ export function useFastEnter() {
     if (!fastEnterConfig.value?.quickLinks) return [];
     if (!assemblyStore.isFeatureEnabled("fastEnter", true)) return [];
 
-    return fastEnterConfig.value.quickLinks
+    const quickLinks = [...fastEnterConfig.value.quickLinks];
+    if (tenantHelpDocLink.value) {
+      quickLinks.unshift({
+        name: "帮助文档",
+        enabled: true,
+        order: 1,
+        link: tenantHelpDocLink.value,
+      });
+    }
+
+    return quickLinks
       .filter((link) => link.enabled !== false && routeEntryEnabled(link, assemblyStore))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   });
