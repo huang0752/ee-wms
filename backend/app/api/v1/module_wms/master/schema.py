@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
@@ -8,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.common.enums import QueueEnum
 from app.core.base_params import BaseQueryParam, TenantByQueryParam, UserByQueryParam
 from app.core.base_schema import BaseSchema, TenantBySchema, UserBySchema
-from app.core.validator import validate_required_code
 
 WmsMasterResource = Literal[
     "warehouse",
@@ -54,7 +54,14 @@ class WmsMasterCreateSchema(BaseModel):
     @field_validator("code")
     @classmethod
     def _validate_code(cls, value: str) -> str:
-        return validate_required_code(value)
+        value = value.strip()
+        if not value:
+            raise ValueError("编码不能为空")
+        if len(value) < 2 or len(value) > 64:
+            raise ValueError("编码长度需在 2-64 个字符之间")
+        if not re.match(r"^[A-Za-z][A-Za-z0-9_\-\u4e00-\u9fff]*$", value):
+            raise ValueError("编码需以字母开头，仅允许字母、数字、下划线、连字符和中文")
+        return value
 
     @field_validator("name")
     @classmethod
