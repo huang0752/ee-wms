@@ -202,6 +202,7 @@ class InitializeData:
 
             try:
                 await self.__reset_identity_if_empty(db, model)
+                await self.__sync_identity_to_max(db, model)
 
                 # 树形表（platform_menu / sys_dept）：递归创建含 children 的对象
                 if table_name in self._RECURSIVE_TABLES:
@@ -318,7 +319,9 @@ class InitializeData:
                 logger.error(f"❌️ 初始化 {table_name} 表数据失败")
                 raise
 
+        await self.__sync_seed_identity_sequences(db, init_models)
         await self.__backfill_tenant_memberships(db)
+        await self.__sync_seed_identity_sequences(db, init_models)
 
     async def __reset_identity_if_empty(self, db: AsyncSession, model: type) -> None:
         """Reset PostgreSQL identity sequence for empty seed tables after failed retries."""
@@ -340,6 +343,40 @@ class InitializeData:
                 text("SELECT setval(CAST(:sequence_name AS regclass), 1, false)"),
                 {"sequence_name": sequence_name},
             )
+
+    async def __sync_seed_identity_sequences(self, db: AsyncSession, models: list[type]) -> None:
+        """Keep PostgreSQL sequences aligned after seed rows with fixed IDs are loaded."""
+        if settings.DATABASE_TYPE not in {"postgres", "postgresql"}:
+            return
+        synced = 0
+        for model in models:
+            if await self.__sync_identity_to_max(db, model):
+                synced += 1
+        if synced:
+            logger.info(f"✅️ 已同步 {synced} 个 seed 表自增序列")
+
+    async def __sync_identity_to_max(self, db: AsyncSession, model: type) -> bool:
+        """Set a PostgreSQL ID sequence to MAX(id), so the next insert uses MAX(id) + 1."""
+        if settings.DATABASE_TYPE not in {"postgres", "postgresql"}:
+            return False
+        if "id" not in model.__table__.columns:
+            return False
+        sequence_name = (
+            await db.execute(
+                text("SELECT pg_get_serial_sequence(:table_name, 'id')"),
+                {"table_name": model.__tablename__},
+            )
+        ).scalar_one_or_none()
+        if not sequence_name:
+            return False
+        max_id = (await db.execute(select(func.max(model.id)))).scalar_one_or_none()
+        if max_id is None:
+            return False
+        await db.execute(
+            text("SELECT setval(CAST(:sequence_name AS regclass), :max_id, true)"),
+            {"sequence_name": sequence_name, "max_id": max_id},
+        )
+        return True
 
     async def __filter_existing_relation_seed(
         self,

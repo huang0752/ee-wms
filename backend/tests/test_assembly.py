@@ -459,6 +459,48 @@ async def test_wms_seed_backfills_missing_menu_when_table_already_exists(test_cl
         reset_assembly_cache()
 
 
+@pytest.mark.asyncio
+async def test_seed_identity_sync_sets_postgres_sequence_to_max_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.api.v1.module_platform.tenant.model import TenantModel
+
+    class _FakeResult:
+        def __init__(self, value):
+            self.value = value
+
+        def scalar_one_or_none(self):
+            return self.value
+
+    class _FakeSession:
+        def __init__(self):
+            self.calls = []
+            self.results = [
+                _FakeResult("public.platform_tenant_id_seq"),
+                _FakeResult(12),
+                _FakeResult(None),
+            ]
+
+        async def execute(self, statement, params=None):
+            self.calls.append((statement, params))
+            return self.results.pop(0)
+
+    old_database_type = settings.DATABASE_TYPE
+    monkeypatch.setattr(settings, "DATABASE_TYPE", "postgres")
+    db = _FakeSession()
+
+    try:
+        synced = await InitializeData()._InitializeData__sync_identity_to_max(db, TenantModel)
+    finally:
+        monkeypatch.setattr(settings, "DATABASE_TYPE", old_database_type)
+
+    assert synced is True
+    assert len(db.calls) == 3
+    assert db.calls[0][1] == {"table_name": "platform_tenant"}
+    assert db.calls[2][1] == {
+        "sequence_name": "public.platform_tenant_id_seq",
+        "max_id": 12,
+    }
+
+
 def _flatten_menu_seed(items: list[dict]) -> list[dict]:
     result: list[dict] = []
     for item in items:
