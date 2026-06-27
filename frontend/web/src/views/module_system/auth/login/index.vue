@@ -649,7 +649,7 @@ const handleSubmit = async () => {
   if (!accountFormRef.value) return;
 
   try {
-    const valid = await accountFormRef.value.validate?.();
+    const valid = await accountFormRef.value.validate?.().catch(() => false);
     if (!valid) return;
 
     if (!isPassing.value) {

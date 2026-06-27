@@ -12,13 +12,19 @@ const AuthAPI = {
    * @returns 登录响应
    */
   login(body: LoginFormData) {
+    const form = new URLSearchParams();
+    Object.entries(body).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      form.set(key, String(value));
+    });
+
     return request<ApiResponse<LoginResult>>({
       url: `${API_PATH}/login`,
       method: "post",
       headers: {
-        "Content-Type": "multipart/form-data",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      data: body,
+      data: form,
     });
   },
 
