@@ -12,7 +12,7 @@ import re
 from datetime import datetime, time
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select, text
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.module_platform.email.model import EmailConfigModel, EmailTemplateModel
@@ -471,24 +471,7 @@ class InitializeData:
         if self._assembly.name != "wms":
             return
 
-        wms_menu_ids = set(
-            (
-                await db.execute(
-                    select(MenuModel.id).where(
-                        MenuModel.scope == "tenant",
-                        MenuModel.status == 0,
-                        MenuModel.is_deleted.is_(False),
-                        or_(
-                            MenuModel.permission.like("module_wms:%"),
-                            MenuModel.route_path.like("/module-wms%"),
-                            MenuModel.component_path.like("module_wms/%"),
-                        ),
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
+        wms_menu_ids = await self.__collect_wms_menu_ids(db)
         if not wms_menu_ids:
             return
 
@@ -579,6 +562,57 @@ class InitializeData:
                 package_added,
                 role_added,
             )
+
+    async def __collect_wms_menu_ids(self, db: AsyncSession) -> set[int]:
+        """收集完整 WMS 菜单子树，包含无权限码的中间目录。"""
+        rows = (
+            await db.execute(
+                select(
+                    MenuModel.id,
+                    MenuModel.parent_id,
+                    MenuModel.permission,
+                    MenuModel.route_name,
+                    MenuModel.route_path,
+                    MenuModel.component_path,
+                ).where(
+                    MenuModel.scope == "tenant",
+                    MenuModel.status == 0,
+                    MenuModel.is_deleted.is_(False),
+                )
+            )
+        ).all()
+
+        children_by_parent: dict[int | None, list[int]] = {}
+        parent_by_id: dict[int, int | None] = {}
+        direct_ids: set[int] = set()
+        root_ids: set[int] = set()
+
+        for menu_id, parent_id, permission, route_name, route_path, component_path in rows:
+            children_by_parent.setdefault(parent_id, []).append(menu_id)
+            parent_by_id[menu_id] = parent_id
+
+            if route_name == "ModuleWms" or route_path == "/module-wms":
+                root_ids.add(menu_id)
+                direct_ids.add(menu_id)
+            if str(permission or "").startswith("module_wms:") or str(component_path or "").startswith("module_wms/"):
+                direct_ids.add(menu_id)
+
+        wms_menu_ids: set[int] = set()
+        stack = list(root_ids)
+        while stack:
+            menu_id = stack.pop()
+            if menu_id in wms_menu_ids:
+                continue
+            wms_menu_ids.add(menu_id)
+            stack.extend(children_by_parent.get(menu_id, []))
+
+        for menu_id in direct_ids:
+            current_id: int | None = menu_id
+            while current_id is not None and current_id not in wms_menu_ids:
+                wms_menu_ids.add(current_id)
+                current_id = parent_by_id.get(current_id)
+
+        return wms_menu_ids
 
     @staticmethod
     def __create_objects_with_children(data: list[dict], model_class: type) -> list:
