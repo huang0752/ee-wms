@@ -269,13 +269,13 @@ class UserService:
         if not self.auth.user or not self.auth.user.id:
             raise CustomException(msg="该数据不存在")
         if not data.old_password or not data.new_password:
-            raise CustomException(msg="密码不能为空")
+            raise CustomException(msg="密码不能为空", status_code=status.HTTP_400_BAD_REQUEST)
 
         user = await UserCRUD(self.auth).get(id=self.auth.user.id)
         if not user:
             raise CustomException(msg="该数据不存在")
         if not PwdUtil.verify_password(plain_password=data.old_password, password_hash=user.password):
-            raise CustomException(msg="原密码输入错误")
+            raise CustomException(msg="原密码输入错误", status_code=status.HTTP_400_BAD_REQUEST)
 
         new_password_hash = PwdUtil.hash_password(password=data.new_password)
         new_user = await UserCRUD(self.auth).change_password(id=user.id, password_hash=new_password_hash)
@@ -283,7 +283,7 @@ class UserService:
 
     async def reset_password(self, data: ResetPasswordSchema) -> UserOutSchema:
         if not data.password:
-            raise CustomException(msg="密码不能为空")
+            raise CustomException(msg="密码不能为空", status_code=status.HTTP_400_BAD_REQUEST)
 
         user = await UserCRUD(self.auth).get(id=data.id)
         if not user:
