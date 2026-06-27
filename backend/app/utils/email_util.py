@@ -90,19 +90,23 @@ async def send_email(
     # 端口 465 = 隐式 SSL，端口 587 = STARTTLS
     is_ssl = smtp_port == 465
 
-    conf = ConnectionConfig(
-        MAIL_USERNAME=smtp_user,
-        MAIL_PASSWORD=smtp_password,
-        MAIL_FROM=smtp_user,
-        MAIL_FROM_NAME=from_name,
-        MAIL_SERVER=smtp_host,
-        MAIL_PORT=smtp_port,
-        MAIL_STARTTLS=not is_ssl and use_tls,
-        MAIL_SSL_TLS=is_ssl,
-        USE_CREDENTIALS=True,
-        VALIDATE_CERTS=False,
-        MAIL_TIMEOUT=timeout,
-    )
+    config_data: dict[str, Any] = {
+        "MAIL_USERNAME": smtp_user,
+        "MAIL_PASSWORD": smtp_password,
+        "MAIL_FROM": smtp_user,
+        "MAIL_FROM_NAME": from_name,
+        "MAIL_SERVER": smtp_host,
+        "MAIL_PORT": smtp_port,
+        "MAIL_STARTTLS": not is_ssl and use_tls,
+        "MAIL_SSL_TLS": is_ssl,
+        "USE_CREDENTIALS": True,
+        "VALIDATE_CERTS": False,
+    }
+    if "TIMEOUT" in ConnectionConfig.model_fields:
+        config_data["TIMEOUT"] = timeout
+    elif "MAIL_TIMEOUT" in ConnectionConfig.model_fields:
+        config_data["MAIL_TIMEOUT"] = timeout
+    conf = ConnectionConfig(**config_data)
 
     # 收件人格式：支持 "姓名 <邮箱>"（若有 to_name）
     recipient = f"{to_name} <{to_email}>" if to_name else to_email

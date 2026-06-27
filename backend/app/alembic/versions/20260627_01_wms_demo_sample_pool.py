@@ -46,6 +46,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["deleted_id"], ["sys_user.id"], onupdate="CASCADE", ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "code", name="uq_wms_demo_pool_tenant_code"),
+        if_not_exists=True,
     )
     op.create_table(
         "wms_demo_sample_item",
@@ -79,9 +80,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["deleted_id"], ["sys_user.id"], onupdate="CASCADE", ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "pool_id", "item_key", name="uq_wms_demo_item_tenant_pool_key"),
+        if_not_exists=True,
     )
 
 
 def downgrade() -> None:
-    op.drop_table("wms_demo_sample_item")
-    op.drop_table("wms_demo_sample_pool")
+    op.drop_table("wms_demo_sample_item", if_exists=True)
+    op.drop_table("wms_demo_sample_pool", if_exists=True)

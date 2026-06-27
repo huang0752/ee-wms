@@ -453,10 +453,10 @@ const registerRules = computed<FormRules<RegisterForm & { email: string }>>(() =
     { validator: validateRegisterConfirm, trigger: "blur" },
   ],
   email: [
-    { required: true, message: t("login.email.required"), trigger: "blur" },
+    { required: true, message: t("login.message.email.required"), trigger: "blur" },
     {
       type: "email",
-      message: t("login.email.invalid"),
+      message: t("login.message.email.invalid"),
       trigger: "blur",
     },
   ],
@@ -477,8 +477,8 @@ const validateForgetConfirm = (_rule: unknown, value: string, callback: (e?: Err
 const forgetRules = computed<FormRules<ForgetPasswordForm>>(() => ({
   username: [{ required: true, message: t("login.message.username.required"), trigger: "blur" }],
   email: [
-    { required: true, message: t("login.email.required"), trigger: "blur" },
-    { type: "email", message: t("login.email.invalid"), trigger: "blur" },
+    { required: true, message: t("login.message.email.required"), trigger: "blur" },
+    { type: "email", message: t("login.message.email.invalid"), trigger: "blur" },
   ],
   code: [
     { required: true, message: t("forgetPassword.codeRequired"), trigger: "blur" },
@@ -722,8 +722,9 @@ async function submitForget() {
     return;
   }
   if (!forgetPanelRef.value) return;
+  const valid = await forgetPanelRef.value.validate?.().catch(() => false);
+  if (!valid) return;
   try {
-    await forgetPanelRef.value.validate?.();
     forgetLoading.value = true;
     await UserAPI.resetForgetPasswordByEmail(forgetForm);
     loginForm.username = forgetForm.username;
@@ -744,8 +745,9 @@ async function submitForget() {
 async function sendForgetEmailCode() {
   if (!showForgotPassword.value) return;
   if (!forgetPanelRef.value) return;
+  const valid = await forgetPanelRef.value.validateField?.(["username", "email"]).catch(() => false);
+  if (!valid) return;
   try {
-    await forgetPanelRef.value.validateField?.(["username", "email"]);
     forgetCodeSending.value = true;
     await UserAPI.sendForgetPasswordEmailCode({
       username: forgetForm.username,

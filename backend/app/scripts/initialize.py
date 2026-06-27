@@ -1,8 +1,9 @@
 """
 数据库初始化与种子数据管理。
 
-简化策略：每张表为空时一次性插入种子数据，已有数据则跳过。
-改 JSON → 清空对应表 → 重启即可。
+简化策略：多数表为空时一次性插入种子数据，已有数据则跳过。
+少量有稳定业务键的配置表会幂等追加缺失数据。
+改 JSON → 清空对应表 → 重启即可；追加型表可直接重启补齐缺失项。
 """
 
 import asyncio
@@ -265,6 +266,15 @@ class InitializeData:
                     logger.info(f"✅️ 已向 {table_name} 写入 {len(objs)} 条")
                     continue
 
+                # 邮件模板按 template_code 追加缺失项，避免新增业务模板被已有旧数据挡住。
+                if table_name == "platform_email_template":
+                    added = await self.__append_missing_by_unique_key(db, data, model, "template_code")
+                    if added:
+                        logger.info(f"✅️ 已向 {table_name} 追加 {added} 条缺失模板")
+                    else:
+                        logger.info(f"⏭️  跳过 {table_name} 表数据初始化（无缺失模板）")
+                    continue
+
                 # 普通表：空表时插入，已有数据跳过
                 count = await db.execute(select(func.count()).select_from(model))
                 if count.scalar():
@@ -394,6 +404,29 @@ class InitializeData:
 
         stmt = select(model_class).where(*conditions).limit(1)
         return (await db.execute(stmt)).scalar_one_or_none()
+
+    async def __append_missing_by_unique_key(
+        self,
+        db: AsyncSession,
+        data: list[dict],
+        model_class: type,
+        key: str,
+    ) -> int:
+        """按稳定业务键追加缺失 seed，保留已有记录的人工修改。"""
+        added = 0
+        column = getattr(model_class, key)
+        for item in data:
+            key_value = item.get(key)
+            if key_value is None:
+                continue
+            exists_stmt = select(model_class).where(column == key_value).limit(1)
+            if (await db.execute(exists_stmt)).scalar_one_or_none():
+                continue
+            db.add(model_class(**item))
+            added += 1
+        if added:
+            await db.flush()
+        return added
 
     async def __load_json(self, filename: str) -> list[dict]:
         """读取并解析种子数据 JSON 文件"""

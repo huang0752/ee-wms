@@ -363,6 +363,14 @@ class UserService:
         interval_key = self._password_reset_interval_key(username, email)
         hourly_key = self._password_reset_hourly_key(username, email)
 
+        user = await UserCRUD(self.auth).get(username=username)
+        if user is None or not user.email or str(user.email).strip().lower() != email:
+            raise CustomException(msg="账号或邮箱不匹配", status_code=status.HTTP_400_BAD_REQUEST)
+        if user.status == 1:
+            raise CustomException(msg="用户已停用", status_code=status.HTTP_400_BAD_REQUEST)
+        if user.is_superuser:
+            raise CustomException(msg="超级管理员密码不能通过邮箱重置", status_code=status.HTTP_400_BAD_REQUEST)
+
         if await redis_curd.exists(interval_key):
             raise CustomException(msg="验证码发送过于频繁，请 60 秒后再试", status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -371,39 +379,32 @@ class UserService:
         if hourly_count >= PASSWORD_RESET_HOURLY_LIMIT:
             raise CustomException(msg="验证码请求次数过多，请稍后再试", status_code=status.HTTP_400_BAD_REQUEST)
 
-        user = await UserCRUD(self.auth).get(username=username)
-        should_send = (
-            user is not None
-            and user.status != 1
-            and not user.is_superuser
-            and bool(user.email)
-            and str(user.email).strip().lower() == email
-        )
-
         await redis_curd.set(interval_key, "1", expire=PASSWORD_RESET_SEND_INTERVAL_SECONDS)
         await redis_curd.set(hourly_key, hourly_count + 1, expire=60 * 60)
 
-        if should_send:
-            code = self._generate_email_code()
-            reset_key = self._password_reset_key(username, email)
-            await redis_curd.set(
-                reset_key,
-                {
-                    "user_id": user.id,
-                    "username": username,
-                    "email": email,
-                    "code": code,
-                },
-                expire=PASSWORD_RESET_CODE_TTL_SECONDS,
-            )
-            await EmailSendService(self.auth).send_by_template(
-                to_email=email,
-                to_name=user.name or user.username,
-                template_code=PASSWORD_RESET_TEMPLATE_CODE,
-                variables={"username": user.username, "code": code},
-                biz_type="reset_password",
-                tenant_id=user.tenant_id,
-            )
+        code = self._generate_email_code()
+        reset_key = self._password_reset_key(username, email)
+        await redis_curd.set(
+            reset_key,
+            {
+                "user_id": user.id,
+                "username": username,
+                "email": email,
+                "code": code,
+            },
+            expire=PASSWORD_RESET_CODE_TTL_SECONDS,
+        )
+        sent = await EmailSendService(self.auth).send_by_template(
+            to_email=email,
+            to_name=user.name or user.username,
+            template_code=PASSWORD_RESET_TEMPLATE_CODE,
+            variables={"username": user.username, "code": code},
+            biz_type="reset_password",
+            tenant_id=user.tenant_id,
+        )
+        if not sent:
+            await redis_curd.delete(reset_key)
+            raise CustomException(msg="邮件发送失败，请检查邮箱服务配置后重试", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return {"sent": True}
 
