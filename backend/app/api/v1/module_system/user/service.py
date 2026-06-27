@@ -17,6 +17,7 @@ from app.api.v1.module_platform.tenant.service import TenantService
 from app.api.v1.module_system.dept.crud import DeptCRUD
 from app.api.v1.module_system.position.crud import PositionCRUD
 from app.api.v1.module_system.role.crud import RoleCRUD
+from app.api.v1.module_system.user.model import UserModel
 from app.core.assembly import filter_menu_tree_by_assembly
 from app.core.base_schema import AuthSchema, BatchSetAvailable
 from app.core.exceptions import CustomException
@@ -76,6 +77,20 @@ class UserService:
             )
         )
         await self.auth.db.flush()
+
+    async def _get_unambiguous_user_by_username(self, username: str) -> UserModel | None:
+        stmt = (
+            select(UserModel)
+            .where(
+                UserModel.username == username,
+                UserModel.is_deleted.is_(False),
+            )
+            .order_by(UserModel.id.asc())
+        )
+        users = list((await self.auth.db.execute(stmt)).scalars().all())
+        if len({item.tenant_id for item in users}) > 1:
+            raise CustomException(msg="账号存在多个租户，请使用租户入口或联系管理员", status_code=400)
+        return users[0] if users else None
 
     async def detail(self, id: int) -> UserOutSchema:
         user = await UserCRUD(self.auth).get_or_404(id=id)
@@ -315,7 +330,7 @@ class UserService:
         return await self.detail(result.id)
 
     async def forget_password(self, data: UserForgetPasswordSchema) -> UserOutSchema:
-        user = await UserCRUD(self.auth).get(username=data.username)
+        user = await self._get_unambiguous_user_by_username(data.username)
         if not user:
             raise CustomException(msg="该数据不存在")
         if user.status == 1:
@@ -361,7 +376,7 @@ class UserService:
         interval_key = self._password_reset_interval_key(username, email)
         hourly_key = self._password_reset_hourly_key(username, email)
 
-        user = await UserCRUD(self.auth).get(username=username)
+        user = await self._get_unambiguous_user_by_username(username)
         if user is None or not user.email or str(user.email).strip().lower() != email:
             raise CustomException(msg="账号或邮箱不匹配", status_code=status.HTTP_400_BAD_REQUEST)
         if user.status == 1:
@@ -427,7 +442,7 @@ class UserService:
         if str(payload.get("code")) != data.code:
             raise CustomException(msg="验证码错误", status_code=status.HTTP_400_BAD_REQUEST)
 
-        user = await UserCRUD(self.auth).get(username=username)
+        user = await self._get_unambiguous_user_by_username(username)
         if not user or user.id != payload.get("user_id") or str(user.email or "").strip().lower() != email:
             await redis_curd.delete(reset_key)
             raise CustomException(msg="验证码已过期或不存在", status_code=status.HTTP_400_BAD_REQUEST)

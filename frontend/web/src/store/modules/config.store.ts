@@ -33,6 +33,7 @@ import TenantAPI from "@/api/module_platform/tenant";
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { StorageConfig } from "@/utils/storage";
+import { Auth } from "@/utils/auth";
 
 const PUBLIC_TENANT_ID = 1;
 const TENANT_CONFIG_ALIASES: Record<string, string> = {
@@ -66,7 +67,9 @@ export const useConfigStore = defineStore(
         return explicitId;
       }
 
-      const savedTenantId = Number(localStorage.getItem(StorageConfig.LAST_TENANT_ID_KEY));
+      const savedTenantId = Auth.getAccessToken()
+        ? Number(localStorage.getItem(StorageConfig.LAST_TENANT_ID_KEY))
+        : 0;
       if (Number.isInteger(savedTenantId) && savedTenantId > 0) {
         return savedTenantId;
       }

@@ -2,6 +2,12 @@ from decimal import Decimal
 
 from sqlalchemy import and_, func, select
 
+from app.api.v1.module_wms.tenant_guard import (
+    ensure_wms_location,
+    ensure_wms_material,
+    ensure_wms_warehouse,
+    require_wms_tenant_id,
+)
 from app.core.base_schema import AuthSchema
 from app.core.exceptions import CustomException
 
@@ -30,6 +36,7 @@ class WmsStockLedgerService:
         self.db = auth.db
 
     async def receive_pending(self, data: WmsStockMutationSchema) -> WmsStockBalanceOutSchema:
+        await self._ensure_mutation_scope(data)
         qty = self._qty(data.quantity)
         await self._ensure_batch(data, "pending_inspection")
         flow = await self._write_flow(data=data, flow_type="receive_pending", direction="in", after="pending_inspection")
@@ -42,6 +49,7 @@ class WmsStockLedgerService:
         return WmsStockBalanceOutSchema.model_validate(balance)
 
     async def approve_to_available(self, data: WmsStockMutationSchema) -> WmsStockBalanceOutSchema:
+        await self._ensure_mutation_scope(data)
         qty = self._qty(data.quantity)
         balance = await self._get_required_balance(data)
         self._ensure_enough(balance.pending_qty, qty, "待检库存不足")
@@ -54,6 +62,7 @@ class WmsStockLedgerService:
         return WmsStockBalanceOutSchema.model_validate(balance)
 
     async def reject_to_defective(self, data: WmsStockMutationSchema) -> WmsStockBalanceOutSchema:
+        await self._ensure_mutation_scope(data)
         qty = self._qty(data.quantity)
         balance = await self._get_required_balance(data)
         self._ensure_enough(balance.pending_qty, qty, "待检库存不足")
@@ -66,6 +75,7 @@ class WmsStockLedgerService:
         return WmsStockBalanceOutSchema.model_validate(balance)
 
     async def lock_stock(self, data: WmsStockLockSchema) -> list[WmsStockLockOutSchema]:
+        await self._ensure_lock_scope(data)
         need_qty = self._qty(data.quantity)
         balances = await self._available_balances(data)
         allocated: list[WmsStockLockModel] = []
@@ -151,6 +161,7 @@ class WmsStockLedgerService:
         return WmsStockBalanceOutSchema.model_validate(balance)
 
     async def freeze(self, data: WmsStockMutationSchema) -> WmsStockBalanceOutSchema:
+        await self._ensure_mutation_scope(data)
         qty = self._qty(data.quantity)
         balance = await self._get_required_balance(data)
         self._ensure_enough(balance.available_qty, qty, "可用库存不足，无法冻结")
@@ -163,6 +174,7 @@ class WmsStockLedgerService:
         return WmsStockBalanceOutSchema.model_validate(balance)
 
     async def unfreeze(self, data: WmsStockMutationSchema) -> WmsStockBalanceOutSchema:
+        await self._ensure_mutation_scope(data)
         qty = self._qty(data.quantity)
         balance = await self._get_required_balance(data)
         self._ensure_enough(balance.frozen_qty, qty, "冻结库存不足，无法解冻")
@@ -175,6 +187,7 @@ class WmsStockLedgerService:
         return WmsStockBalanceOutSchema.model_validate(balance)
 
     async def transfer_out(self, data: WmsStockMutationSchema) -> WmsStockBalanceOutSchema:
+        await self._ensure_mutation_scope(data)
         qty = self._qty(data.quantity)
         balance = await self._get_required_balance(data)
         self._ensure_enough(balance.available_qty, qty, "可用库存不足，无法调出")
@@ -187,6 +200,7 @@ class WmsStockLedgerService:
         return WmsStockBalanceOutSchema.model_validate(balance)
 
     async def transfer_in(self, data: WmsStockMutationSchema) -> WmsStockBalanceOutSchema:
+        await self._ensure_mutation_scope(data)
         qty = self._qty(data.quantity)
         await self._ensure_batch(data, "available")
         flow = await self._write_flow(data=data, flow_type="transfer_in", direction="in", before="transferred", after="available")
@@ -199,6 +213,7 @@ class WmsStockLedgerService:
         return WmsStockBalanceOutSchema.model_validate(balance)
 
     async def adjust_after_check(self, data: WmsStockAdjustSchema) -> WmsStockBalanceOutSchema:
+        await self._ensure_mutation_scope(data)
         qty = self._qty(data.quantity)
         balance = await self._get_or_create_balance(data)
         flow = await self._write_flow(data=data, flow_type="adjust_after_check", direction="adjust", after=data.stock_bucket)
@@ -219,6 +234,7 @@ class WmsStockLedgerService:
         return WmsStockBalanceOutSchema.model_validate(balance)
 
     async def adjust_after_check_delta(self, data: WmsStockMutationSchema, delta_qty: Decimal) -> WmsStockBalanceOutSchema:
+        await self._ensure_mutation_scope(data)
         delta = Decimal(str(delta_qty))
         if delta == ZERO:
             return WmsStockBalanceOutSchema.model_validate(await self._get_or_create_balance(data))
@@ -238,6 +254,19 @@ class WmsStockLedgerService:
         self._touch(balance)
         await self.db.flush()
         return WmsStockBalanceOutSchema.model_validate(balance)
+
+    async def _ensure_mutation_scope(self, data: WmsStockMutationSchema) -> None:
+        tenant_id = self._tenant_id()
+        await ensure_wms_material(self.db, tenant_id, data.material_id)
+        await ensure_wms_warehouse(self.db, tenant_id, data.warehouse_id)
+        await ensure_wms_location(self.db, tenant_id, data.location_id, warehouse_id=data.warehouse_id)
+
+    async def _ensure_lock_scope(self, data: WmsStockLockSchema) -> None:
+        tenant_id = self._tenant_id()
+        await ensure_wms_material(self.db, tenant_id, data.material_id)
+        if data.warehouse_id is not None:
+            await ensure_wms_warehouse(self.db, tenant_id, data.warehouse_id)
+        await ensure_wms_location(self.db, tenant_id, data.location_id, warehouse_id=data.warehouse_id)
 
     async def _ensure_batch(self, data: WmsStockMutationSchema, status: str) -> WmsStockBatchModel:
         stmt = (
@@ -426,7 +455,7 @@ class WmsStockLedgerService:
             raise CustomException(msg=msg, status_code=400)
 
     def _tenant_id(self) -> int:
-        return self.auth.tenant_id or 1
+        return require_wms_tenant_id(self.auth)
 
     def _user_id(self) -> int | None:
         user = self.auth.get_user()

@@ -7,6 +7,7 @@ from app.core.exceptions import CustomException
 
 from ..stock.ledger_service import WmsStockLedgerService
 from ..stock.schema import WmsStockLockSchema
+from ..tenant_guard import ensure_wms_material, ensure_wms_warehouse, require_wms_tenant_id
 from .model import WmsIssueLineModel, WmsIssueOrderModel
 from .schema import WmsIssueCreateSchema, WmsIssueOrderOutSchema
 
@@ -19,6 +20,10 @@ class WmsIssueService:
         self.db = auth.db
 
     async def create(self, data: WmsIssueCreateSchema) -> WmsIssueOrderOutSchema:
+        tenant_id = self._tenant_id()
+        await ensure_wms_warehouse(self.db, tenant_id, data.warehouse_id)
+        for line_data in data.lines:
+            await ensure_wms_material(self.db, tenant_id, line_data.material_id)
         order_no = data.order_no or await self._next_no("ISS")
         await self._ensure_order_no_unique(order_no)
         order = WmsIssueOrderModel(
@@ -214,7 +219,7 @@ class WmsIssueService:
         return f"{prefix}{count + 1:08d}"
 
     def _tenant_id(self) -> int:
-        return self.auth.tenant_id or 1
+        return require_wms_tenant_id(self.auth)
 
     def _user_id(self) -> int | None:
         user = self.auth.get_user()

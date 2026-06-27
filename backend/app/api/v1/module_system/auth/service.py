@@ -7,6 +7,7 @@ from typing import NewType
 import ua_parser
 from fastapi import BackgroundTasks, Request
 from redis.asyncio.client import Redis
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.module_monitor.online.schema import OnlineOutSchema
@@ -156,7 +157,27 @@ class LoginService:
             )
 
         auth = AuthSchema(db=db, check_data_scope=False)
-        user = await UserCRUD(auth).get(username=login_form.username)
+        user_stmt = (
+            select(UserModel)
+            .where(
+                UserModel.username == login_form.username,
+                UserModel.is_deleted.is_(False),
+            )
+            .order_by(UserModel.id.asc())
+        )
+        users = list((await db.execute(user_stmt)).scalars().all())
+        if len({item.tenant_id for item in users}) > 1:
+            await _write_login_log(
+                username=_login_username,
+                status=2,
+                login_ip=request_ip,
+                login_location=login_location,
+                request_os=_login_os,
+                request_browser=_login_browser,
+                msg="账号存在多个租户",
+            )
+            raise CustomException(msg="账号存在多个租户，请使用租户入口登录或联系管理员", status_code=400)
+        user = users[0] if users else None
 
         if not user:
             await _write_login_log(
@@ -192,8 +213,6 @@ class LoginService:
                 msg="用户已被停用",
             )
             raise CustomException(msg="用户已被停用")
-
-        from sqlalchemy import select
 
         from app.api.v1.module_platform.tenant.model import TenantModel
 

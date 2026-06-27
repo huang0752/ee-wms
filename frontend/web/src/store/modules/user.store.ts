@@ -210,11 +210,21 @@ export const useUserStore = defineStore(
         const currentRefreshToken = Auth.getRefreshToken() || "";
         Auth.setTokens(data.access_token, currentRefreshToken, rememberMe.value);
         setToken(data.access_token);
+        info.value = {};
+        routeList.value = [];
+        prems.value = [];
+        hasGetRoute.value = false;
+        useWorktabStore().clearAll();
+        useMenuStore().setHomePath("");
+        sessionStorage.removeItem("iframeRoutes");
+        (await getRouterUtils()).resetRouteInitState();
+        (await getRouterUtils()).resetRouterState(500);
         const found = tenantList.value.find((t) => String(t.id) === String(tenantId));
         if (found) {
           currentTenant.value = found;
           localStorage.setItem(StorageConfig.LAST_TENANT_ID_KEY, String(found.id));
         }
+        await getUserInfo();
         await useConfigStore().getConfig(true, tenantId);
       }
     }
@@ -403,6 +413,7 @@ export const useUserStore = defineStore(
       prems.value = [];
       tenantList.value = [];
       currentTenant.value = null;
+      localStorage.removeItem(StorageConfig.LAST_TENANT_ID_KEY);
       /** 登出 / 认证失效：会话结束，工作栏与 KeepAlive exclude 一并清空（pinia 持久化随之写入） */
       useWorktabStore().clearAll();
     }
@@ -442,6 +453,9 @@ export const useUserStore = defineStore(
       // 重置用户信息
       clearUserInfo();
       useWorktabStore().clearAll();
+      tenantList.value = [];
+      currentTenant.value = null;
+      localStorage.removeItem(StorageConfig.LAST_TENANT_ID_KEY);
       // 重置字典
       useDictStore(store).clearDictData();
 

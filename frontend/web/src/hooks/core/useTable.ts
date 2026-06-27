@@ -36,12 +36,16 @@ import {
   createSmartDebounce,
   createErrorHandler,
   tableConfig,
+  Auth,
+  StorageConfig,
   type ApiResponse,
   type TableError,
 } from "@utils";
 
 /** 跨组件实例：同一 dedupeKey 仅一条进行中的网络请求 */
 const globalListNetworkInflight = new Map<string, Promise<ApiResponse<unknown>>>();
+const apiFnDedupeIds = new WeakMap<Function, string>();
+let apiFnDedupeSeq = 0;
 
 // --- 类型推导（由 apiFn / 响应类型反推记录类型） ---
 type InferApiParams<T> = T extends (params: infer P) => any ? P : never;
@@ -234,7 +238,25 @@ function useTableImpl<TApiFn extends (params: any) => Promise<any>>(
       }
       return out;
     };
-    return JSON.stringify(normalize(toRaw(params) as unknown));
+    const apiKey = apiFnDedupeIds.get(apiFn) || `api:${++apiFnDedupeSeq}`;
+    apiFnDedupeIds.set(apiFn, apiKey);
+    const token = Auth.getAccessToken() || "";
+    const tokenHash = token ? hashDedupePart(token) : "anonymous";
+    const tenantId = localStorage.getItem(StorageConfig.LAST_TENANT_ID_KEY) || "public";
+    return JSON.stringify({
+      apiKey,
+      tenantId,
+      tokenHash,
+      params: normalize(toRaw(params) as unknown),
+    });
+  }
+
+  function hashDedupePart(value: string): string {
+    let hash = 0;
+    for (let i = 0; i < value.length; i += 1) {
+      hash = (hash * 31 + value.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash).toString(36);
   }
 
   // 缓存清理定时器

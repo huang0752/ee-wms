@@ -7,9 +7,10 @@ from app.core.exceptions import CustomException
 
 from ..arrival.model import WmsArrivalLineModel, WmsArrivalOrderModel
 from ..inspection.model import WmsInspectionLineModel, WmsInspectionTaskModel
-from ..master.model import WmsLocationModel, WmsMaterialModel
+from ..master.model import WmsLocationModel
 from ..stock.ledger_service import WmsStockLedgerService
 from ..stock.schema import WmsStockMutationSchema
+from ..tenant_guard import ensure_wms_location, ensure_wms_material, ensure_wms_warehouse, require_wms_tenant_id
 from .model import WmsInboundLineModel, WmsInboundOrderModel
 from .schema import WmsInboundCreateFromInspectionSchema, WmsInboundOrderOutSchema, WmsLocationRecommendOutSchema
 
@@ -35,6 +36,9 @@ class WmsInboundService:
                 inbound_lines.append((line, line.rejected_qty, "defective"))
         if not inbound_lines:
             raise CustomException(msg="没有可入库的检验数量", status_code=400)
+        tenant_id = self._tenant_id()
+        await ensure_wms_warehouse(self.db, tenant_id, arrival.warehouse_id)
+        await ensure_wms_location(self.db, tenant_id, data.location_id, warehouse_id=arrival.warehouse_id)
 
         order = WmsInboundOrderModel(
             tenant_id=self._tenant_id(),
@@ -114,19 +118,9 @@ class WmsInboundService:
         return WmsInboundOrderOutSchema.model_validate(order)
 
     async def recommend_location(self, material_id: int, warehouse_id: int) -> list[WmsLocationRecommendOutSchema]:
-        material = (
-            await self.db.execute(
-                select(WmsMaterialModel)
-                .where(
-                    WmsMaterialModel.id == material_id,
-                    WmsMaterialModel.tenant_id == self._tenant_id(),
-                    WmsMaterialModel.is_deleted.is_(False),
-                )
-                .limit(1)
-            )
-        ).scalars().first()
-        if not material:
-            raise CustomException(msg="物料不存在", status_code=404)
+        tenant_id = self._tenant_id()
+        material = await ensure_wms_material(self.db, tenant_id, material_id)
+        await ensure_wms_warehouse(self.db, tenant_id, warehouse_id)
         rows = (
             await self.db.execute(
                 select(WmsLocationModel)
@@ -256,7 +250,7 @@ class WmsInboundService:
         return f"{prefix}{count + 1:08d}"
 
     def _tenant_id(self) -> int:
-        return self.auth.tenant_id or 1
+        return require_wms_tenant_id(self.auth)
 
     def _user_id(self) -> int | None:
         user = self.auth.get_user()

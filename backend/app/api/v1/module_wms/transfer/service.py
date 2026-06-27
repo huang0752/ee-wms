@@ -7,6 +7,7 @@ from app.core.exceptions import CustomException
 
 from ..stock.ledger_service import WmsStockLedgerService
 from ..stock.schema import WmsStockMutationSchema
+from ..tenant_guard import ensure_wms_location, ensure_wms_material, ensure_wms_warehouse, require_wms_tenant_id
 from .model import WmsTransferLineModel, WmsTransferOrderModel
 from .schema import WmsTransferCreateSchema, WmsTransferOrderOutSchema
 
@@ -19,6 +20,13 @@ class WmsTransferService:
         self.db = auth.db
 
     async def create(self, data: WmsTransferCreateSchema) -> WmsTransferOrderOutSchema:
+        tenant_id = self._tenant_id()
+        await ensure_wms_warehouse(self.db, tenant_id, data.from_warehouse_id)
+        await ensure_wms_warehouse(self.db, tenant_id, data.to_warehouse_id)
+        for line in data.lines:
+            await ensure_wms_material(self.db, tenant_id, line.material_id)
+            await ensure_wms_location(self.db, tenant_id, line.from_location_id, warehouse_id=data.from_warehouse_id)
+            await ensure_wms_location(self.db, tenant_id, line.to_location_id, warehouse_id=data.to_warehouse_id)
         order = WmsTransferOrderModel(
             tenant_id=self._tenant_id(),
             order_no=data.order_no or await self._next_no("TRF"),
@@ -79,11 +87,10 @@ class WmsTransferService:
         return f"{prefix}{count + 1:08d}"
 
     def _tenant_id(self) -> int:
-        return self.auth.tenant_id or 1
+        return require_wms_tenant_id(self.auth)
 
     def _user_id(self) -> int | None:
         return getattr(self.auth.get_user(), "id", None)
 
     def _touch(self, obj) -> None:
         obj.updated_id = self._user_id()
-
