@@ -3,10 +3,32 @@
 认证数据测试：admin 登录后验证 CRUD 真实数据。
 """
 
+import asyncio
+import time
+
 from conftest import assert_route  # noqa: F401
 from fastapi.testclient import TestClient
 
+from app.api.v1.module_system.user.model import UserModel
 from app.config.setting import settings
+from app.core.database import async_db_session
+from app.utils.hash_bcrpy_util import PwdUtil
+
+
+async def _create_user_with_email(username: str, email: str) -> None:
+    async with async_db_session() as db:
+        db.add(
+            UserModel(
+                username=username,
+                password=PwdUtil.hash_password("test123456"),
+                name=username,
+                email=email,
+                tenant_id=1,
+                status=0,
+                is_superuser=False,
+            )
+        )
+        await db.commit()
 
 
 class TestAuth:
@@ -90,6 +112,20 @@ class TestUser:
 
     def test_user_list(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(test_client, "GET", "/system/user/list", auth=auth_headers)
+
+    def test_user_list_allows_existing_internal_local_email(
+        self, test_client: TestClient, auth_headers: dict
+    ) -> None:
+        username = f"localmail_{time.time_ns() % 1_000_000_000_000}"
+        email = "test2@ee-wms.local"
+        asyncio.run(_create_user_with_email(username=username, email=email))
+
+        resp = test_client.get("/system/user/list", headers=auth_headers)
+
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["data"]["items"]
+        row = next(item for item in items if item["username"] == username)
+        assert row["email"] == email
 
     def test_user_detail(self, test_client: TestClient, auth_headers: dict) -> None:
         resp = test_client.get("/system/user/detail/1", headers=auth_headers)
