@@ -471,8 +471,8 @@ class InitializeData:
         if self._assembly.name != "wms":
             return
 
-        wms_menu_ids = await self.__collect_wms_menu_ids(db)
-        if not wms_menu_ids:
+        product_menu_ids = await self.__collect_wms_product_menu_ids(db)
+        if not product_menu_ids:
             return
 
         package_ids = set((await db.execute(select(PackageModel.id))).scalars().all())
@@ -481,7 +481,7 @@ class InitializeData:
                 await db.execute(
                     select(PackageMenuModel.package_id, PackageMenuModel.menu_id).where(
                         PackageMenuModel.package_id.in_(package_ids),
-                        PackageMenuModel.menu_id.in_(wms_menu_ids),
+                        PackageMenuModel.menu_id.in_(product_menu_ids),
                     )
                 )
             ).all()
@@ -489,7 +489,7 @@ class InitializeData:
 
         package_added = 0
         for package_id in sorted(package_ids):
-            for menu_id in sorted(wms_menu_ids):
+            for menu_id in sorted(product_menu_ids):
                 if (package_id, menu_id) in existing_package_pairs:
                     continue
                 db.add(PackageMenuModel(package_id=package_id, menu_id=menu_id))
@@ -541,7 +541,7 @@ class InitializeData:
                     await db.execute(
                         select(RoleMenusModel.role_id, RoleMenusModel.menu_id).where(
                             RoleMenusModel.role_id.in_(owner_role_ids),
-                            RoleMenusModel.menu_id.in_(wms_menu_ids),
+                            RoleMenusModel.menu_id.in_(product_menu_ids),
                         )
                     )
                 ).all()
@@ -549,7 +549,7 @@ class InitializeData:
 
         role_added = 0
         for role_id in sorted(owner_role_ids):
-            for menu_id in sorted(wms_menu_ids):
+            for menu_id in sorted(product_menu_ids):
                 if (role_id, menu_id) in existing_role_pairs:
                     continue
                 db.add(RoleMenusModel(role_id=role_id, menu_id=menu_id))
@@ -563,8 +563,8 @@ class InitializeData:
                 role_added,
             )
 
-    async def __collect_wms_menu_ids(self, db: AsyncSession) -> set[int]:
-        """收集完整 WMS 菜单子树，包含无权限码的中间目录。"""
+    async def __collect_wms_product_menu_ids(self, db: AsyncSession) -> set[int]:
+        """收集 WMS 租户管理员应有的产品菜单，包含所有必要父级。"""
         rows = (
             await db.execute(
                 select(
@@ -584,35 +584,50 @@ class InitializeData:
 
         children_by_parent: dict[int | None, list[int]] = {}
         parent_by_id: dict[int, int | None] = {}
-        direct_ids: set[int] = set()
-        root_ids: set[int] = set()
+        menu_by_id: dict[int, dict[str, str | None]] = {}
 
         for menu_id, parent_id, permission, route_name, route_path, component_path in rows:
             children_by_parent.setdefault(parent_id, []).append(menu_id)
             parent_by_id[menu_id] = parent_id
+            menu_by_id[menu_id] = {
+                "permission": permission,
+                "route_name": route_name,
+                "route_path": route_path,
+                "component_path": component_path,
+            }
 
-            if route_name == "ModuleWms" or route_path == "/module-wms":
-                root_ids.add(menu_id)
-                direct_ids.add(menu_id)
-            if str(permission or "").startswith("module_wms:") or str(component_path or "").startswith("module_wms/"):
-                direct_ids.add(menu_id)
+        subtree_root_names = {
+            "ModuleWms",
+            "PlatformWorkspace",
+            "Dept",
+            "Position",
+            "Role",
+            "User",
+        }
+        selected_ids = {
+            menu_id
+            for menu_id, menu in menu_by_id.items()
+            if menu.get("route_name") in subtree_root_names
+            or str(menu.get("permission") or "").startswith("module_wms:")
+            or str(menu.get("component_path") or "").startswith("module_wms/")
+        }
 
-        wms_menu_ids: set[int] = set()
-        stack = list(root_ids)
+        product_menu_ids: set[int] = set()
+        stack = list(selected_ids)
         while stack:
             menu_id = stack.pop()
-            if menu_id in wms_menu_ids:
+            if menu_id in product_menu_ids:
                 continue
-            wms_menu_ids.add(menu_id)
+            product_menu_ids.add(menu_id)
             stack.extend(children_by_parent.get(menu_id, []))
 
-        for menu_id in direct_ids:
+        for menu_id in selected_ids:
             current_id: int | None = menu_id
-            while current_id is not None and current_id not in wms_menu_ids:
-                wms_menu_ids.add(current_id)
+            while current_id is not None:
+                product_menu_ids.add(current_id)
                 current_id = parent_by_id.get(current_id)
 
-        return wms_menu_ids
+        return product_menu_ids
 
     @staticmethod
     def __create_objects_with_children(data: list[dict], model_class: type) -> list:

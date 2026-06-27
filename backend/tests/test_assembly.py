@@ -502,7 +502,7 @@ async def test_seed_identity_sync_sets_postgres_sequence_to_max_id(monkeypatch: 
 
 
 @pytest.mark.asyncio
-async def test_wms_seed_backfills_package_and_owner_role_authorizations(test_client: TestClient) -> None:
+async def test_wms_seed_backfills_product_menu_tree_and_owner_role_authorizations(test_client: TestClient) -> None:
     old_file = settings.APP_ASSEMBLY_FILE
     old_name = settings.APP_ASSEMBLY
     settings.APP_ASSEMBLY_FILE = "app/assemblies/wms.toml"
@@ -516,27 +516,39 @@ async def test_wms_seed_backfills_package_and_owner_role_authorizations(test_cli
         from app.core.database import async_db_session
 
         async with async_db_session() as db:
-            wms_root_id = (
+            product_menu_rows = (
                 await db.execute(
-                    select(MenuModel.id)
-                    .where(MenuModel.route_name == "ModuleWms", MenuModel.status == 0)
-                    .limit(1)
+                    select(MenuModel.id, MenuModel.route_name).where(
+                        MenuModel.route_name.in_(
+                            [
+                                "Platform",
+                                "PlatformWorkspace",
+                                "System",
+                                "User",
+                                "Role",
+                                "Dept",
+                                "ModuleWms",
+                                "WmsOps",
+                                "WmsDashboard",
+                            ]
+                        ),
+                        MenuModel.status == 0,
+                    )
                 )
-            ).scalar_one()
-            wms_ops_id = (
-                await db.execute(
-                    select(MenuModel.id)
-                    .where(MenuModel.route_name == "WmsOps", MenuModel.status == 0)
-                    .limit(1)
-                )
-            ).scalar_one()
-            dashboard_menu_id = (
-                await db.execute(
-                    select(MenuModel.id)
-                    .where(MenuModel.permission == "module_wms:dashboard:query", MenuModel.status == 0)
-                    .limit(1)
-                )
-            ).scalar_one()
+            ).all()
+            by_route_name = {route_name: menu_id for menu_id, route_name in product_menu_rows}
+            assert {
+                "Platform",
+                "PlatformWorkspace",
+                "System",
+                "User",
+                "Role",
+                "Dept",
+                "ModuleWms",
+                "WmsOps",
+                "WmsDashboard",
+            }.issubset(by_route_name)
+
             owner_role_id = (
                 await db.execute(
                     select(RoleModel.id)
@@ -544,13 +556,13 @@ async def test_wms_seed_backfills_package_and_owner_role_authorizations(test_cli
                     .limit(1)
                 )
             ).scalar_one()
-            wms_tree_ids = [wms_root_id, wms_ops_id, dashboard_menu_id]
+            product_menu_ids = list(by_route_name.values())
 
-            await db.execute(delete(PackageMenuModel).where(PackageMenuModel.menu_id.in_(wms_tree_ids)))
+            await db.execute(delete(PackageMenuModel).where(PackageMenuModel.menu_id.in_(product_menu_ids)))
             await db.execute(
                 delete(RoleMenusModel).where(
                     RoleMenusModel.role_id == owner_role_id,
-                    RoleMenusModel.menu_id.in_(wms_tree_ids),
+                    RoleMenusModel.menu_id.in_(product_menu_ids),
                 )
             )
             await db.commit()
@@ -562,7 +574,7 @@ async def test_wms_seed_backfills_package_and_owner_role_authorizations(test_cli
                 await db.execute(
                     select(func.count())
                     .select_from(PackageMenuModel)
-                    .where(PackageMenuModel.menu_id.in_(wms_tree_ids))
+                    .where(PackageMenuModel.menu_id.in_(product_menu_ids))
                 )
             ).scalar_one()
             role_count = (
@@ -571,13 +583,13 @@ async def test_wms_seed_backfills_package_and_owner_role_authorizations(test_cli
                     .select_from(RoleMenusModel)
                     .where(
                         RoleMenusModel.role_id == owner_role_id,
-                        RoleMenusModel.menu_id.in_(wms_tree_ids),
+                        RoleMenusModel.menu_id.in_(product_menu_ids),
                     )
                 )
             ).scalar_one()
 
-        assert package_count >= len(wms_tree_ids)
-        assert role_count == len(wms_tree_ids)
+        assert package_count >= len(product_menu_ids)
+        assert role_count == len(product_menu_ids)
     finally:
         settings.APP_ASSEMBLY_FILE = old_file
         settings.APP_ASSEMBLY = old_name
