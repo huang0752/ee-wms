@@ -324,6 +324,8 @@ class InitializeData:
         """Reset PostgreSQL identity sequence for empty seed tables after failed retries."""
         if settings.DATABASE_TYPE not in {"postgres", "postgresql"}:
             return
+        if "id" not in model.__table__.columns:
+            return
         count = await db.execute(select(func.count()).select_from(model))
         if count.scalar():
             return
