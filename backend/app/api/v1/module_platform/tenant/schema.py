@@ -157,6 +157,30 @@ class TenantOutSchema(TenantCreateSchema, BaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TenantEnterpriseProfileSchema(BaseModel):
+    """当前租户企业基础信息"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    enterprise_name: str = Field(..., max_length=100, description="企业名称")
+    social_credit_code: str | None = Field(default=None, max_length=32, description="统一社会信用代码")
+    industry: str | None = Field(default=None, max_length=64, description="所属行业")
+
+
+class TenantEnterpriseProfileUpdateSchema(BaseModel):
+    """当前租户企业基础信息更新"""
+
+    industry: str | None = Field(default=None, max_length=64, description="所属行业")
+
+    @field_validator("industry", mode="before")
+    @classmethod
+    def _strip_optional_text(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        value = str(v).strip()
+        return value or None
+
+
 class TenantInitialAdminOutSchema(BaseModel):
     """租户初始管理员一次性凭据响应"""
 

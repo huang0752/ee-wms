@@ -177,9 +177,10 @@ class TestTenant:
         assert after["login_bg"] == "https://example.test/self-login-bg.svg"
         assert after["version"] == before["version"]
 
-    def test_tenant_self_service_updates_enterprise_profile_fields(
+    def test_tenant_self_service_brand_cannot_update_enterprise_profile(
         self, test_client: TestClient, auth_headers: dict
     ) -> None:
+        before = asyncio.run(_get_tenant_enterprise_snapshot(1))
         payload = [
             {"key": "social_credit_code", "value": "91110108MA01TEST1X"},
             {"key": "industry", "value": "电工装备制造"},
@@ -189,12 +190,36 @@ class TestTenant:
 
         assert resp.status_code == 200, resp.text
         items = {item["config_key"]: item["config_value"] for item in resp.json()["data"]}
-        assert items["social_credit_code"] == "91110108MA01TEST1X"
-        assert items["industry"] == "电工装备制造"
+        assert "social_credit_code" not in items
+        assert "industry" not in items
 
         snapshot = asyncio.run(_get_tenant_enterprise_snapshot(1))
-        assert snapshot["social_credit_code"] == "91110108MA01TEST1X"
-        assert snapshot["industry"] == "电工装备制造"
+        assert snapshot["social_credit_code"] == before["social_credit_code"]
+        assert snapshot["industry"] == before["industry"]
+
+    def test_tenant_self_service_updates_enterprise_industry_only(
+        self, test_client: TestClient, auth_headers: dict
+    ) -> None:
+        tenant_update_resp = test_client.put(
+            "/platform/tenant/update/1",
+            headers=auth_headers,
+            json={"social_credit_code": "91110108MA01BASE1X", "industry": "电工装备制造"},
+        )
+        assert tenant_update_resp.status_code == 200, tenant_update_resp.text
+
+        update_resp = test_client.put(
+            "/platform/tenant/enterprise/profile",
+            headers=auth_headers,
+            json={"social_credit_code": "SHOULD-NOT-CHANGE", "industry": "智慧仓储"},
+        )
+        assert update_resp.status_code == 200, update_resp.text
+        profile = update_resp.json()["data"]
+        assert profile["social_credit_code"] == "91110108MA01BASE1X"
+        assert profile["industry"] == "智慧仓储"
+
+        snapshot = asyncio.run(_get_tenant_enterprise_snapshot(1))
+        assert snapshot["social_credit_code"] == "91110108MA01BASE1X"
+        assert snapshot["industry"] == "智慧仓储"
 
     def test_public_tenant_config_info_is_scoped_to_requested_tenant(
         self, test_client: TestClient, auth_headers: dict
@@ -608,15 +633,19 @@ class TestSelfService:
         assert detail_resp.json()["data"]["name"] == original_name
 
     def test_usage_certificate_preview_and_download(self, test_client: TestClient, auth_headers: dict) -> None:
-        update_resp = test_client.put(
-            "/platform/tenant/brand/config",
+        tenant_update_resp = test_client.put(
+            "/platform/tenant/update/1",
             headers=auth_headers,
-            json=[
-                {"key": "social_credit_code", "value": "91110108MA01CERT1X"},
-                {"key": "industry", "value": "电工装备制造"},
-            ],
+            json={"social_credit_code": "91110108MA01CERT1X"},
         )
-        assert update_resp.status_code == 200, update_resp.text
+        assert tenant_update_resp.status_code == 200, tenant_update_resp.text
+
+        brand_update_resp = test_client.put(
+            "/platform/tenant/enterprise/profile",
+            headers=auth_headers,
+            json={"industry": "电工装备制造"},
+        )
+        assert brand_update_resp.status_code == 200, brand_update_resp.text
 
         preview_resp = test_client.get("/platform/tenant/usage-certificate/preview", headers=auth_headers)
 

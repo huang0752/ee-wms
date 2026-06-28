@@ -25,6 +25,8 @@ from .schema import (
     TenantConfigOutSchema,
     TenantCreateOutSchema,
     TenantCreateSchema,
+    TenantEnterpriseProfileSchema,
+    TenantEnterpriseProfileUpdateSchema,
     TenantOutSchema,
     TenantQueryParam,
     TenantRenewSchema,
@@ -203,6 +205,33 @@ async def update_self_brand_config_controller(
     result = await TenantService(auth).update_self_brand_config(redis=redis, config=data)
     await cache_util.clear(namespace=_TENANT_NS)
     return SuccessResponse(data=result, msg="更新品牌配置成功")
+
+
+@TenantRouter.get(
+    "/enterprise/profile",
+    summary="获取当前租户企业基础信息",
+    response_model=ResponseSchema[TenantEnterpriseProfileSchema],
+)
+async def get_self_enterprise_profile_controller(
+    auth: Annotated[AuthSchema, Depends(get_current_user)],
+) -> JSONResponse:
+    result = await TenantService(auth).get_self_enterprise_profile()
+    return SuccessResponse(data=result, msg="获取企业基础信息成功")
+
+
+@TenantRouter.put(
+    "/enterprise/profile",
+    summary="更新当前租户企业基础信息",
+    response_model=ResponseSchema[TenantEnterpriseProfileSchema],
+)
+async def update_self_enterprise_profile_controller(
+    data: TenantEnterpriseProfileUpdateSchema,
+    redis: Annotated[Redis, Depends(redis_getter)],
+    auth: Annotated[AuthSchema, Depends(get_current_user)],
+) -> JSONResponse:
+    result = await TenantService(auth).update_self_enterprise_profile(redis=redis, data=data)
+    await cache_util.clear(namespace=_TENANT_NS)
+    return SuccessResponse(data=result, msg="更新企业基础信息成功")
 
 @TenantRouter.get(
     "/{id}/config",

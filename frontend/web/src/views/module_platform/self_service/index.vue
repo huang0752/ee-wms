@@ -143,26 +143,6 @@
                   />
                 </ElFormItem>
               </ElCol>
-              <ElCol :xs="24" :md="12">
-                <ElFormItem label="统一社会信用代码" prop="social_credit_code">
-                  <ElInput
-                    v-model="brandForm.social_credit_code"
-                    maxlength="32"
-                    show-word-limit
-                    placeholder="用于企业软件使用证明"
-                  />
-                </ElFormItem>
-              </ElCol>
-              <ElCol :xs="24" :md="12">
-                <ElFormItem label="所属行业" prop="industry">
-                  <ElInput
-                    v-model="brandForm.industry"
-                    maxlength="64"
-                    show-word-limit
-                    placeholder="用于企业软件使用证明"
-                  />
-                </ElFormItem>
-              </ElCol>
               <ElCol :xs="24" :md="8">
                 <ElFormItem label="站点 Logo" prop="tenant_logo">
                   <FaUpload
@@ -215,6 +195,52 @@
               <ElButton :loading="brandLoading" @click="loadBrandConfig">刷新</ElButton>
               <ElButton type="primary" :loading="brandSaving" @click="saveBrandConfig">
                 保存配置
+              </ElButton>
+            </div>
+          </ElForm>
+        </ElCard>
+      </ElTabPane>
+
+      <!-- ─── 企业信息 ─── -->
+      <ElTabPane label="企业信息" name="enterprise">
+        <ElCard shadow="hover" class="enterprise-card">
+          <ElForm :model="enterpriseForm" label-width="130px" class="enterprise-form">
+            <ElRow :gutter="20">
+              <ElCol :xs="24" :md="12">
+                <ElFormItem label="企业名称" prop="enterprise_name">
+                  <ElInput
+                    v-model="enterpriseForm.enterprise_name"
+                    maxlength="100"
+                    disabled
+                    placeholder="企业名称由平台租户名称维护"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="12">
+                <ElFormItem label="统一社会信用代码" prop="social_credit_code">
+                  <ElInput
+                    v-model="enterpriseForm.social_credit_code"
+                    maxlength="32"
+                    disabled
+                    placeholder="由平台管理员维护"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="12">
+                <ElFormItem label="所属行业" prop="industry">
+                  <ElInput
+                    v-model="enterpriseForm.industry"
+                    maxlength="64"
+                    placeholder="例如 电工装备制造"
+                    show-word-limit
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <div class="enterprise-actions">
+              <ElButton :loading="enterpriseLoading" @click="loadEnterpriseProfile">刷新</ElButton>
+              <ElButton type="primary" :loading="enterpriseSaving" @click="saveEnterpriseProfile">
+                保存信息
               </ElButton>
             </div>
           </ElForm>
@@ -429,6 +455,7 @@ import type {
   PackageChangePreview,
   SelfServiceOrderItem,
   TenantBrandForm,
+  TenantEnterpriseProfile,
   UsageCertificatePreview,
   WorkspaceData,
 } from "@/api/module_platform/self_service";
@@ -449,6 +476,8 @@ const activeTab = ref(
 // ─── 工作台 ───
 const workspace = ref<WorkspaceData | null>(null);
 const workspaceLoading = ref(false);
+const enterpriseLoading = ref(false);
+const enterpriseSaving = ref(false);
 const showTenantBilling = computed(() => assemblyStore.isFeatureEnabled("tenantBilling", false));
 const showWorkspaceOverview = computed(() =>
   assemblyStore.isFeatureEnabled("tenantWorkspaceOverview", false)
@@ -494,20 +523,21 @@ const brandLoading = ref(false);
 const brandSaving = ref(false);
 const brandForm = ref<TenantBrandForm>({
   tenant_name: "",
-  social_credit_code: "",
-  industry: "",
   tenant_logo: "",
   favicon: "",
   login_bg: "",
   help_doc: "",
+});
+const enterpriseForm = ref<TenantEnterpriseProfile>({
+  enterprise_name: "",
+  social_credit_code: "",
+  industry: "",
 });
 
 function applyBrandItems(items: Array<{ config_key?: string; config_value?: string | null }>) {
   const map = Object.fromEntries(items.map((item) => [item.config_key, item.config_value || ""]));
   brandForm.value = {
     tenant_name: String(map.tenant_name ?? map.brand_name ?? map.name ?? ""),
-    social_credit_code: String(map.social_credit_code ?? ""),
-    industry: String(map.industry ?? ""),
     tenant_logo: String(map.tenant_logo ?? map.logo_url ?? ""),
     favicon: String(map.favicon ?? ""),
     login_bg: String(map.login_bg ?? ""),
@@ -535,6 +565,39 @@ async function saveBrandConfig() {
     ElMessage.success("品牌配置已保存");
   } finally {
     brandSaving.value = false;
+  }
+}
+
+// ─── 企业信息 ───
+function applyEnterpriseProfile(data?: Partial<TenantEnterpriseProfile> | null) {
+  enterpriseForm.value = {
+    enterprise_name: String(data?.enterprise_name ?? ""),
+    social_credit_code: String(data?.social_credit_code ?? ""),
+    industry: String(data?.industry ?? ""),
+  };
+}
+
+async function loadEnterpriseProfile() {
+  enterpriseLoading.value = true;
+  try {
+    const { data: res } = await SelfServiceAPI.getEnterpriseProfile();
+    applyEnterpriseProfile(res?.data);
+  } finally {
+    enterpriseLoading.value = false;
+  }
+}
+
+async function saveEnterpriseProfile() {
+  enterpriseSaving.value = true;
+  try {
+    const { data: res } = await SelfServiceAPI.updateEnterpriseProfile({
+      industry: enterpriseForm.value.industry,
+    });
+    applyEnterpriseProfile(res?.data);
+    usageCertificate.value = null;
+    ElMessage.success("企业信息已保存");
+  } finally {
+    enterpriseSaving.value = false;
   }
 }
 
@@ -691,6 +754,7 @@ async function loadPackages() {
 function onTabChange(tab: TabPaneName) {
   if (tab === "workspace" && showWorkspaceOverview.value) loadWorkspace();
   else if (tab === "brand") loadBrandConfig();
+  else if (tab === "enterprise") loadEnterpriseProfile();
   else if (tab === "usageCertificate" && showUsageCertificate.value) loadUsageCertificate();
   else if (showTenantBilling.value && tab === "packages") loadPackages();
   else if (tab === "orders") loadOrders();
@@ -814,7 +878,8 @@ onMounted(() => {
 }
 
 @media (width <= 768px) {
-  .brand-actions {
+  .brand-actions,
+  .enterprise-actions {
     flex-direction: column;
     align-items: stretch;
 
@@ -823,6 +888,23 @@ onMounted(() => {
       margin-left: 0;
     }
   }
+}
+
+/* ─── 企业信息 ─── */
+.enterprise-card {
+  min-height: 100%;
+}
+
+.enterprise-form {
+  max-width: 1160px;
+}
+
+.enterprise-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
 /* ─── 使用证明 ─── */
@@ -851,6 +933,7 @@ onMounted(() => {
 
 .certificate-actions {
   display: flex;
+  align-items: center;
   gap: 10px;
 }
 

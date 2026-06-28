@@ -96,6 +96,23 @@ const SelfServiceAPI = {
       data: body,
     });
   },
+
+  /** 当前租户企业基础信息 */
+  getEnterpriseProfile() {
+    return request<ApiResponse<TenantEnterpriseProfile>>({
+      url: `${API_PATH}/enterprise/profile`,
+      method: "get",
+    });
+  },
+
+  /** 更新当前租户企业基础信息 */
+  updateEnterpriseProfile(body: TenantEnterpriseProfileUpdateForm) {
+    return request<ApiResponse<TenantEnterpriseProfile>>({
+      url: `${API_PATH}/enterprise/profile`,
+      method: "put",
+      data: body,
+    });
+  },
 };
 
 export default SelfServiceAPI;
@@ -194,12 +211,20 @@ export interface TenantBrandConfigItem {
 
 export interface TenantBrandForm {
   tenant_name: string;
-  social_credit_code: string;
-  industry: string;
   tenant_logo: string;
   favicon: string;
   login_bg: string;
   help_doc: string;
+}
+
+export interface TenantEnterpriseProfile {
+  enterprise_name: string;
+  social_credit_code: string;
+  industry: string;
+}
+
+export interface TenantEnterpriseProfileUpdateForm {
+  industry: string;
 }
 
 export interface UsageCertificatePreview {

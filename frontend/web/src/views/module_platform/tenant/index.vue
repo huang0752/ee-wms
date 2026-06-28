@@ -113,6 +113,18 @@
               class="crud-dialog-art-form"
             />
           </ElTabPane>
+          <ElTabPane label="企业信息" name="enterprise">
+            <FaForm
+              v-model="formData"
+              :items="enterpriseFormItems"
+              :label-width="130"
+              label-position="right"
+              :span="12"
+              :gutter="16"
+              :show-reset="false"
+              :show-submit="false"
+            />
+          </ElTabPane>
           <ElTabPane label="网站信息" name="website">
             <FaForm
               v-model="formData"
@@ -696,18 +708,6 @@ const basicFormItems = computed<FormItem[]>(() => [
     props: { placeholder: "请输入地址", maxlength: 255 },
   },
   {
-    label: "统一社会信用代码",
-    key: "social_credit_code",
-    type: "input",
-    props: { placeholder: "请输入统一社会信用代码", maxlength: 32 },
-  },
-  {
-    label: "所属行业",
-    key: "industry",
-    type: "input",
-    props: { placeholder: "请输入所属行业", maxlength: 64 },
-  },
-  {
     label: "开始时间",
     key: "start_time",
     type: "datetime",
@@ -730,6 +730,29 @@ const basicFormItems = computed<FormItem[]>(() => [
     },
   },
 ]);
+
+const enterpriseFormItems: FormItem[] = [
+  {
+    label: "统一社会信用代码",
+    key: "social_credit_code",
+    type: "input",
+    props: {
+      placeholder: "请输入统一社会信用代码（非必填）",
+      maxlength: 32,
+      showWordLimit: true,
+    },
+  },
+  {
+    label: "所属行业",
+    key: "industry",
+    type: "input",
+    props: {
+      placeholder: "请输入所属行业（非必填）",
+      maxlength: 64,
+      showWordLimit: true,
+    },
+  },
+];
 
 const websiteFormItems: FormItem[] = [
   {
