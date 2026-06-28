@@ -81,7 +81,9 @@ const sidebarRef = ref<{ loadSessions: () => void }>();
 
 // WebSocket
 let ws: WebSocket | null = null;
-const WS_URL = import.meta.env.VITE_APP_WS_ENDPOINT;
+const WS_URL =
+  import.meta.env.VITE_APP_WS_ENDPOINT ||
+  `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`;
 
 // ============ WebSocket 操作 ============
 const connectWebSocket = () => {

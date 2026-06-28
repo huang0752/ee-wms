@@ -340,6 +340,12 @@ export const staticRoutes: AppRouteRecordRaw[] = [
     meta: { hidden: true, isHideTab: true, title: "menus.login.title", routeGroup: "auth" },
     component: () => import("@views/module_system/auth/login/index.vue"),
   },
+  {
+    path: ROUTE_PATH_LOGIN_ALT,
+    name: "LoginAlt",
+    meta: { hidden: true, isHideTab: true, title: "menus.login.title", routeGroup: "auth" },
+    redirect: (to) => ({ path: "/login", query: to.query }),
+  },
   /** 无 Layout 全屏异常页；守卫与白名单跳转使用（勿再在 RootLayout 下重复挂载同组件） */
   {
     path: "/401",
