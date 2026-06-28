@@ -1,8 +1,11 @@
 <template>
   <header class="screen-header">
     <div class="header-left">
-      <span class="dot" :class="{ pulse: online }" />
-      <span class="text-xs">SYSTEM ONLINE</span>
+      <span class="company-name">{{ companyName }}</span>
+      <span class="status-line">
+        <span class="dot" :class="{ pulse: online }" />
+        <span>WMS ONLINE</span>
+      </span>
     </div>
     <h1 class="screen-title">
       <span class="deco-line" />
@@ -28,15 +31,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, onMounted, onUnmounted } from "vue";
+import { computed, ref, inject, onMounted, onUnmounted } from "vue";
+import { useConfigStore, useUserStore } from "@stores";
 
 defineOptions({ name: "ScreenHeader" });
 
 const toggleFullscreen = inject<() => void>("toggleFullscreen", () => {});
 const isFs = inject("isFullscreen", ref(false));
+const configStore = useConfigStore();
+const userStore = useUserStore();
 
 const online = ref(true);
 const currentTime = ref("");
+const companyName = computed(() => {
+  return (
+    configStore.configData.tenant_name?.config_value ||
+    configStore.configData.name?.config_value ||
+    userStore.currentTenant?.name ||
+    "电工装备制造有限公司"
+  );
+});
 
 let timer = 0;
 onMounted(() => {
@@ -67,10 +81,31 @@ function handleToggle() {
 
 .header-left {
   display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+  width: 240px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.company-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  color: #e8f6ff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 0 18px rgb(0 212 255 / 35%);
+}
+
+.status-line {
+  display: flex;
   gap: 8px;
   align-items: center;
-  width: 140px;
-  font-size: 12px;
+  line-height: 1;
   opacity: 0.7;
 }
 
