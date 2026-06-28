@@ -155,11 +155,7 @@ export interface TenantTable extends BaseType {
   version?: string;
   favicon?: string;
   login_bg?: string;
-  copyright?: string;
-  keep_record?: string;
   help_doc?: string;
-  privacy?: string;
-  clause?: string;
   git_code?: string;
   status?: number;
   description?: string;
@@ -193,11 +189,7 @@ export interface TenantForm extends BaseFormType {
   version?: string;
   favicon?: string;
   login_bg?: string;
-  copyright?: string;
-  keep_record?: string;
   help_doc?: string;
-  privacy?: string;
-  clause?: string;
   git_code?: string;
   status?: number;
   description?: string;
@@ -222,11 +214,7 @@ export interface TenantCreateForm extends BaseFormType {
   version?: string;
   favicon?: string;
   login_bg?: string;
-  copyright?: string;
-  keep_record?: string;
   help_doc?: string;
-  privacy?: string;
-  clause?: string;
   git_code?: string;
   status?: number;
   description?: string;
@@ -251,11 +239,7 @@ export interface TenantUpdateForm extends BaseFormType {
   version?: string;
   favicon?: string;
   login_bg?: string;
-  copyright?: string;
-  keep_record?: string;
   help_doc?: string;
-  privacy?: string;
-  clause?: string;
   git_code?: string;
   status?: number;
   description?: string;

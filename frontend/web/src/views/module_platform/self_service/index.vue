@@ -163,11 +163,6 @@
                   />
                 </ElFormItem>
               </ElCol>
-              <ElCol :xs="24" :md="12">
-                <ElFormItem label="备案号" prop="keep_record">
-                  <ElInput v-model="brandForm.keep_record" maxlength="100" show-word-limit />
-                </ElFormItem>
-              </ElCol>
               <ElCol :xs="24" :md="8">
                 <ElFormItem label="站点 Logo" prop="tenant_logo">
                   <FaUpload
@@ -211,23 +206,8 @@
                 </ElFormItem>
               </ElCol>
               <ElCol :xs="24" :md="12">
-                <ElFormItem label="版权信息" prop="copyright">
-                  <ElInput v-model="brandForm.copyright" maxlength="255" show-word-limit />
-                </ElFormItem>
-              </ElCol>
-              <ElCol :xs="24" :md="12">
                 <ElFormItem label="帮助文档" prop="help_doc">
                   <ElInput v-model="brandForm.help_doc" maxlength="500" />
-                </ElFormItem>
-              </ElCol>
-              <ElCol :xs="24" :md="12">
-                <ElFormItem label="隐私政策" prop="privacy">
-                  <ElInput v-model="brandForm.privacy" maxlength="500" />
-                </ElFormItem>
-              </ElCol>
-              <ElCol :xs="24" :md="12">
-                <ElFormItem label="服务条款" prop="clause">
-                  <ElInput v-model="brandForm.clause" maxlength="500" />
                 </ElFormItem>
               </ElCol>
             </ElRow>
@@ -519,11 +499,7 @@ const brandForm = ref<TenantBrandForm>({
   tenant_logo: "",
   favicon: "",
   login_bg: "",
-  copyright: "",
-  keep_record: "",
   help_doc: "",
-  privacy: "",
-  clause: "",
 });
 
 function applyBrandItems(items: Array<{ config_key?: string; config_value?: string | null }>) {
@@ -535,11 +511,7 @@ function applyBrandItems(items: Array<{ config_key?: string; config_value?: stri
     tenant_logo: String(map.tenant_logo ?? map.logo_url ?? ""),
     favicon: String(map.favicon ?? ""),
     login_bg: String(map.login_bg ?? ""),
-    copyright: String(map.copyright ?? ""),
-    keep_record: String(map.keep_record ?? ""),
     help_doc: String(map.help_doc ?? ""),
-    privacy: String(map.privacy ?? ""),
-    clause: String(map.clause ?? ""),
   };
 }
 

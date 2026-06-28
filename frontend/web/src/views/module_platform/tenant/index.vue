@@ -189,25 +189,13 @@
               </ElRow>
             </ElForm>
           </ElTabPane>
-          <ElTabPane label="安全隐私" name="security">
+          <ElTabPane label="支持配置" name="security">
             <FaForm
               v-model="formData"
               :items="securityFormItems"
               :label-width="100"
               label-position="right"
               :span="12"
-              :gutter="16"
-              :show-reset="false"
-              :show-submit="false"
-            />
-          </ElTabPane>
-          <ElTabPane label="用户协议" name="agreement">
-            <FaForm
-              v-model="formData"
-              :items="agreementFormItems"
-              :label-width="100"
-              label-position="right"
-              :span="24"
               :gutter="16"
               :show-reset="false"
               :show-submit="false"
@@ -477,10 +465,6 @@ const tenantDetailItems: import("@/components/others/fa-descriptions/index.vue")
     { label: "网站图标", prop: "favicon", slot: "favicon" },
     { label: "登录背景", prop: "login_bg", slot: "login_bg" },
     { label: "帮助文档", prop: "help_doc" },
-    { label: "备案号", prop: "keep_record" },
-    { label: "版权信息", prop: "copyright" },
-    { label: "隐私政策", prop: "privacy" },
-    { label: "服务条款", prop: "clause" },
     { label: "开始时间", prop: "start_time" },
     { label: "结束时间", prop: "end_time" },
     { label: "创建时间", prop: "created_time" },
@@ -508,11 +492,7 @@ const formData = ref<TenantForm>({
   version: "",
   favicon: "",
   login_bg: "",
-  copyright: "",
-  keep_record: "",
   help_doc: "",
-  privacy: "",
-  clause: "",
   git_code: "",
 });
 
@@ -566,11 +546,7 @@ const initialFormData: TenantForm = {
   version: "",
   favicon: "",
   login_bg: "",
-  copyright: "",
-  keep_record: "",
   help_doc: "",
-  privacy: "",
-  clause: "",
   git_code: "",
 };
 
@@ -784,42 +760,6 @@ const securityFormItems: FormItem[] = [
     span: 24,
     props: { placeholder: "帮助文档链接", maxlength: 500 },
   },
-  {
-    label: "备案号",
-    key: "keep_record",
-    type: "input",
-    span: 24,
-    props: { placeholder: "ICP 备案号", maxlength: 100 },
-  },
-  {
-    label: "版权信息",
-    key: "copyright",
-    type: "input",
-    span: 24,
-    props: { placeholder: "如 © 2024 Company", maxlength: 255 },
-  },
-  {
-    label: "隐私政策",
-    key: "privacy",
-    type: "input",
-    span: 24,
-    props: { placeholder: "隐私政策链接", maxlength: 500 },
-  },
-];
-
-const agreementFormItems: FormItem[] = [
-  {
-    label: "服务条款",
-    key: "clause",
-    type: "input",
-    span: 24,
-    props: {
-      type: "textarea",
-      rows: 5,
-      maxlength: 500,
-      placeholder: "服务条款链接",
-    },
-  },
 ];
 
 async function handleSearchBarSearch(params: TenantSearchForm) {
@@ -869,11 +809,7 @@ async function handleSubmit() {
         logo_url: formData.value.logo_url,
         favicon: formData.value.favicon,
         login_bg: formData.value.login_bg,
-        copyright: formData.value.copyright,
-        keep_record: formData.value.keep_record,
         help_doc: formData.value.help_doc,
-        privacy: formData.value.privacy,
-        clause: formData.value.clause,
         git_code: formData.value.git_code,
         sort: formData.value.sort,
         version: formData.value.version,
@@ -900,11 +836,7 @@ async function handleSubmit() {
         logo_url: formData.value.logo_url,
         favicon: formData.value.favicon,
         login_bg: formData.value.login_bg,
-        copyright: formData.value.copyright,
-        keep_record: formData.value.keep_record,
         help_doc: formData.value.help_doc,
-        privacy: formData.value.privacy,
-        clause: formData.value.clause,
         git_code: formData.value.git_code,
         sort: formData.value.sort,
         version: formData.value.version,

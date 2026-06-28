@@ -131,14 +131,6 @@
           :class="panelAlign === 'center' && 'login-page-footer--floating-layout'"
         >
           <div class="login-footer-text text-sm">
-            <div class="login-footer-row">
-              <span class="login-page-footer__record">
-                {{ configStore.configData?.copyright?.config_value || "" }}
-              </span>
-            </div>
-            <span v-if="hasFooterLinks" class="login-page-footer__sep login-footer-sep-center"
-              >|</span
-            >
             <div v-if="hasFooterLinks" class="login-footer-row">
               <a
                 v-if="configStore.configData?.help_doc?.config_value"
@@ -149,52 +141,6 @@
               >
                 帮助
               </a>
-              <span
-                v-if="
-                  configStore.configData?.help_doc?.config_value &&
-                  configStore.configData?.privacy?.config_value
-                "
-                class="login-page-footer__sep"
-                >|</span
-              >
-              <a
-                v-if="configStore.configData?.privacy?.config_value"
-                :href="configStore.configData?.privacy?.config_value || '#'"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="login-page-footer__link"
-              >
-                隐私
-              </a>
-              <span
-                v-if="
-                  (configStore.configData?.help_doc?.config_value ||
-                    configStore.configData?.privacy?.config_value) &&
-                  configStore.configData?.clause?.config_value
-                "
-                class="login-page-footer__sep"
-                >|</span
-              >
-              <a
-                v-if="configStore.configData?.clause?.config_value"
-                :href="configStore.configData?.clause?.config_value || '#'"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="login-page-footer__link"
-              >
-                条款
-              </a>
-              <span
-                v-if="configStore.configData?.keep_record?.config_value"
-                class="login-page-footer__sep"
-                >|</span
-              >
-              <span
-                v-if="configStore.configData?.keep_record?.config_value"
-                class="login-page-footer__record"
-              >
-                {{ configStore.configData.keep_record.config_value }}
-              </span>
             </div>
           </div>
         </footer>
@@ -288,14 +234,8 @@ const panelSubTitle = computed(() => {
   return t("login.subTitle");
 });
 
-const userAgreementHref = computed(() => configStore.configData?.clause?.config_value || "#");
-const hasFooterLinks = computed(
-  () =>
-    Boolean(configStore.configData?.help_doc?.config_value) ||
-    Boolean(configStore.configData?.privacy?.config_value) ||
-    Boolean(configStore.configData?.clause?.config_value) ||
-    Boolean(configStore.configData?.keep_record?.config_value)
-);
+const userAgreementHref = computed(() => "#");
+const hasFooterLinks = computed(() => Boolean(configStore.configData?.help_doc?.config_value));
 
 function setAuthPanel(panel: AuthPanel) {
   const nextPanel =

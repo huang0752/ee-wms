@@ -199,11 +199,7 @@ export interface TenantBrandForm {
   tenant_logo: string;
   favicon: string;
   login_bg: string;
-  copyright: string;
-  keep_record: string;
   help_doc: string;
-  privacy: string;
-  clause: string;
 }
 
 export interface UsageCertificatePreview {
