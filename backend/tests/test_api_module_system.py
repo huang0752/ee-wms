@@ -15,7 +15,7 @@ from app.core.database import async_db_session
 from app.utils.hash_bcrpy_util import PwdUtil
 
 
-async def _create_user_with_email(username: str, email: str) -> None:
+async def _create_user_with_email(username: str, email: str, tenant_id: int = 1) -> None:
     async with async_db_session() as db:
         db.add(
             UserModel(
@@ -23,7 +23,7 @@ async def _create_user_with_email(username: str, email: str) -> None:
                 password=PwdUtil.hash_password("test123456"),
                 name=username,
                 email=email,
-                tenant_id=1,
+                tenant_id=tenant_id,
                 status=0,
                 is_superuser=False,
             )
@@ -45,6 +45,36 @@ class TestAuth:
             data={"username": "admin", "password": "admin123"},
             expected_status=200,
         )
+
+    def test_auth_login_accepts_email_identifier(self, test_client: TestClient) -> None:
+        suffix = time.time_ns() % 1_000_000_000_000
+        username = f"email_login_{suffix}"
+        email = f"email_login_{suffix}@example.com"
+        asyncio.run(_create_user_with_email(username=username, email=email))
+
+        resp = test_client.post(
+            "/system/auth/login",
+            data={"username": email, "password": "test123456", "login_type": "PC端"},
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["data"]["access_token"]
+
+    def test_auth_login_rejects_email_identifier_across_multiple_tenants(
+        self, test_client: TestClient
+    ) -> None:
+        suffix = time.time_ns() % 1_000_000_000_000
+        email = f"shared_login_{suffix}@example.com"
+        asyncio.run(_create_user_with_email(username=f"shared_a_{suffix}", email=email, tenant_id=1))
+        asyncio.run(_create_user_with_email(username=f"shared_b_{suffix}", email=email, tenant_id=9999))
+
+        resp = test_client.post(
+            "/system/auth/login",
+            data={"username": email, "password": "test123456", "login_type": "PC端"},
+        )
+
+        assert resp.status_code == 400
+        assert "邮箱存在多个租户账号" in resp.json()["msg"]
 
     def test_auth_logout(self, test_client: TestClient, auth_headers: dict) -> None:
         assert_route(

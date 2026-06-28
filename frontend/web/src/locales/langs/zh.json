@@ -368,7 +368,7 @@
       "user": "普通用户"
     },
     "placeholder": {
-      "username": "请输入用户名",
+      "username": "请输入用户名或邮箱",
       "password": "请输入密码",
       "slider": "请拖动滑块完成验证"
     },
@@ -395,7 +395,7 @@
     "capsLock": "大写锁定已打开",
     "message": {
       "username": {
-        "required": "请输入账号"
+        "required": "请输入用户名或邮箱"
       },
       "password": {
         "required": "请输入密码",

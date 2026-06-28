@@ -7,7 +7,7 @@ from typing import NewType
 import ua_parser
 from fastapi import BackgroundTasks, Request
 from redis.asyncio.client import Redis
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.module_monitor.online.schema import OnlineOutSchema
@@ -146,6 +146,8 @@ class LoginService:
         _login_os = ua_result.os.family if ua_result.os else "Unknown"
         _login_browser = ua_result.user_agent.family if ua_result.user_agent else "Unknown"
         _login_username = login_form.username
+        login_identifier = login_form.username.strip()
+        is_email_identifier = "@" in login_identifier
 
         if settings.CAPTCHA_ENABLE:
             if not login_form.captcha_key or not login_form.captcha:
@@ -157,15 +159,31 @@ class LoginService:
             )
 
         auth = AuthSchema(db=db, check_data_scope=False)
+        identifier_clause = (
+            func.lower(UserModel.email) == login_identifier.lower()
+            if is_email_identifier
+            else UserModel.username == login_identifier
+        )
         user_stmt = (
             select(UserModel)
             .where(
-                UserModel.username == login_form.username,
+                identifier_clause,
                 UserModel.is_deleted.is_(False),
             )
             .order_by(UserModel.id.asc())
         )
         users = list((await db.execute(user_stmt)).scalars().all())
+        if is_email_identifier and len(users) > 1:
+            await _write_login_log(
+                username=_login_username,
+                status=2,
+                login_ip=request_ip,
+                login_location=login_location,
+                request_os=_login_os,
+                request_browser=_login_browser,
+                msg="邮箱存在多个租户账号",
+            )
+            raise CustomException(msg="邮箱存在多个租户账号，请使用用户名登录或联系管理员", status_code=400)
         if len({item.tenant_id for item in users}) > 1:
             await _write_login_log(
                 username=_login_username,

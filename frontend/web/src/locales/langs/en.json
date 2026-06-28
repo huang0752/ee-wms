@@ -368,7 +368,7 @@
       "user": "User"
     },
     "placeholder": {
-      "username": "Please enter username",
+      "username": "Please enter username or email",
       "password": "Please enter password",
       "slider": "Please slide to verify"
     },
@@ -395,7 +395,7 @@
     "capsLock": "Caps Lock is On",
     "message": {
       "username": {
-        "required": "Please enter Username"
+        "required": "Please enter username or email"
       },
       "password": {
         "required": "Please enter Password",
