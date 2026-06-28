@@ -6,7 +6,7 @@
     </div>
     <h1 class="screen-title">
       <span class="deco-line" />
-      电工装备智慧仓储 WMS · 智能运营数据监控平台
+      电工装备智慧仓储 WMS · 智能运营数据监控平台 V2.0升级版
       <span class="deco-line" />
     </h1>
     <div class="header-right">
