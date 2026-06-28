@@ -47,6 +47,17 @@ async def _get_tenant_config_snapshot(tenant_id: int) -> dict:
         }
 
 
+async def _get_tenant_enterprise_snapshot(tenant_id: int) -> dict:
+    async with async_db_session() as db:
+        tenant = (
+            await db.execute(select(TenantModel).where(TenantModel.id == tenant_id).limit(1))
+        ).scalar_one()
+        return {
+            "social_credit_code": tenant.social_credit_code,
+            "industry": tenant.industry,
+        }
+
+
 def _tenant_auth_permissions(path: str, method: str) -> list[str]:
     for route in TenantRouter.routes:
         if getattr(route, "path", None) != path or method not in getattr(route, "methods", set()):
@@ -165,6 +176,25 @@ class TestTenant:
         assert after["logo_url"] == "https://example.test/self-logo.svg"
         assert after["login_bg"] == "https://example.test/self-login-bg.svg"
         assert after["version"] == before["version"]
+
+    def test_tenant_self_service_updates_enterprise_profile_fields(
+        self, test_client: TestClient, auth_headers: dict
+    ) -> None:
+        payload = [
+            {"key": "social_credit_code", "value": "91110108MA01TEST1X"},
+            {"key": "industry", "value": "电工装备制造"},
+        ]
+
+        resp = test_client.put("/platform/tenant/brand/config", headers=auth_headers, json=payload)
+
+        assert resp.status_code == 200, resp.text
+        items = {item["config_key"]: item["config_value"] for item in resp.json()["data"]}
+        assert items["social_credit_code"] == "91110108MA01TEST1X"
+        assert items["industry"] == "电工装备制造"
+
+        snapshot = asyncio.run(_get_tenant_enterprise_snapshot(1))
+        assert snapshot["social_credit_code"] == "91110108MA01TEST1X"
+        assert snapshot["industry"] == "电工装备制造"
 
     def test_public_tenant_config_info_is_scoped_to_requested_tenant(
         self, test_client: TestClient, auth_headers: dict
@@ -578,6 +608,16 @@ class TestSelfService:
         assert detail_resp.json()["data"]["name"] == original_name
 
     def test_usage_certificate_preview_and_download(self, test_client: TestClient, auth_headers: dict) -> None:
+        update_resp = test_client.put(
+            "/platform/tenant/brand/config",
+            headers=auth_headers,
+            json=[
+                {"key": "social_credit_code", "value": "91110108MA01CERT1X"},
+                {"key": "industry", "value": "电工装备制造"},
+            ],
+        )
+        assert update_resp.status_code == 200, update_resp.text
+
         preview_resp = test_client.get("/platform/tenant/usage-certificate/preview", headers=auth_headers)
 
         assert preview_resp.status_code == 200, preview_resp.text
@@ -589,6 +629,8 @@ class TestSelfService:
         assert data["system_version"] == settings.USAGE_CERT_SYSTEM_VERSION
         assert "企业软件使用证明" in data["html"]
         assert data["enterprise_name"] in data["html"]
+        assert "91110108MA01CERT1X" in data["html"]
+        assert "电工装备制造" in data["html"]
         assert data["system_version"] in data["html"]
         assert "系统版本由服务端环境变量固定配置" in data["html"]
 

@@ -194,6 +194,8 @@ export interface TenantBrandConfigItem {
 
 export interface TenantBrandForm {
   tenant_name: string;
+  social_credit_code: string;
+  industry: string;
   tenant_logo: string;
   favicon: string;
   login_bg: string;

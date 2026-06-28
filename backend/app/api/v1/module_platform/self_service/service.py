@@ -83,6 +83,8 @@ class SelfService:
         user = auth.get_user()
         operator = getattr(user, "name", None) or getattr(user, "username", None) or "-"
         enterprise_name = tenant.name or "-"
+        social_credit_code = tenant.social_credit_code or "-"
+        industry = tenant.industry or "-"
         tenant_code = tenant.code or "-"
         system_name = settings.USAGE_CERT_SYSTEM_NAME or settings.TITLE
         system_version = settings.USAGE_CERT_SYSTEM_VERSION or settings.VERSION
@@ -97,8 +99,8 @@ class SelfService:
             {
                 "certificate_no": certificate_no,
                 "enterprise_name": enterprise_name,
-                "social_credit_code": "-",
-                "industry": "电工装备智能仓储",
+                "social_credit_code": social_credit_code,
+                "industry": industry,
                 "system_name": system_name,
                 "system_version": system_version,
                 "system_title": system_title or "-",

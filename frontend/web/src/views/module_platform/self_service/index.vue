@@ -144,6 +144,26 @@
                 </ElFormItem>
               </ElCol>
               <ElCol :xs="24" :md="12">
+                <ElFormItem label="统一社会信用代码" prop="social_credit_code">
+                  <ElInput
+                    v-model="brandForm.social_credit_code"
+                    maxlength="32"
+                    show-word-limit
+                    placeholder="用于企业软件使用证明"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="12">
+                <ElFormItem label="所属行业" prop="industry">
+                  <ElInput
+                    v-model="brandForm.industry"
+                    maxlength="64"
+                    show-word-limit
+                    placeholder="用于企业软件使用证明"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :md="12">
                 <ElFormItem label="备案号" prop="keep_record">
                   <ElInput v-model="brandForm.keep_record" maxlength="100" show-word-limit />
                 </ElFormItem>
@@ -494,6 +514,8 @@ const brandLoading = ref(false);
 const brandSaving = ref(false);
 const brandForm = ref<TenantBrandForm>({
   tenant_name: "",
+  social_credit_code: "",
+  industry: "",
   tenant_logo: "",
   favicon: "",
   login_bg: "",
@@ -508,6 +530,8 @@ function applyBrandItems(items: Array<{ config_key?: string; config_value?: stri
   const map = Object.fromEntries(items.map((item) => [item.config_key, item.config_value || ""]));
   brandForm.value = {
     tenant_name: String(map.tenant_name ?? map.brand_name ?? map.name ?? ""),
+    social_credit_code: String(map.social_credit_code ?? ""),
+    industry: String(map.industry ?? ""),
     tenant_logo: String(map.tenant_logo ?? map.logo_url ?? ""),
     favicon: String(map.favicon ?? ""),
     login_bg: String(map.login_bg ?? ""),

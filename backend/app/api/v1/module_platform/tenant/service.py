@@ -32,12 +32,13 @@ from .schema import (
 
 TENANT_CONFIG_FIELDS = [
     "name", "brand_name", "description", "version", "logo_url", "favicon",
+    "social_credit_code", "industry",
     "login_bg", "copyright", "keep_record", "help_doc", "privacy",
     "clause", "git_code",
 ]
 
 TENANT_SELF_BRAND_CONFIG_FIELDS = {
-    "brand_name", "logo_url", "favicon", "login_bg", "copyright",
+    "brand_name", "social_credit_code", "industry", "logo_url", "favicon", "login_bg", "copyright",
     "keep_record", "help_doc", "privacy", "clause",
 }
 
@@ -713,13 +714,15 @@ class TenantService:
         return normalized
 
     @staticmethod
-    def _config_to_items(config: dict) -> list[TenantConfigOutSchema]:
+    def _config_to_items(config: dict, *, include_name_alias: bool = True) -> list[TenantConfigOutSchema]:
         items = [
             TenantConfigOutSchema(config_key=k, config_value=str(v) if v is not None else None)
             for k, v in config.items()
         ]
         for field, alias in TENANT_BRAND_CONFIG_FIELDS.items():
             if field not in config:
+                continue
+            if field == "brand_name" and not include_name_alias:
                 continue
             value = config.get(field)
             if field == "brand_name" and not value:
@@ -739,7 +742,7 @@ class TenantService:
             raise CustomException(msg="当前会话缺少租户信息")
         config = await self.get_config(self.auth.tenant_id)
         brand_config = {field: config.get(field) for field in TENANT_SELF_BRAND_CONFIG_FIELDS}
-        return self._config_to_items(brand_config)
+        return self._config_to_items(brand_config, include_name_alias=False)
 
     @staticmethod
     async def get_config_cache(redis: Redis, tenant_id: int) -> dict:
@@ -814,6 +817,8 @@ class TenantService:
             raise CustomException(msg="该数据不存在")
 
         normalized_config = self._normalize_config_input(config)
+        if "name" in normalized_config and "brand_name" not in normalized_config:
+            normalized_config["brand_name"] = normalized_config["name"]
         for field, value in normalized_config.items():
             setattr(tenant, field, value)
 
@@ -857,7 +862,7 @@ class TenantService:
         await TenantService._sync_configs_to_redis(redis, tenant_id, new_config)
         brand_config = {field: new_config.get(field) for field in TENANT_SELF_BRAND_CONFIG_FIELDS}
         logger.info(f"租户[{tenant_id}]自助品牌配置已更新")
-        return self._config_to_items(brand_config)
+        return self._config_to_items(brand_config, include_name_alias=False)
 
     @staticmethod
     async def init_cache(redis: Redis) -> None:
